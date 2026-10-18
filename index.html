@@ -256,6 +256,12 @@ textarea.inp{resize:vertical;line-height:1.5}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
 .ph.add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--line-2);background:transparent;color:var(--ink-2);font-size:12.5px;font-weight:600}
 .ph.on{outline:2.5px solid var(--accent);outline-offset:1px}
+.phw{position:relative}
+.phw .ph{width:100%}
+.phx{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:0;padding:0;display:flex;align-items:center;justify-content:center;background:rgba(20,22,26,.62);color:#fff;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer}
+.phx::before{content:'';position:absolute;inset:-8px}
+.phx:hover{background:var(--danger)}
+.phx .i{width:14px;height:14px}
 .subj-row{display:flex;gap:6px;align-items:center}
 .subj-row .inp{flex:1}
 .saved{font-size:12px;color:var(--ink-3);display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
@@ -464,7 +470,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -1683,6 +1689,10 @@ function viewMeeting(id) {
       if ((tp.text || '').trim() && !(await confirmSheet('Remover tema?', `O texto de «${esc(tp.name)}» é apagado.`, 'Remover'))) return;
       m.topics = m.topics.filter((x) => x.id !== tr.dataset.trm); renderTopics(m); return changed();
     }
+    const rmp = t.closest('[data-rmph]'); if (rmp) {
+      if (!(await confirmSheet('Apagar foto?', Sync.on() ? 'A foto das notas é apagada desta reunião, para ti e para quem partilha as reuniões. O texto que já juntaste às notas fica.' : 'A foto das notas é apagada desta reunião. O texto que já juntaste às notas fica.', 'Apagar'))) return;
+      await removePhoto(m, rmp.dataset.rmph); return toast('Foto apagada');
+    }
     const addp = t.closest('[data-addphoto]'); if (addp) return addPhotos(m, addp.dataset.addphoto === 'cam');
     const ph = t.closest('[data-ph]'); if (ph) {
       if (desk && t.closest('#aside')) { m._sel = ph.dataset.ph; return renderAside(m); }
@@ -1731,7 +1741,7 @@ function moveTopic(m, id, dir) {
   const sj = $('#f-subj'); if (sj && m.subjectAuto) sj.value = autoSubject(m);
 }
 function photoTiles(m) {
-  return m.photoIds.map((pid) => `<button class="ph ${m._sel === pid ? 'on' : ''}" data-ph="${pid}" aria-label="Ver foto"><img data-pid="${pid}" alt=""></button>`).join('') +
+  return m.photoIds.map((pid, i) => `<div class="phw"><button class="ph ${m._sel === pid ? 'on' : ''}" data-ph="${pid}" aria-label="Ver foto ${i + 1}"><img data-pid="${pid}" alt=""></button><button class="phx" data-rmph="${pid}" aria-label="Apagar foto ${i + 1}" title="Apagar foto">${ico('x', 'sm')}</button></div>`).join('') +
     `<button class="ph add" data-addphoto="cam">${ico('camera', 'lg')}Câmara</button><button class="ph add" data-addphoto="gal">${ico('image', 'lg')}Galeria</button>`;
 }
 function renderPhotos(m) {
