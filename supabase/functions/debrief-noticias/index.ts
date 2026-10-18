@@ -3,7 +3,7 @@
 //   recolher  — lê os feeds RSS (CAPA + sites de referência) e guarda no arquivo crm_noticias.
 //               Chamada pela tarefa de hora a hora (cabeçalho x-debrief-cron) ou por um utilizador com acesso.
 //   preparar  — junta arquivo + Google News + reuniões anteriores; o Claude escolhe e explica o que importa.
-// Segredos: ANTHROPIC_API_KEY, CAPA_RSS_URL (um ou mais endereços, um por linha). Nada disto vai para a app.
+// Segredos: ANTHROPIC_API_KEY, CAPA_RSS_URL (um ou mais endereços, um por linha) e, se o feed pedir login, CAPA_EMAIL + CAPA_PASSWORD. Nada disto vai para a app.
 
 const MODEL = Deno.env.get('DEBRIEF_MODEL') ?? 'claude-sonnet-5-5';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -80,11 +80,11 @@ async function sha1(s: string) {
   const h = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s));
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
-async function getText(url: string, ms = 15000) {
+async function getText(url: string, ms = 15000, extra: Record<string, string> = {}) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
   try {
-    const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' }, signal: ctl.signal, redirect: 'follow' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*', ...extra }, signal: ctl.signal, redirect: 'follow' });
+    if (!r.ok) { const wa = r.headers.get('www-authenticate'); throw new Error('HTTP ' + r.status + (wa ? ` (pede login: ${wa.split(/[\s,]/)[0]})` : '')); }
     const buf = new Uint8Array(await r.arrayBuffer());
     const head = new TextDecoder('latin1').decode(buf.slice(0, 300));
     const cs = (head.match(/encoding=["']([\w-]+)["']/i)?.[1] || r.headers.get('content-type')?.match(/charset=([\w-]+)/i)?.[1] || 'utf-8').toLowerCase();
@@ -103,21 +103,26 @@ async function cronOk(token: string) {
   const r = await rest('rpc/crm_cron_ok', { method: 'POST', body: JSON.stringify({ t: token }) });
   return r.ok && (await r.json()) === true;
 }
-function capaFeeds() {
-  return (Deno.env.get('CAPA_RSS_URL') || '').split(/[\n,;]+/).map((s) => s.trim()).filter((s) => /^https?:\/\//.test(s)).map((url) => ({ fonte: 'CAPA', url }));
+function capaFeeds(): { fonte: string; url: string; filtro?: boolean; headers?: Record<string, string> }[] {
+  const user = Deno.env.get('CAPA_EMAIL') || Deno.env.get('CAPA_USER') || '';
+  const pass = Deno.env.get('CAPA_PASSWORD') || '';
+  const headers: Record<string, string> = user && pass ? { Authorization: 'Basic ' + btoa(String.fromCharCode(...new TextEncoder().encode(`${user}:${pass}`))) } : {};
+  return (Deno.env.get('CAPA_RSS_URL') || '').split(/[\n,;]+/).map((s) => s.trim()).filter((s) => /^https?:\/\//.test(s)).map((url) => ({ fonte: 'CAPA', url, headers }));
 }
 
 /* ---------- recolher: feeds → arquivo */
 async function recolher() {
-  const feeds = [...capaFeeds(), ...FEEDS];
+  const feeds: { fonte: string; url: string; filtro?: boolean; headers?: Record<string, string> }[] = [...capaFeeds(), ...FEEDS];
   const res = await Promise.allSettled(feeds.map(async (f) => {
-    const items = parseFeed(await getText(f.url), f.fonte);
+    const xml = await getText(f.url, 20000, f.headers || {});
+    const items = parseFeed(xml, f.fonte);
+    if (!items.length && /<html[\s>]/i.test(xml.slice(0, 3000))) throw new Error(/password|login|sign.?in|iniciar/i.test(xml) ? 'devolveu a página de login (o feed precisa de autenticação)' : 'devolveu uma página HTML em vez de RSS');
     return f.filtro ? items.filter((i) => AVIATION_RE.test(i.titulo + ' ' + i.resumo)) : items;
   }));
   const rows: Item[] = []; const estado: Record<string, number | string> = {};
   res.forEach((r, i) => {
     const nome = feeds[i].fonte === 'CAPA' ? `CAPA ${i + 1}` : feeds[i].fonte;
-    if (r.status === 'fulfilled') { rows.push(...r.value); estado[nome] = r.value.length; } else estado[nome] = 'erro: ' + String(r.reason?.message || r.reason).slice(0, 80);
+    if (r.status === 'fulfilled') { rows.push(...r.value); estado[nome] = r.value.length; } else estado[nome] = 'erro: ' + String(r.reason?.message || r.reason).slice(0, 120);
   });
   for (const it of rows) it.id = await sha1(it.link);
   const uniq = [...new Map(rows.map((r) => [r.id, r])).values()];

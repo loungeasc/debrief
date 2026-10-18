@@ -77,3 +77,11 @@ $job$);
 select cron.schedule('debrief-noticias-limpeza', '40 3 * * *', $job$
   delete from public.crm_noticias where coalesce(publicado_em, obtido_em) < now() - interval '200 days'
 $job$);
+
+-- 6) Primeira recolha já (não espera pela hora certa)
+select net.http_post(
+  url := 'https://uogrldgopqzdicrwcwir.supabase.co/functions/v1/debrief-noticias',
+  headers := jsonb_build_object('Content-Type', 'application/json',
+    'x-debrief-cron', (select decrypted_secret from vault.decrypted_secrets where name = 'debrief_cron')),
+  body := '{"action":"recolher"}'::jsonb,
+  timeout_milliseconds := 90000);
