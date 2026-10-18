@@ -208,6 +208,8 @@ async function chatCall(onUpdate) {
         if (d.type === 'text_delta') b.text = (b.text || '') + d.text;
         else if (d.type === 'input_json_delta') b._json = (b._json || '') + d.partial_json;
         else if (d.type === 'citations_delta') (b.citations = b.citations || []).push(d.citation);
+        else if (d.type === 'thinking_delta') b.thinking = (b.thinking || '') + d.thinking;
+        else if (d.type === 'signature_delta') b.signature = (b.signature || '') + d.signature;
         break;
       }
       case 'content_block_stop': { const b = msg.content[ev.index]; if (b && b._json != null) { try { b.input = b._json ? JSON.parse(b._json) : {}; } catch (e) { b.input = {}; } delete b._json; } break; }
@@ -226,7 +228,7 @@ async function chatCall(onUpdate) {
       handle(ev); onUpdate();
     }
   }
-  msg.content = msg.content.filter(Boolean).filter((b) => !(b.type === 'text' && !b.text && !b.citations));
+  msg.content = msg.content.filter(Boolean).filter((b) => !(b.type === 'text' && !b.text && !b.citations) && !(b.type === 'thinking' && !b.thinking && !b.signature));
   CHAT.live = null;
   return { msg, stop };
 }
