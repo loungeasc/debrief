@@ -69,6 +69,14 @@ Configuração (uma vez):
 2. Edge Functions → Secrets → `CAPA_RSS_URL` = endereço do feed RSS do CAPA (vários: um por linha). Não o ponhas no código: costuma ter um código pessoal.
 3. A função `debrief-noticias` (código em `supabase/functions/debrief-noticias/`) tem de estar publicada.
 
+## Simulação da rota (taxas e incentivos)
+
+Em cada reunião, **Simular rota**: escolhes a aeronave (primeiro as que a companhia usa), voos por semana, load factor, hora de partida, início e tipo de incentivo (nova rota ou 2.ª companhia em monopólio). Mostra o incentivo Non-Based (ano 1, ano 2, por passageiro, épocas não elegíveis), as taxas por rotação e no período, as taxas ANA líquidas de incentivo e a mesma rotação em Lisboa e Faro. **Guardar** deixa a simulação na reunião (partilhada com o colega) e entra na Preparação das reuniões seguintes. «Vista para a companhia» tira a modulação interna por ruído.
+
+O motor de cálculo é o do Simulador de Taxas 2026. As **tabelas** (taxas, incentivos, fatores de ruído e tipos de aeronave) não estão neste repositório: ficam no Supabase, só para quem tem login, e o Debrief guarda uma cópia no dispositivo para funcionar sem rede.
+
+Configuração (uma vez, e de novo quando houver tabelas novas): SQL Editor → corre o ficheiro `04_simulador_dados.sql` (enviado à parte, não está no GitHub). A estrutura da tabela está em `supabase/04_simulador.sql`.
+
 ## Passar do telemóvel para o portátil
 
 Com a conta do Portal isto já é automático. Sem conta: Exportar → **Exportar cópia** (ficheiro `.json` com tudo, incluindo fotos) → envia para ti (AirDrop, email, Files) → no portátil, Exportar → **Importar cópia**. Junta sem duplicar.

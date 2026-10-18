@@ -324,6 +324,34 @@ textarea.inp{resize:vertical;line-height:1.5}
 .sfrow .grow{flex:1;min-width:0}
 .warnlist{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-size:13.5px}
 .warnlist div{display:flex;gap:6px;align-items:center}
+.sheet.xwide{max-width:1120px}
+.sim{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+@media (min-width:900px){.sim{grid-template-columns:minmax(300px,390px) minmax(0,1fr);align-items:start}.sim-res{position:sticky;top:0}}
+.sim-sum{display:none}
+@media (max-width:899px){.sim-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;position:sticky;top:-14px;z-index:2;margin:-14px -16px 14px;padding:10px 16px;background:var(--ok);color:#fff}
+  .sim-sum div{min-width:0}.sim-sum span{display:block;font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;opacity:.85}.sim-sum b{font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .hide-s{display:none}}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.stile{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface);min-width:0}
+.stile .k{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.stile .v{font-size:22px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.stile .d{font-size:12px;color:var(--ink-2);margin-top:3px;line-height:1.35}
+.stile.ok{background:var(--ok);border-color:var(--ok);color:#fff}.stile.ok .k,.stile.ok .d{color:rgba(255,255,255,.85)}
+@media (prefers-color-scheme:dark){.stile.ok{background:#1d6b40;border-color:#1d6b40}}
+.ssec{margin-top:14px}
+.srow{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-size:14px;font-variant-numeric:tabular-nums}
+.srow.sub{border-top:0;padding-top:0;font-size:13px;color:var(--ink-2)}
+.srow .up{color:var(--danger);font-weight:650;margin-left:4px}.srow .dn{color:var(--ok);font-weight:650;margin-left:4px}
+.scover{height:6px;border-radius:9px;background:var(--surface-3);overflow:hidden;margin:6px 0 4px}.scover i{display:block;height:100%;background:var(--ok)}
+.stbl{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.stbl th,.stbl td{padding:6px 4px;border-top:1px solid var(--line);text-align:left}.stbl th{font-size:11.5px;color:var(--ink-3);font-weight:650;border-top:0}
+.stbl .n{text-align:right}.stbl .sh{display:block;font-size:11px;color:var(--ink-3)}.stbl tr.no td{color:var(--ink-3)}
+.nochip{display:inline-block;font-size:11px;font-weight:650;padding:1px 7px;border-radius:99px;background:var(--warn-soft);color:var(--warn)}
+.smsg{font-size:13px;padding:8px 10px;border-radius:9px;background:var(--warn-soft);color:var(--ink);margin-top:6px;line-height:1.4}
+.simrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.simrow:first-of-type{border-top:0}
+.simrow .grow{min-width:0;cursor:pointer}.simrow .t{font-size:14px;font-weight:600;line-height:1.35}.simrow .s{font-size:13px;color:var(--ink-2);margin-top:2px}
 .prep .lead{font-size:14.5px;line-height:1.5;margin:0 0 10px}
 .prep .nrow{display:block;padding:10px 0;border-top:1px solid var(--line);color:inherit;text-decoration:none}
 .prep .nrow:first-of-type{border-top:0}
@@ -453,6 +481,7 @@ body.gate main{padding-bottom:0}
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4.2h-4.2"/></symbol>
   <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14.5 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3.5M10 16.5L5.5 12 10 7.5M5.5 12H16"/></symbol>
   <symbol id="i-news" viewBox="0 0 24 24"><path d="M5 5h11v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1z"/><path d="M16 9h3a1 1 0 0 1 1 1v8a2 2 0 0 1-4 0M7.5 9h5M7.5 12.5h5M7.5 16h3"/></symbol>
+  <symbol id="i-calc" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h0M14 11h2M8 14.5h2M14 14.5h2M8 18h2M14 18h2"/></symbol>
   <symbol id="i-plane" viewBox="0 0 24 24"><path d="M10.5 13.5L3.5 11l1.2-1.6 7.6.6 4.4-5a1.9 1.9 0 0 1 2.8 2.7l-5 4.4.6 7.6-1.6 1.2-2.5-7z"/></symbol>
 </svg>
 
@@ -470,7 +499,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.9.1';
+const APP_VERSION = '1.10.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -971,6 +1000,45 @@ const AI = {
   },
 };
 
+/* ---------- simulador de taxas: tabelas no Supabase (só com login), cópia local para usar sem rede */
+const SIMREF = {
+  data: null,
+  async get(force = false) {
+    if (!this.data) { try { this.data = (await DB.get('kv', 'ref:sim')) || null; } catch (e) {} }
+    const old = !this.data || Date.now() - (this.data.obtido || 0) > 864e5;
+    if ((force || old) && Sync.on() && navigator.onLine) {
+      try {
+        const { data, error } = await Sync.client().from('crm_referencia').select('chave,versao,dados');
+        if (!error && data && data.length) {
+          const o = { obtido: Date.now() }; for (const r of data) o[r.chave] = r.dados;
+          if (o.tarifas && o.incentivos && o.aeronaves) { this.data = o; try { await DB.rawPut('kv', o, 'ref:sim'); } catch (e) {} }
+        }
+      } catch (e) { console.warn('simref', e); }
+    }
+    return this.data && this.data.tarifas ? this.data : null;
+  },
+};
+let simScript = null;
+function loadSimScript() {
+  if (typeof window.openSimSheet === 'function') return Promise.resolve();
+  if (!simScript) simScript = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'simulador.js'; s.onload = res; s.onerror = () => { simScript = null; rej(new Error('Não foi possível abrir o simulador')); }; document.head.appendChild(s); });
+  return simScript;
+}
+const eurShort = (x) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(x || 0);
+function renderSims(m) {
+  const box = $('#sims'); if (!box) return;
+  const list = Array.isArray(m.sims) ? m.sims : [];
+  box.innerHTML = `<h3>${ico('calc', 'sm')} Simulação da rota <span class="r faint">${list.length ? plural(list.length, 'simulação', 'simulações') : ''}</span></h3>` +
+    (list.length ? list.map((s) => `<div class="simrow"><div class="grow" data-simopen="${s.id}"><div class="t">${esc(s.p.ap)} · ${esc(String(s.p.freq))}×/sem · ${esc(s.p.tipo)} ${esc(String(s.p.lugares))} lug. · desde ${esc(String(s.p.inicio).split('-').reverse().join('/'))}</div><div class="s">${s.r.anos ? `Incentivo ${s.r.anos === 2 ? '2 anos' : '1 ano'} ${eurShort(s.r.incTotal)}` : 'Sem incentivo'} · taxas/rotação ${eurShort(s.r.rotTotal)}${s.r.anos ? ` · cobre ${Math.round((s.r.cobertura || 0) * 100)}% das taxas ANA` : ''}</div></div><button class="ibtn sm" data-simrm="${s.id}" aria-label="Apagar simulação">${ico('x', 'sm')}</button></div>`).join('')
+      : `<p class="hint" style="margin-bottom:10px">Quanto a rota pode receber de incentivo e quanto paga de taxas no ${esc(S.settings.airportCode || 'OPO')}, com a aeronave da companhia. Funciona sem rede.</p>`) +
+    `<div class="acts-row" style="margin-top:8px"><button class="btn" data-simnew>${ico('plus', 'sm')} Simular rota</button></div>`;
+  SIMREF.get().catch(() => {}); // deixa as tabelas prontas para usar sem rede
+}
+async function simOpen(m, s, after) {
+  try { await loadSimScript(); } catch (e) { return toast(e.message); }
+  openSimSheet(m, s, after);
+}
+
 /* ---------- preparação da reunião (notícias + reuniões anteriores; função debrief-noticias) */
 const PREP_CATS = { frota: 'Frota', rotas: 'Rotas', financas: 'Finanças', estrategia: 'Estratégia', operacoes: 'Operações', portugal: 'Portugal' };
 const PREP = {
@@ -987,7 +1055,7 @@ const PREP = {
   previous(m) {
     const k = this.key(m);
     return S.meetings.filter((x) => x.id !== m.id && x.airlineName && this.key(x) === k && (x.start || '') <= (m.start || '9999'))
-      .map((x) => ({ x, texto: [...(x.topics || []).filter((t) => (t.text || '').trim()).map((t) => `${t.name}: ${t.text.trim()}`), (x.raw || '').trim() ? 'Notas: ' + splitBlocks(x.raw).join('; ') : '', (x.nextSteps || '').trim() ? 'Próximos passos: ' + x.nextSteps.trim() : ''].filter(Boolean).join('\n') }))
+      .map((x) => ({ x, texto: [...(x.topics || []).filter((t) => (t.text || '').trim()).map((t) => `${t.name}: ${t.text.trim()}`), (x.raw || '').trim() ? 'Notas: ' + splitBlocks(x.raw).join('; ') : '', (x.nextSteps || '').trim() ? 'Próximos passos: ' + x.nextSteps.trim() : '', ...(x.sims || []).map((s) => `Simulação: ${s.p.ap}, ${s.p.freq} voos/semana, ${s.p.tipo} ${s.p.lugares} lugares, início ${s.p.inicio} → incentivo ${Math.round(s.r.incTotal || 0)} €, taxas por rotação ${Math.round(s.r.rotTotal || 0)} €`)].filter(Boolean).join('\n') }))
       .filter((r) => r.texto).sort((a, b) => (b.x.start || '').localeCompare(a.x.start || '')).slice(0, 6)
       .map((r) => ({ data: (r.x.start || '').slice(0, 10), texto: r.texto }));
   },
@@ -1587,6 +1655,8 @@ function viewMeeting(id) {
 
       <div class="sec prep" id="prep" hidden></div>
 
+      <div class="sec" id="sims"></div>
+
       <div class="sec"><h3>${ico('users', 'sm')} Participantes da companhia</h3>
         <div class="people" id="people"></div>
         <div class="acts-row"><button class="btn" data-card>${ico('scan', 'sm')} Cartão de visita</button><button class="btn" data-pickc>${ico('user', 'sm')} Contacto</button></div>
@@ -1642,7 +1712,7 @@ function viewMeeting(id) {
   const changed = () => { touchMeeting(m); refreshSubject(); refreshHeader(); if (desk) refreshAside(); };
 
   const refreshRaw = () => { const n = splitBlocks(m.raw).length; $('#raw-count').textContent = n ? plural(n, 'linha', 'linhas') : ''; const b = $('#b-org'); b.disabled = !n; b.innerHTML = `${ico('list', 'sm')} Organizar por temas${n ? ` (${n})` : ''}`; };
-  renderPeople(m); renderTopics(m); renderPhotos(m); refreshHeader(); refreshRaw(); renderPrep(m);
+  renderPeople(m); renderTopics(m); renderPhotos(m); refreshHeader(); refreshRaw(); renderPrep(m); renderSims(m);
   const afterNotes = () => { $('#f-raw').value = m.raw || ''; grow($('#f-raw')); refreshRaw(); renderTopics(m); changed(); };
   if (desk) renderAside(m);
 
@@ -1662,6 +1732,9 @@ function viewMeeting(id) {
   view.onclick = async (e) => {
     const t = e.target;
     if (t.closest('[data-back]')) { await flushSaves(); return goBack('#/'); }
+    if (t.closest('[data-simnew]')) return simOpen(m, null, () => { renderSims(m); changed(); });
+    const so = t.closest('[data-simopen]'); if (so) return simOpen(m, (m.sims || []).find((x) => x.id === so.dataset.simopen), () => { renderSims(m); changed(); });
+    const sr = t.closest('[data-simrm]'); if (sr) { if (!(await confirmSheet('Apagar simulação?', 'A simulação é retirada desta reunião.', 'Apagar'))) return; m.sims = (m.sims || []).filter((x) => x.id !== sr.dataset.simrm); renderSims(m); return changed(); }
     if (t.closest('[data-prepgo]')) return runPrep(m);
     if (t.closest('[data-prepall]')) return prepSheet(m);
     if (t.closest('.nrow')) return;
