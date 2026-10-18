@@ -2,7 +2,7 @@
 
 App para registar reuniões com companhias aéreas logo a seguir à reunião (telemóvel) e passar para o Salesforce como **New Meeting Note** (portátil ou telemóvel).
 
-Os dados ficam **só no dispositivo** (base de dados local do browser). A leitura dos cartões de visita também é feita no próprio dispositivo — nenhuma imagem é enviada para fora.
+Com sessão do Portal, os dados ficam no Supabase do Portal (partilhados com o colega) e numa cópia no dispositivo para trabalhar sem rede. Sem sessão, ficam só no dispositivo.
 
 ## Publicar (GitHub Pages)
 
@@ -22,7 +22,7 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
 ## Fluxo
 
 1. **+** → companhia → **Cartão de visita** (fotografa; os dados são lidos automaticamente) → escreve tudo em **Notas da reunião**, uma ideia por linha, sem ordem → **Organizar por temas** (as sugestões vêm pré-marcadas; confirma ou muda) → **Marcar como pronta**.
-   - Fotos de notas em papel: abre a foto → **Texto** para extrair o texto (no dispositivo), rever e juntar às notas. No iPhone/iPad também podes tocar e manter sobre o texto da foto (Texto ao Vivo).
+   - Fotos de notas em papel: abre a foto → **Texto** para extrair o texto (com IA quando há rede; ver abaixo), rever e juntar às notas. No iPhone/iPad também podes tocar e manter sobre o texto da foto (Texto ao Vivo).
    - O que ficar por organizar vai para os Comments como «Notas».
 2. No Salesforce: conta da companhia → **New Meeting Note**. No Debrief, toca em **Salesforce** e copia cada campo pela ordem do formulário (Subject, Name, Related To, Due Date, Flag, Type of Tradeshow, Geographical Scope, Comments).
 3. **Já gravei — marcar exportada.**
@@ -45,6 +45,19 @@ Configuração (uma vez):
 
 Os dados que já tens no dispositivo são enviados na primeira vez que entras.
 
+## Leitura com IA (Claude)
+
+Com rede e sessão iniciada, as fotos de notas manuscritas e os cartões de visita são lidos pelo Claude (Sonnet), que lê letra à mão muito melhor do que o leitor do dispositivo. Sem rede, ou se a IA falhar, a leitura é feita no dispositivo como antes. Pode ser desligada em Definições → Predefinições.
+
+A chave da API do Claude **nunca** está na app (o código é público): fica nos segredos do Supabase e só a função `debrief-ler` a usa. A função só aceita quem tem sessão e a permissão das reuniões. As fotos são enviadas ao Claude só para leitura e não ficam guardadas na função.
+
+Configuração (uma vez):
+1. Em console.anthropic.com → *API keys*, cria uma chave (ex.: «Debrief»). Em *Limits*, define um limite mensal de gastos.
+2. No Supabase do Portal → *Edge Functions* → *Secrets* → *Add new secret*: nome `ANTHROPIC_API_KEY`, valor = a chave.
+3. A função `debrief-ler` (código em `supabase/functions/debrief-ler/`) tem de estar publicada em *Edge Functions*.
+
+Custo aproximado: ~0,015 USD por foto de notas com o Sonnet.
+
 ## Passar do telemóvel para o portátil
 
 Com a conta do Portal isto já é automático. Sem conta: Exportar → **Exportar cópia** (ficheiro `.json` com tudo, incluindo fotos) → envia para ti (AirDrop, email, Files) → no portátil, Exportar → **Importar cópia**. Junta sem duplicar.
@@ -64,4 +77,4 @@ Contactos novos: **Contactos para o Assistente de Importação** (CSV para *Cont
 
 ## Componentes de terceiros
 
-Leitura de cartões: [Tesseract.js](https://github.com/naptha/tesseract.js) (Apache 2.0), incluído em `vendor/ocr/`.
+Leitura sem rede: [Tesseract.js](https://github.com/naptha/tesseract.js) (Apache 2.0), incluído em `vendor/ocr/`.

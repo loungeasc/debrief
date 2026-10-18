@@ -447,7 +447,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -918,6 +918,33 @@ const OCR = {
     const { data } = await w.recognize(blob);
     this.onProgress = null;
     return data.text || '';
+  },
+};
+
+/* ---------- leitura com IA (Claude, via função do Supabase; a chave nunca está na app) */
+const AI = {
+  fn: 'debrief-ler',
+  off: 0, // pausa depois de falhas de configuração (sem chave / sem função)
+  available() { return Sync.on() && navigator.onLine && S.settings.aiRead !== false && Date.now() > this.off; },
+  async b64(buf) {
+    const blob = new Blob([buf], { type: 'image/jpeg' });
+    const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+    return String(url).split(',')[1] || '';
+  },
+  async read(mode, pid, extra = {}) {
+    const p = await ensurePhoto(pid, true); if (!p || !p.data) throw new Error('Foto indisponível');
+    const image = await this.b64(p.data);
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 75000);
+    try {
+      const { data, error } = await Sync.client().functions.invoke(this.fn, { body: { mode, image, ...extra }, signal: ctl.signal });
+      if (error) {
+        let info = {}; try { info = await error.context?.json?.(); } catch (e) {}
+        const st = error.context?.status || 0;
+        if (st === 404 || info?.error === 'sem_chave') this.off = Date.now() + 10 * 60 * 1000;
+        throw new Error(info?.message || (st === 404 ? 'Leitura com IA ainda não configurada' : 'Leitura com IA indisponível'));
+      }
+      return data || {};
+    } finally { clearTimeout(t); }
   },
 };
 
@@ -1655,22 +1682,36 @@ function organizeSheet(m, after) {
 }
 async function ocrSheet(m, ids, after) {
   ids = ids.filter(Boolean); if (!ids.length) return;
-  const sh = sheet({ title: 'Texto das fotos', wide: true, body: `<div class="ocrbox">${ico('scan')}<div style="flex:1"><b id="oc-msg">A ler ${plural(ids.length, 'foto', 'fotos')}…</b><div class="faint" style="font-size:12.5px">Tudo no dispositivo, sem enviar as imagens.</div><div class="bar"><i id="oc-bar"></i></div></div></div><div id="oc-out"></div>`,
+  const useAI = AI.available();
+  const sh = sheet({ title: 'Texto das fotos', wide: true, body: `<div class="ocrbox">${ico('scan')}<div style="flex:1"><b id="oc-msg">A ler ${plural(ids.length, 'foto', 'fotos')}…</b><div class="faint" style="font-size:12.5px" id="oc-sub">${useAI ? 'Com IA (Claude): a foto é enviada só para leitura. Demora uns segundos.' : 'Tudo no dispositivo, sem enviar as imagens.'}</div><div class="bar"><i id="oc-bar"></i></div></div></div><div id="oc-out"></div>`,
     foot: `<button class="btn" data-close>Cancelar</button><button class="btn pri" data-join disabled>${ico('plus', 'sm')} Juntar às notas</button>` });
-  const bar = sh.el.querySelector('#oc-bar'), msg = sh.el.querySelector('#oc-msg');
-  const parts = [];
+  const bar = sh.el.querySelector('#oc-bar'), msg = sh.el.querySelector('#oc-msg'), sub = sh.el.querySelector('#oc-sub');
+  const parts = []; let viaAI = 0, viaLocal = 0, aiErr = '';
+  const ctx = { airline: m.airlineName || '', topics: [...new Set([...(m.topics || []).map((t) => t.name), ...(S.settings.topics || [])])].filter(Boolean) };
   try {
     for (let k = 0; k < ids.length; k++) {
       msg.textContent = ids.length > 1 ? `A ler foto ${k + 1} de ${ids.length}…` : 'A ler a foto…';
-      const cv = await prepForOcr(ids[k]);
-      const txt = await OCR.read(cv, (p) => { if (p.status === 'recognizing text') bar.style.width = Math.round(((k + p.progress) / ids.length) * 100) + '%'; });
+      let txt = null;
+      if (useAI && AI.available()) {
+        bar.style.width = Math.round(((k + 0.35) / ids.length) * 100) + '%';
+        try { const r = await AI.read('notes', ids[k], ctx); txt = String(r.text || ''); viaAI++; }
+        catch (e) { console.warn('IA', e); aiErr = e.message || ''; sub.textContent = `${aiErr || 'Leitura com IA indisponível'} — a ler no dispositivo.`; }
+        if (!sh.el.isConnected) return;
+      }
+      if (txt == null) {
+        const cv = await prepForOcr(ids[k]);
+        txt = await OCR.read(cv, (p) => { if (p.status === 'recognizing text') bar.style.width = Math.round(((k + p.progress) / ids.length) * 100) + '%'; });
+        viaLocal++;
+      }
+      bar.style.width = Math.round(((k + 1) / ids.length) * 100) + '%';
       parts.push(txt.split('\n').map((l) => l.trim()).filter(Boolean).join('\n'));
       if (!sh.el.isConnected) return;
     }
   } catch (e) { console.error(e); if (!sh.el.isConnected) return; sh.el.querySelector('.ocrbox').innerHTML = `${ico('x')}<div><b>Não foi possível ler as fotos</b><div class="faint" style="font-size:12.5px">${esc(e.message || '')}</div></div>`; return; }
   if (!sh.el.isConnected) return;
   const text = parts.filter(Boolean).join('\n');
-  sh.el.querySelector('.ocrbox').innerHTML = `${ico('check')}<div style="flex:1"><b>${text ? 'Revê o texto antes de juntar' : 'Não foi encontrado texto legível'}</b><div class="faint" style="font-size:12.5px">A letra à mão nem sempre é bem lida. Corrige aqui; depois organizas por temas como o resto das notas.${isTouch() ? ' Alternativa: abre a foto, toca e mantém sobre o texto e copia (Texto ao Vivo).' : ''}</div></div>`;
+  const how = viaAI && !viaLocal ? 'Lido com IA (Claude). Palavras ilegíveis aparecem como [?].' : viaAI ? `${plural(viaAI, 'foto lida', 'fotos lidas')} com IA e ${plural(viaLocal, 'no dispositivo', 'no dispositivo')}.` : (aiErr ? `${esc(aiErr)} — lido no dispositivo. ` : '') + 'A letra à mão nem sempre é bem lida.';
+  sh.el.querySelector('.ocrbox').innerHTML = `${ico('check')}<div style="flex:1"><b>${text ? 'Revê o texto antes de juntar' : 'Não foi encontrado texto legível'}</b><div class="faint" style="font-size:12.5px">${how} Corrige aqui; depois organizas por temas como o resto das notas.${isTouch() && !viaAI ? ' Alternativa: abre a foto, toca e mantém sobre o texto e copia (Texto ao Vivo).' : ''}</div></div>`;
   sh.el.querySelector('#oc-out').innerHTML = `<textarea class="inp" id="oc-text" rows="10" style="min-height:220px">${esc(text)}</textarea>`;
   const ta = sh.el.querySelector('#oc-text'); grow(ta); ta.addEventListener('input', () => grow(ta));
   const jb = sh.el.querySelector('[data-join]'); jb.disabled = false;
@@ -1845,16 +1886,32 @@ function contactSheet(c, { isNew = false, runOcr = false, meeting = null, onSave
 }
 async function runCardOcr(root, c, touched, force = false) {
   const slot = root.querySelector('#ocr-slot');
-  slot.innerHTML = `<div class="ocrbox">${ico('scan')}<div style="flex:1"><b id="ocr-msg">A ler o cartão…</b><div class="faint" style="font-size:12.5px" id="ocr-sub">Tudo no telemóvel, sem enviar a imagem. Na primeira vez demora mais.</div><div class="bar"><i id="ocr-bar"></i></div></div></div>`;
+  const useAI = AI.available();
+  slot.innerHTML = `<div class="ocrbox">${ico('scan')}<div style="flex:1"><b id="ocr-msg">A ler o cartão…</b><div class="faint" style="font-size:12.5px" id="ocr-sub">${useAI ? 'Com IA (Claude): a foto é enviada só para leitura.' : 'Tudo no telemóvel, sem enviar a imagem. Na primeira vez demora mais.'}</div><div class="bar"><i id="ocr-bar"></i></div></div></div>`;
   const bar = slot.querySelector('#ocr-bar');
   try {
-    const p = await DB.get('photos', c.cardPhotoId);
-    const blob = new Blob([p.data], { type: 'image/jpeg' });
-    const text = await OCR.read(blob, (mm) => { if (bar && mm.status === 'recognizing text') bar.style.width = Math.round(mm.progress * 100) + '%'; else if (bar && mm.progress != null) bar.style.width = Math.round(mm.progress * 30) + '%'; });
+    let text = null, ai = null;
+    if (useAI) {
+      bar.style.width = '35%';
+      try { ai = await AI.read('card', c.cardPhotoId); text = String(ai.text || Object.values(ai.fields || {}).filter(Boolean).join('\n')); }
+      catch (e) { console.warn('IA', e); ai = null; const s = slot.querySelector('#ocr-sub'); if (s) s.textContent = `${e.message || 'Leitura com IA indisponível'} — a ler no telemóvel.`; }
+    }
+    if (text == null) {
+      const p = await DB.get('photos', c.cardPhotoId);
+      const blob = new Blob([p.data], { type: 'image/jpeg' });
+      text = await OCR.read(blob, (mm) => { if (bar && mm.status === 'recognizing text') bar.style.width = Math.round(mm.progress * 100) + '%'; else if (bar && mm.progress != null) bar.style.width = Math.round(mm.progress * 30) + '%'; });
+    }
     c.ocrText = text;
     const r = parseCard(text);
+    if (ai && ai.fields) {
+      const f = ai.fields;
+      for (const k of ['firstName', 'lastName', 'title', 'phone', 'mobile', 'website']) r[k] = (f[k] || '').trim();
+      if (f.email) r.email = f.email.trim().toLowerCase();
+      if (!r.airlineName && f.company) { const n = norm(f.company); const a = airlines().find((x) => norm(x.name) === n) || airlines().filter((x) => x.name.length >= 4).sort((x, y) => y.name.length - x.name.length).find((x) => n.includes(norm(x.name))); if (a) { r.airlineCode = a.code; r.airlineName = a.name; } }
+    }
     const map = { firstName: r.firstName, lastName: r.lastName, title: r.title, email: r.email, phone: r.phone, mobile: r.mobile, website: r.website };
     for (const [k, v] of Object.entries(map)) { if (v && !touched.has(k) && (force || !c[k])) { c[k] = v; const el = root.querySelector(`[data-cf="${k}"]`); if (el) el.value = v; } }
+    if (!r.airlineName && ai?.fields?.company && !c.company) { r.airlineCode = ''; r.airlineName = ai.fields.company.trim(); }
     if (r.airlineName && !touched.has('company')) { c.airlineCode = r.airlineCode; c.company = r.airlineName; const b = root.querySelector('[data-cair]'); if (b) b.innerHTML = `${badge(r.airlineCode, true)}<div class="grow"><div class="n" style="font-size:15px">${esc(r.airlineName)}</div></div>${ico('chev')}`; }
     const got = Object.values(map).filter(Boolean).length;
     slot.innerHTML = `<div class="ocrbox">${ico('check')}<div style="flex:1"><b>${got ? 'Cartão lido — confirma os dados' : 'Não consegui ler muita coisa'}</b><div class="faint" style="font-size:12.5px">${got ? 'Corrige o que estiver errado antes de guardar.' : 'Preenche à mão; a foto fica guardada.'}</div></div></div>`;
@@ -2093,6 +2150,7 @@ async function viewSettings() {
       <div class="field"><label class="lbl">Geographical Scope por defeito</label><input class="inp" data-s="defaultScope" value="${esc(st.defaultScope)}" style="text-transform:uppercase" placeholder="OPO (vários: OPO, LIS)"></div>
       <p class="faint" style="font-size:12.5px;margin:0">Exemplo: <code style="font-family:var(--mono)">${esc(st.subjectPrefix || 'Meeting')}_${esc(st.airportCode || 'OPO')}_TP_Slots e planeamento</code></p>
       <label class="check" style="margin-top:8px"><input type="checkbox" class="ck" data-sb="showLogos" ${st.showLogos !== false ? 'checked' : ''}> Mostrar logótipos das companhias <span class="faint" style="font-size:12.5px">(carregados do Google pelo código IATA; ficam guardados para usar sem rede)</span></label>
+      <label class="check"><input type="checkbox" class="ck" data-sb="aiRead" ${st.aiRead !== false ? 'checked' : ''}> Ler fotos de notas e cartões com IA (Claude) <span class="faint" style="font-size:12.5px">(com rede e sessão iniciada; a foto é enviada ao Claude só para leitura. Sem rede, a leitura é feita no dispositivo)</span></label>
     </div>
     <div class="sec"><h3>${ico('pen', 'sm')} Temas <span class="r faint">aparecem como atalhos em cada reunião</span></h3>
       <div id="topics-set"></div>

@@ -1,5 +1,5 @@
 /* Debrief — service worker: funciona sem rede. Nenhum dado do utilizador passa por aqui. */
-const VERSION = 'debrief-v1.7.0';
+const VERSION = 'debrief-v1.8.0';
 const SHELL = VERSION + '-shell';
 const OCR = 'debrief-ocr-v6';
 const LOGOS = 'debrief-logos-v1';
@@ -73,6 +73,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
+        // Se o site deixar de estar publicado (404/erro), continua a abrir a última versão guardada.
+        if (!fresh.ok) return (await caches.match('./index.html')) || fresh;
         const c = await caches.open(SHELL);
         c.put('./index.html', fresh.clone());
         return fresh;
