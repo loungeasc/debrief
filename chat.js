@@ -194,7 +194,7 @@ async function chatCall(onUpdate) {
   const res = await fetch(`${CLOUD.url}/functions/v1/${CHAT_FN}`, {
     method: 'POST', signal: CHAT.abort.signal,
     headers: { Authorization: `Bearer ${token}`, apikey: CLOUD.key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: CHAT.conv.mensagens, contexto: chatContext(), web: !!S.settings.chatWeb }),
+    body: JSON.stringify({ messages: CHAT.conv.mensagens, contexto: chatContext(), web: !!S.settings.chatWeb, app: APP_VERSION }),
   });
   if (!res.ok || !res.body) { let j = {}; try { j = await res.json(); } catch (e) {} throw new Error(j.message || (res.status === 404 ? 'O «Perguntar» ainda não está configurado no Supabase.' : 'O Claude não respondeu.')); }
   const msg = { role: 'assistant', content: [] }; let stop = null;
@@ -202,7 +202,7 @@ async function chatCall(onUpdate) {
   const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
   const handle = (ev) => {
     switch (ev.type) {
-      case 'content_block_start': { const b = JSON.parse(JSON.stringify(ev.content_block)); if (b.type === 'tool_use' || b.type === 'server_tool_use') { b._json = ''; } msg.content[ev.index] = b; break; }
+      case 'content_block_start': { const b = JSON.parse(JSON.stringify(ev.content_block)); if (b.type === 'tool_use' || b.type === 'server_tool_use') { b._json = ''; } if (b.type === 'thinking') { b.thinking = b.thinking || ''; b.signature = b.signature || ''; } msg.content[ev.index] = b; break; }
       case 'content_block_delta': {
         const b = msg.content[ev.index]; if (!b) break; const d = ev.delta;
         if (d.type === 'text_delta') b.text = (b.text || '') + d.text;
@@ -212,7 +212,7 @@ async function chatCall(onUpdate) {
         else if (d.type === 'signature_delta') b.signature = (b.signature || '') + d.signature;
         break;
       }
-      case 'content_block_stop': { const b = msg.content[ev.index]; if (b && b._json != null) { try { b.input = b._json ? JSON.parse(b._json) : {}; } catch (e) { b.input = {}; } delete b._json; } break; }
+      case 'content_block_stop': { const b = msg.content[ev.index]; if (b && b.type === 'thinking') { if (typeof b.thinking !== 'string') b.thinking = ''; if (typeof b.signature !== 'string') b.signature = ''; } if (b && b._json != null) { try { b.input = b._json ? JSON.parse(b._json) : {}; } catch (e) { b.input = {}; } delete b._json; } break; }
       case 'message_delta': if (ev.delta?.stop_reason) stop = ev.delta.stop_reason; break;
       case 'error': throw new Error(ev.error?.type === 'overloaded_error' ? 'O Claude está sobrecarregado. Tenta daqui a pouco.' : (ev.error?.message || 'Erro na resposta'));
     }

@@ -109,7 +109,12 @@ Deno.serve(async (req) => {
   const raw = await req.text();
   if (raw.length > MAX_BODY) return json({ error: 'grande', message: 'A conversa ficou demasiado longa. Começa uma nova.' }, 413);
   let body: any; try { body = JSON.parse(raw); } catch { return json({ error: 'pedido_invalido' }, 400); }
-  const messages = Array.isArray(body?.messages) ? body.messages : [];
+  // Blocos de raciocínio: têm de voltar intactos; um bloco sem assinatura não serve e é retirado.
+  const messages = (Array.isArray(body?.messages) ? body.messages : []).map((m: any) => {
+    if (m?.role !== 'assistant' || !Array.isArray(m.content)) return m;
+    const content = m.content.filter((b: any) => !(b?.type === 'thinking' && !b.signature)).map((b: any) => (b?.type === 'thinking' && typeof b.thinking !== 'string' ? { ...b, thinking: '' } : b));
+    return { ...m, content: content.length ? content : [{ type: 'text', text: '…' }] };
+  });
   if (!messages.length || messages.length > 120) return json({ error: 'pedido_invalido', message: 'Conversa inválida.' }, 400);
 
   const tools: unknown[] = [...TOOLS];
@@ -122,6 +127,7 @@ Deno.serve(async (req) => {
   });
   if (!r.ok || !r.body) {
     const t = await r.text(); console.error('anthropic', r.status, t.slice(0, 600));
+    try { const a = messages.find((m: any) => m.role === 'assistant'); if (a) console.error('forma', 'app', String(body?.app || '?'), JSON.stringify(a.content.map((b: any) => ({ t: b.type, k: Object.keys(b), th: typeof b.thinking === 'string' ? b.thinking.length : null, sg: typeof b.signature === 'string' ? b.signature.length : null })))); } catch { /* */ }
     let msg = r.status === 401 ? 'Chave da API inválida.' : r.status === 429 ? 'Limite de utilização atingido. Tenta daqui a pouco.' : 'O Claude não respondeu.';
     if (/web search/i.test(t)) msg = 'A pesquisa na web não está ativa na conta da API. Desliga a opção Web.';
     return json({ error: 'claude', status: r.status, message: msg }, 502);
