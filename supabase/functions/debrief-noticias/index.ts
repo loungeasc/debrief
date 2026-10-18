@@ -149,36 +149,39 @@ async function googleNews(q: string, lang: 'pt' | 'en') {
   return parseFeed(xml, 'Google News').map((i) => ({ ...i, titulo: i.titulo.replace(/\s+-\s+[^-]{2,60}$/, ''), resumo: '' }));
 }
 
-const PREP_TOOL = {
-  name: 'preparacao',
-  description: 'Preparação de uma reunião com uma companhia aérea.',
-  input_schema: {
+const PREP_SCHEMA = {
     type: 'object',
+    additionalProperties: false,
     properties: {
       resumo: { type: 'string', description: '2 a 4 frases: a situação atual da companhia que importa para o aeroporto.' },
       noticias: {
         type: 'array', description: 'Até 12 notícias escolhidas, da mais para a menos importante.',
         items: {
           type: 'object',
+          additionalProperties: false,
           properties: {
             id: { type: 'string', description: 'O id da notícia na lista fornecida.' },
             categoria: { type: 'string', enum: ['frota', 'rotas', 'financas', 'estrategia', 'operacoes', 'portugal'] },
             importancia: { type: 'integer', enum: [1, 2, 3], description: '3 = muito importante para a negociação' },
             porque: { type: 'string', description: 'Uma frase: porque importa para o aeroporto.' },
-            angulo: { type: 'string', description: 'Opcional: como usar na reunião (pergunta, argumento, oportunidade, risco).' },
+            angulo: { type: 'string', description: 'Como usar na reunião (pergunta, argumento, oportunidade, risco); texto vazio se não houver.' },
           },
-          required: ['id', 'categoria', 'importancia', 'porque'],
+          required: ['id', 'categoria', 'importancia', 'porque', 'angulo'],
         },
       },
       pontos: { type: 'array', items: { type: 'string' }, description: '3 a 6 pontos ou perguntas para levar à reunião.' },
       reunioes: {
-        type: 'object', description: 'Só se houver reuniões anteriores.',
+        type: 'object', description: 'Reuniões anteriores; texto vazio e lista vazia se não houver.', additionalProperties: false,
         properties: { resumo: { type: 'string' }, pendentes: { type: 'array', items: { type: 'string' } } },
+        required: ['resumo', 'pendentes'],
       },
     },
-    required: ['resumo', 'noticias', 'pontos'],
-  },
+    required: ['resumo', 'noticias', 'pontos', 'reunioes'],
 };
+function parseJson(out: any) {
+  const t = (out?.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('');
+  try { return JSON.parse(t); } catch { const m = t.match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : {}; } catch { return {}; } }
+}
 
 async function preparar(body: any, userId: string) {
   const companhia = String(body?.companhia || '').trim().slice(0, 80);
@@ -243,11 +246,11 @@ async function preparar(body: any, userId: string) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 3500, tools: [PREP_TOOL], tool_choice: { type: 'tool', name: 'preparacao' }, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 3500, output_config: { format: { type: 'json_schema', schema: PREP_SCHEMA } }, messages: [{ role: 'user', content: prompt }] }),
   });
   if (!r.ok) { const t = await r.text(); console.error('anthropic', r.status, t.slice(0, 500)); throw new Error(r.status === 401 ? 'Chave da API inválida.' : r.status === 429 ? 'Limite de utilização atingido.' : 'O Claude não respondeu.'); }
   const out = await r.json();
-  const p = (out.content ?? []).find((c: any) => c.type === 'tool_use')?.input ?? {};
+  const p = parseJson(out);
   const noticias = (Array.isArray(p.noticias) ? p.noticias : []).map((n: any) => {
     const it = byId.get(String(n.id)); if (!it) return null;
     return { titulo: it.titulo, fonte: it.fonte, data: it.publicado_em, link: it.link, categoria: n.categoria, importancia: n.importancia, porque: String(n.porque || ''), angulo: String(n.angulo || '') };

@@ -46,11 +46,9 @@ function notesPrompt(airline: string, topics: string[]) {
   ].join('\n');
 }
 
-const CARD_TOOL = {
-  name: 'contacto',
-  description: 'Dados lidos de um cartão de visita.',
-  input_schema: {
+const CARD_SCHEMA = {
     type: 'object',
+    additionalProperties: false,
     properties: {
       firstName: { type: 'string', description: 'Nome próprio' },
       lastName: { type: 'string', description: 'Apelido(s)' },
@@ -63,8 +61,11 @@ const CARD_TOOL = {
       text: { type: 'string', description: 'Todo o texto do cartão, linha a linha' },
     },
     required: ['firstName', 'lastName', 'title', 'company', 'email', 'phone', 'mobile', 'website', 'text'],
-  },
 };
+function parseJson(out: any) {
+  const t = (out?.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('');
+  try { return JSON.parse(t); } catch { const m = t.match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : {}; } catch { return {}; } }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -88,7 +89,7 @@ Deno.serve(async (req) => {
   const payload: Record<string, unknown> = mode === 'card'
     ? {
         model: MODEL, max_tokens: 1024,
-        tools: [CARD_TOOL], tool_choice: { type: 'tool', name: 'contacto' },
+        output_config: { format: { type: 'json_schema', schema: CARD_SCHEMA } },
         messages: [{ role: 'user', content: [img, { type: 'text', text: 'Lê este cartão de visita e preenche os campos. Usa texto vazio nos campos que não existam no cartão. Não inventes dados. Nomes em maiúsculas passam para a forma normal (ex.: JOÃO SILVA → João Silva).' }] }],
       }
     : {
@@ -109,8 +110,7 @@ Deno.serve(async (req) => {
   const out = await r.json();
   const usage = out.usage ?? {};
   if (mode === 'card') {
-    const tu = (out.content ?? []).find((c: any) => c.type === 'tool_use');
-    const f = tu?.input ?? {};
+    const f = parseJson(out);
     const fields: Record<string, string> = {};
     for (const k of ['firstName', 'lastName', 'title', 'company', 'email', 'phone', 'mobile', 'website']) fields[k] = clean(f[k], 160);
     return json({ mode, fields, text: String(f.text ?? '').slice(0, 3000), model: out.model, usage });
