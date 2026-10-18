@@ -535,7 +535,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.12.0';
+const APP_VERSION = '1.12.1';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -2248,36 +2248,20 @@ function sfParse(str) {
 }
 const SF_ID = (pre) => new RegExp(`^${pre}[A-Za-z0-9]{12}([A-Za-z0-9]{3})?$`);
 function sfLink(m) {
-  const st = S.settings; const dom = (st.sfDomain || '').trim(); if (!dom) return null;
-  const acc = sfAcc({ code: m.airlineCode, name: m.airlineName }); const pc = primaryContact(m);
-  const build = (withDesc) => {
-    const f = []; const add = (k, v) => { if (k && v != null && String(v) !== '') f.push(`${k}=${encodeURIComponent(String(v))}`); };
-    add('Subject', subjectOf(m));
-    if (SF_ID('001').test(acc.id || '')) add('WhatId', acc.id);
-    if (SF_ID('003').test(pc?.sfId || '')) add('WhoId', pc.sfId);
-    const d = parseLocal(m.start); if (d) add('ActivityDate', ymd(d));
-    if (st.sfLinkCustom !== false) { add(st.sfFlagField, m.flag); add(st.sfTradeshowField, m.tradeshow); add(st.sfScopeField, scopeOf(m).join(';')); }
-    if (withDesc) add('Description', buildDescription(m));
-    const q = [];
-    if (SF_ID('012').test(st.sfRecordTypeId || '')) q.push('recordTypeId=' + st.sfRecordTypeId);
-    q.push('defaultFieldValues=' + f.join(','));
-    if (SF_ID('001').test(acc.id || '')) q.push('backgroundContext=' + encodeURIComponent(`/lightning/r/Account/${acc.id}/view`));
-    return `https://${dom}/lightning/o/Task/new?${q.join('&')}`;
-  };
-  let url = build(true), semDesc = false;
-  if (url.length > 6000) { url = build(false); semDesc = true; }
-  return { url, semDesc, acc: SF_ID('001').test(acc.id || ''), con: SF_ID('003').test(pc?.sfId || ''), rt: SF_ID('012').test(st.sfRecordTypeId || '') };
+  // O «New Meeting Note» é a ação rápida global Global.NewMeetingNote: aberta pelo endereço, já vem com a conta (Related To),
+  // o tipo de registo e a data. O Salesforce ignora valores pré-preenchidos nas ações rápidas, por isso o resto copia-se.
+  const dom = (S.settings.sfDomain || '').trim(); if (!dom) return null;
+  const acc = sfAcc({ code: m.airlineCode, name: m.airlineName });
+  if (!SF_ID('001').test(acc.id || '')) return { url: '', acc: false };
+  const bg = encodeURIComponent(`/lightning/r/Account/${acc.id}/view`);
+  return { url: `https://${dom}/lightning/action/quick/Global.NewMeetingNote?objectApiName&context=RECORD_DETAIL&recordId=${acc.id}&backgroundContext=${bg}`, acc: true };
 }
 function sfLinkBox(m) {
   const L = sfLink(m);
-  if (!L) return `<div class="sflink"><b>Abrir no Salesforce já preenchido</b><p>Cola aqui um endereço qualquer do vosso Salesforce (por exemplo, o de uma conta) para o Debrief saber onde abrir.</p><div class="subj-row"><input class="inp" id="sf-paste" placeholder="https://….lightning.force.com/…" autocapitalize="off"><button class="btn" data-sfpaste>Guardar</button></div></div>`;
-  const pc = primaryContact(m);
-  const falta = [!L.rt && 'tipo de registo «Meeting Note» (vai ser preciso escolhê-lo)', !L.acc && 'conta (Related To)', !L.con && 'contacto (Name)'].filter(Boolean);
-  return `<div class="sflink"><a class="btn pri" href="${esc(L.url)}" target="_blank" rel="noopener noreferrer" data-sfopen>${ico('send', 'sm')} Abrir no Salesforce já preenchido</a>
-    <p>${L.semDesc ? 'Os Comments são longos para o link: ficam copiados ao abrir, é só colar. ' : 'Os Comments também ficam copiados, por segurança. '}Revê e carrega em <b>Save</b>.${falta.length ? ` Escolhes à mão: ${esc(falta.join(', '))}.` : ''} No telemóvel abre no browser (a app do Salesforce não aceita campos pré-preenchidos).</p>
-    ${!L.acc ? `<div class="subj-row"><input class="inp" id="sf-acc" placeholder="Endereço ou ID da conta ${esc(m.airlineName || '')} (001…)" autocapitalize="off"><button class="btn sm" data-sfacc>Ligar conta</button></div>` : ''}
-    ${!L.con && pc ? `<div class="subj-row"><input class="inp" id="sf-con" placeholder="Endereço ou ID do contacto ${esc(contactName(pc))} (003…)" autocapitalize="off"><button class="btn sm" data-sfcon>Ligar contacto</button></div>` : ''}
-    ${!L.rt ? `<div class="subj-row"><input class="inp" id="sf-rt" placeholder="Endereço do New Meeting Note ou ID 012…" autocapitalize="off"><button class="btn sm" data-sfrt>Guardar tipo</button></div>` : ''}</div>`;
+  if (!L) return `<div class="sflink"><b>Abrir o New Meeting Note da conta</b><p>Cola aqui o endereço da conta ${esc(m.airlineName || 'da companhia')} no Salesforce. Fica guardado para as próximas reuniões (e para o colega).</p><div class="subj-row"><input class="inp" id="sf-paste" placeholder="https://….lightning.force.com/lightning/r/Account/001…/view" autocapitalize="off"><button class="btn" data-sfpaste>Guardar</button></div></div>`;
+  if (!L.acc) return `<div class="sflink"><b>Abrir o New Meeting Note da conta</b><p>Falta ligar a conta ${esc(m.airlineName || 'da companhia')}: abre-a no Salesforce e cola aqui o endereço (fica guardado).</p><div class="subj-row"><input class="inp" id="sf-acc" placeholder="Endereço ou ID da conta (001…)" autocapitalize="off"><button class="btn sm" data-sfacc>Ligar conta</button></div></div>`;
+  return `<div class="sflink"><a class="btn pri" href="${esc(L.url)}" target="_blank" rel="noopener noreferrer" data-sfopen>${ico('send', 'sm')} Abrir o New Meeting Note da conta</a>
+    <p>Abre já com <b>Related To</b>, tipo de registo e data. Os <b>Comments</b> ficam copiados ao abrir: cola-os e copia daqui o Subject, o Name, o Flag e o Scope. No telemóvel abre no browser.</p></div>`;
 }
 function sfSheet(m, after) {
   const w = meetingWarnings(m);
@@ -2463,8 +2447,7 @@ async function viewSettings() {
       <div class="subj-row" style="margin-top:10px"><input class="inp" id="new-topic" placeholder="Novo tema"><button class="btn" data-addtopic>${ico('plus', 'sm')} Adicionar</button></div>
     </div>
     <div class="sec"><h3>${ico('send', 'sm')} Salesforce</h3>
-      <div class="field"><label class="lbl">Endereço do Salesforce <span class="faint" style="font-weight:500">(para abrir o New Meeting Note já preenchido)</span></label><input class="inp" data-s="sfDomain" value="${esc(st.sfDomain)}" placeholder="empresa.lightning.force.com" autocapitalize="off" style="font-family:var(--mono)"></div>
-      <label class="check"><input type="checkbox" class="ck" data-sb="sfLinkCustom" ${st.sfLinkCustom !== false ? 'checked' : ''}> Preencher também Flag, Type of Tradeshow e Geographical Scope <span class="faint" style="font-size:12.5px">(usa os nomes API em «Importação com Data Loader»; desliga se o Salesforce der erro ao abrir)</span></label>
+      <div class="field"><label class="lbl">Endereço do Salesforce <span class="faint" style="font-weight:500">(para abrir o New Meeting Note da conta)</span></label><input class="inp" data-s="sfDomain" value="${esc(st.sfDomain)}" placeholder="empresa.lightning.force.com" autocapitalize="off" style="font-family:var(--mono)"></div>
       <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeParticipants" ${st.sfIncludeParticipants ? 'checked' : ''}> Incluir participantes da companhia nos Comments</label>
       <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeInternal" ${st.sfIncludeInternal ? 'checked' : ''}> Incluir participantes ANA nos Comments</label>
     </div>
