@@ -77,6 +77,12 @@ O motor de cálculo é o do Simulador de Taxas 2026. As **tabelas** (taxas, ince
 
 Configuração (uma vez, e de novo quando houver tabelas novas): SQL Editor → corre o ficheiro `04_simulador_dados.sql` (enviado à parte, não está no GitHub). A estrutura da tabela está em `supabase/04_simulador.sql`.
 
+## Perguntar (Claude)
+
+**Perguntar** (menu lateral, ícone de conversa no topo da lista, ou dentro de uma reunião): conversa com o Claude sobre as reuniões (tuas e do colega), contactos, preparações, arquivo de notícias e o simulador de taxas e incentivos. O Claude pede os dados ao Debrief através de ferramentas que correm no dispositivo, por isso só segue para o Claude o que a pergunta precisa. Para valores de taxas e incentivos usa sempre o simulador. O globo liga a pesquisa na web. As respostas podem ser copiadas ou juntadas às notas da reunião. O Claude só lê: não altera dados nem envia nada.
+
+As conversas são **privadas**: ficam no dispositivo e na tabela `crm_conversas`, onde cada pessoa só vê as suas. Configuração (uma vez): SQL Editor → corre `supabase/05_conversas.sql`. A função `debrief-chat` (código em `supabase/functions/debrief-chat/`) usa a mesma chave do Claude.
+
 ## Passar do telemóvel para o portátil
 
 Com a conta do Portal isto já é automático. Sem conta: Exportar → **Exportar cópia** (ficheiro `.json` com tudo, incluindo fotos) → envia para ti (AirDrop, email, Files) → no portátil, Exportar → **Importar cópia**. Junta sem duplicar.
