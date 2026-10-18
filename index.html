@@ -166,8 +166,8 @@ textarea.inp{resize:vertical;line-height:1.5}
 .colpanel{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:8px 12px 10px;min-width:220px}
 .colpanel .check{padding:5px 0;font-size:14px}
 .colpanel .foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:6px;padding-top:8px;font-size:12px;color:var(--ink-3)}
-.tbl .names{max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
-.tbl .loc{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.tbl .names{max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.tbl .loc{max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
 .empty{text-align:center;padding:48px 20px;color:var(--ink-2)}
 .empty h2{font-size:18px;color:var(--ink);margin:14px 0 6px}
 .empty p{margin:0 auto 18px;max-width:340px}
@@ -200,7 +200,7 @@ textarea.inp{resize:vertical;line-height:1.5}
   .tbl .loc{max-width:160px}
   .tbl .cellair{max-width:180px}
 }
-.tbl .cellair{white-space:nowrap;overflow:hidden}
+.tbl .cellair{white-space:nowrap;overflow:hidden;max-width:165px}
 .tbl .cellair .an{min-width:0;overflow:hidden;text-overflow:ellipsis}
 @media (min-width:960px) and (max-width:1100px){
   .tbl th,.tbl td{padding-left:8px;padding-right:8px}
@@ -210,14 +210,14 @@ textarea.inp{resize:vertical;line-height:1.5}
   .tbl .subj{max-width:150px}
 }
 .tbl{width:100%;border-collapse:collapse;font-size:14px}
-.tbl th{text-align:left;font-size:12px;font-weight:650;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap}
-.tbl td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:middle}
+.tbl th{text-align:left;font-size:12px;font-weight:650;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;padding:11px 10px;border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap}
+.tbl td{padding:10px 10px;border-top:1px solid var(--line);vertical-align:middle}
 .tbl tr:first-child td{border-top:0}
 .tbl tbody tr{cursor:pointer}
 .tbl tbody tr:hover td{background:var(--surface-2)}
 .tbl tr.sel td{background:var(--accent-soft)}
 .tbl .cellair{display:flex;align-items:center;gap:10px;font-weight:600}
-.tbl .subj{max-width:380px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbl .subj{max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tbl .num{color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .tbl input[type=checkbox],.ck{width:18px;height:18px;accent-color:var(--accent);margin:0;vertical-align:middle}
 .bulk{position:sticky;bottom:16px;margin:14px auto 0;display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--bg);padding:8px 8px 8px 16px;border-radius:14px;box-shadow:var(--shadow);width:max-content;max-width:100%;flex-wrap:wrap}
@@ -377,14 +377,17 @@ body.gate main{padding-bottom:0}
 
 /* tabela em iPad horizontal / portáteis pequenos (no fim para prevalecer) */
 @media (min-width:960px) and (max-width:1279px){
-  .tbl .subj{max-width:180px}
-  .tbl .loc{max-width:150px}
+  .tbl .subj{max-width:130px}
+  .tbl .loc{max-width:115px}
+  .tbl .names{max-width:115px}
+  .tbl .cellair{max-width:150px}
   .tbl th{font-size:11px}
 }
 @media (min-width:960px) and (max-width:1100px){
-  .tbl .subj{max-width:125px}
-  .tbl .loc{max-width:110px}
-  .tbl .cellair{max-width:130px}
+  .tbl .subj{max-width:115px}
+  .tbl .loc{max-width:100px}
+  .tbl .names{max-width:100px}
+  .tbl .cellair{max-width:125px}
   .tbl th{letter-spacing:.02em}
 }
 </style>
@@ -440,7 +443,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.6.3';
+const APP_VERSION = '1.6.4';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -1274,8 +1277,8 @@ const TABLE_COLS = [
   { k: 'data', l: 'Data', cls: 'num', def: true, v: (m) => m.start || '', h: (m) => { const d = parseLocal(m.start); return d ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}${d.getFullYear() !== new Date().getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''}` : '—'; } },
   { k: 'hora', l: 'Hora', cls: 'num', def: true, v: (m) => (m.start || '').slice(11, 16), h: (m) => fmtTime(m.start) },
   { k: 'companhia', l: 'Companhia', def: true, v: (m) => norm(m.airlineName), h: (m) => `<div class="cellair">${badge(m.airlineCode, true)}<span class="an">${esc(m.airlineName || '—')}</span></div>` },
-  { k: 'local', l: 'Local', def: true, v: (m) => norm(m.location), h: (m) => `<div class="loc">${esc(m.location || '—')}</div>` },
-  { k: 'assunto', l: 'Assunto', def: true, v: (m) => norm(subjectOf(m)), h: (m) => `<div class="subj">${esc(subjectOf(m))}</div>` },
+  { k: 'local', l: 'Local', def: true, v: (m) => norm(m.location), h: (m) => `<div class="loc" title="${esc(m.location || '')}">${esc(m.location || '—')}</div>` },
+  { k: 'assunto', l: 'Assunto', def: true, v: (m) => norm(subjectOf(m)), h: (m) => `<div class="subj" title="${esc(subjectOf(m))}">${esc(subjectOf(m))}</div>` },
   { k: 'contactos', l: 'Contactos', def: false, v: (m) => norm(m.contactIds.map((id) => contactName(getC(id))).join(', ')), h: (m) => `<div class="names">${esc(m.contactIds.map((id) => contactName(getC(id))).join(', ') || (m.plannedPeople || []).map((x) => x.name).join(', ') || '—')}</div>` },
   { k: 'ana', l: 'Participantes ANA', def: false, v: (m) => norm(m.internal), h: (m) => `<div class="names">${esc(m.internal || '—')}</div>` },
   { k: 'temas', l: 'Temas', def: false, v: (m) => m.topics.length, h: (m) => `<div class="names">${esc(m.topics.map((t) => t.name).join(', ') || '—')}</div>` },
