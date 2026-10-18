@@ -135,6 +135,10 @@ textarea.inp{resize:vertical;line-height:1.5}
 .badge{--h:220;width:40px;height:40px;border-radius:11px;flex:none;display:grid;place-items:center;font:700 12.5px/1 var(--mono);letter-spacing:.02em;background:hsl(var(--h) 55% 93%);color:hsl(var(--h) 50% 30%)}
 .badge.sm{width:30px;height:30px;border-radius:8px;font-size:11px}
 .badge.none{background:var(--surface-2);color:var(--ink-3)}
+.badge.logo{position:relative;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
+.badge.logo .bc{visibility:hidden}
+.badge.logo img{position:absolute;inset:3px;width:calc(100% - 6px);height:calc(100% - 6px);object-fit:contain}
+.badge.logo.sm img{inset:2px;width:calc(100% - 4px);height:calc(100% - 4px)}
 @media (prefers-color-scheme:dark){.badge{background:hsl(var(--h) 28% 20%);color:hsl(var(--h) 75% 80%)}}
 .pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:99px;font-size:11.5px;font-weight:650;white-space:nowrap;background:var(--surface-2);color:var(--ink-2)}
 .pill::before{content:"";width:6px;height:6px;border-radius:99px;background:currentColor;opacity:.8}
@@ -443,7 +447,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.6.4';
+const APP_VERSION = '1.7.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -477,7 +481,12 @@ function ago(ts) {
   if (days <= 0) return 'hoje'; if (days === 1) return 'ontem'; return `há ${days} dias`;
 }
 function hue(code) { let h = 0; for (const ch of String(code || '?')) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; }
-function badge(code, sm) { const c = (code || '').slice(0, 3); return c ? `<span class="badge ${sm ? 'sm' : ''}" style="--h:${hue(c)}">${esc(c)}</span>` : `<span class="badge none ${sm ? 'sm' : ''}">${ico('plane', 'sm')}</span>`; }
+const LOGO_URL = (c) => `https://www.gstatic.com/flights/airline_logos/70px/${c}.png`;
+function badge(code, sm) {
+  const c = (code || '').slice(0, 3);
+  // logótipo da companhia (por código IATA); se não carregar, fica o código
+  if (c && /^[A-Z0-9]{2}$/.test(c) && S.settings.showLogos !== false) return `<span class="badge logo ${sm ? 'sm' : ''}" style="--h:${hue(c)}"><span class="bc">${esc(c)}</span><img src="${LOGO_URL(c)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove('logo');this.remove()"></span>`;
+  return c ? `<span class="badge ${sm ? 'sm' : ''}" style="--h:${hue(c)}">${esc(c)}</span>` : `<span class="badge none ${sm ? 'sm' : ''}">${ico('plane', 'sm')}</span>`; }
 
 /* ---------- base de dados local */
 const DB = {
@@ -2083,6 +2092,7 @@ async function viewSettings() {
       <div class="field"><label class="lbl">Aeroporto no Subject</label><input class="inp" data-s="airportCode" value="${esc(st.airportCode)}" maxlength="3" style="text-transform:uppercase" placeholder="OPO"></div></div>
       <div class="field"><label class="lbl">Geographical Scope por defeito</label><input class="inp" data-s="defaultScope" value="${esc(st.defaultScope)}" style="text-transform:uppercase" placeholder="OPO (vários: OPO, LIS)"></div>
       <p class="faint" style="font-size:12.5px;margin:0">Exemplo: <code style="font-family:var(--mono)">${esc(st.subjectPrefix || 'Meeting')}_${esc(st.airportCode || 'OPO')}_TP_Slots e planeamento</code></p>
+      <label class="check" style="margin-top:8px"><input type="checkbox" class="ck" data-sb="showLogos" ${st.showLogos !== false ? 'checked' : ''}> Mostrar logótipos das companhias <span class="faint" style="font-size:12.5px">(carregados do Google pelo código IATA; ficam guardados para usar sem rede)</span></label>
     </div>
     <div class="sec"><h3>${ico('pen', 'sm')} Temas <span class="r faint">aparecem como atalhos em cada reunião</span></h3>
       <div id="topics-set"></div>
