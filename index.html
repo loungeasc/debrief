@@ -318,9 +318,25 @@ textarea.inp{resize:vertical;line-height:1.5}
 .sfrow .grow{flex:1;min-width:0}
 .warnlist{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-size:13.5px}
 .warnlist div{display:flex;gap:6px;align-items:center}
+.prep .lead{font-size:14.5px;line-height:1.5;margin:0 0 10px}
+.prep .nrow{display:block;padding:10px 0;border-top:1px solid var(--line);color:inherit;text-decoration:none}
+.prep .nrow:first-of-type{border-top:0}
+.nrow .nt{font-weight:600;font-size:14.5px;line-height:1.35}
+.nrow .nw{font-size:13.5px;color:var(--ink-2);margin-top:3px;line-height:1.4}
+.nrow .na{font-size:13px;color:var(--accent);margin-top:3px;line-height:1.4}
+.nrow .nm{font-size:12px;color:var(--ink-3);margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ncat{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:99px;font-size:11.5px;font-weight:650;background:var(--surface-2);color:var(--ink-2)}
+.ncat.frota{background:#e6eefc;color:#2a50b8}.ncat.rotas{background:#e4f5e9;color:#1f7a43}.ncat.financas{background:#fbe7e5;color:#b0362c}.ncat.estrategia{background:#efe7fb;color:#6a3bb4}.ncat.operacoes{background:#fdecdc;color:#b4540a}.ncat.portugal{background:#e2f4f4;color:#16706f}
+@media (prefers-color-scheme:dark){.ncat.frota{background:#1c2744;color:#9db4ff}.ncat.rotas{background:#143322;color:#6fd69a}.ncat.financas{background:#3b1714;color:#ff8f84}.ncat.estrategia{background:#2a1d42;color:#c3a4ff}.ncat.operacoes{background:#3d2410;color:#f5a35c}.ncat.portugal{background:#123333;color:#6fd3d1}}
+.imp3 .nt::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--hot);margin-right:7px;vertical-align:2px}
+.prep ul.pts{margin:4px 0 10px;padding-left:18px;font-size:14px;line-height:1.5}
+.prep-h{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:14px 0 4px}
 .ocrbox{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--accent-soft);margin-bottom:14px;font-size:14px}
 .ocrbox .bar{height:4px;border-radius:9px;background:var(--surface-3);overflow:hidden;margin-top:6px}
 .ocrbox .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.ocrbox .bar i.indet{width:35%;animation:indet 1.4s ease-in-out infinite}
+@keyframes indet{0%{transform:translateX(-100%)}100%{transform:translateX(290%)}}
+@media (prefers-reduced-motion:reduce){.ocrbox .bar i.indet{animation:none;width:100%;opacity:.5}}
 .cardimg{border-radius:12px;overflow:hidden;background:var(--surface-2);margin-bottom:14px;max-height:220px;display:flex;justify-content:center}
 .cardimg img{max-width:100%;max-height:220px;object-fit:contain;display:block}
 details.raw summary{cursor:pointer;font-size:13px;color:var(--ink-2);padding:6px 0}
@@ -430,6 +446,7 @@ body.gate main{padding-bottom:0}
   <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4.2h-4.2"/></symbol>
   <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14.5 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3.5M10 16.5L5.5 12 10 7.5M5.5 12H16"/></symbol>
+  <symbol id="i-news" viewBox="0 0 24 24"><path d="M5 5h11v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1z"/><path d="M16 9h3a1 1 0 0 1 1 1v8a2 2 0 0 1-4 0M7.5 9h5M7.5 12.5h5M7.5 16h3"/></symbol>
   <symbol id="i-plane" viewBox="0 0 24 24"><path d="M10.5 13.5L3.5 11l1.2-1.6 7.6.6 4.4-5a1.9 1.9 0 0 1 2.8 2.7l-5 4.4.6 7.6-1.6 1.2-2.5-7z"/></symbol>
 </svg>
 
@@ -447,7 +464,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -525,7 +542,7 @@ const TIPO_STORE = { meeting: 'meetings', contact: 'contacts', photo: 'photos' }
 
 /* ---------- sincronização com o Supabase do Portal (offline-first) */
 const CLOUD = { url: 'https://uogrldgopqzdicrwcwir.supabase.co', key: 'sb_publishable_wjWRDRsB9LNA7XIn4fsXBw_-_b2yVnV', bucket: 'crm-fotos', table: 'crm_registos' };
-const SHARED_KEYS = ['icsUrls', 'icsIgnored', 'topics', 'customAirlines', 'airlineSf', 'tradeshowOptions', 'subjectPrefix', 'airportCode', 'defaultScope', 'sfIncludeParticipants', 'sfIncludeInternal', 'sfRecordTypeId', 'sfFlagField', 'sfTradeshowField', 'sfScopeField'];
+const SHARED_KEYS = ['icsUrls', 'icsIgnored', 'topics', 'customAirlines', 'airlineSf', 'tradeshowOptions', 'subjectPrefix', 'airportCode', 'defaultScope', 'sfIncludeParticipants', 'sfIncludeInternal', 'sfRecordTypeId', 'sfFlagField', 'sfTradeshowField', 'sfScopeField', 'competitors'];
 const sharedSettings = () => Object.fromEntries(SHARED_KEYS.map((k) => [k, S.settings[k]]));
 const stripLocal = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (!k.startsWith('_')) r[k] = v; return r; };
 const Sync = {
@@ -762,7 +779,7 @@ const DEFAULT_SETTINGS = {
   customAirlines: [], airlineSf: {}, icsUrls: {}, icsIgnored: [], icsLastSync: 0, icsLastResult: null,
   sfIncludeParticipants: true, sfIncludeInternal: true,
   sfRecordTypeId: '', sfFlagField: 'Flag__c', sfTradeshowField: 'Type_of_Tradeshow__c', sfScopeField: 'Geographical_Scope__c',
-  lastBackupAt: 0, iosHintDismissed: false,
+  lastBackupAt: 0, iosHintDismissed: false, competitors: 'LIS, FAO, VGO, SCQ',
 };
 const S = { meetings: [], contacts: [], settings: { ...DEFAULT_SETTINGS }, list: { q: '', status: 'all', airline: '', from: '', to: '', sel: new Set() }, clist: { q: '' } };
 
@@ -947,6 +964,109 @@ const AI = {
     } finally { clearTimeout(t); }
   },
 };
+
+/* ---------- preparação da reunião (notícias + reuniões anteriores; função debrief-noticias) */
+const PREP_CATS = { frota: 'Frota', rotas: 'Rotas', financas: 'Finanças', estrategia: 'Estratégia', operacoes: 'Operações', portugal: 'Portugal' };
+const PREP = {
+  fn: 'debrief-noticias', busy: new Set(), checked: new Set(),
+  key(m) { return airlineKey({ code: m.airlineCode, name: m.airlineName }); },
+  async local(key) { try { return (await DB.get('kv', 'prep:' + key)) || null; } catch (e) { return null; } },
+  async keep(key, d) { try { await DB.rawPut('kv', d, 'prep:' + key); } catch (e) {} return d; },
+  async remote(key) {
+    if (!Sync.on() || !navigator.onLine) return null;
+    const { data, error } = await Sync.client().from('crm_preparacoes').select('dados').eq('chave', key).maybeSingle();
+    if (error || !data?.dados) return null;
+    return this.keep(key, data.dados);
+  },
+  previous(m) {
+    const k = this.key(m);
+    return S.meetings.filter((x) => x.id !== m.id && x.airlineName && this.key(x) === k && (x.start || '') <= (m.start || '9999'))
+      .map((x) => ({ x, texto: [...(x.topics || []).filter((t) => (t.text || '').trim()).map((t) => `${t.name}: ${t.text.trim()}`), (x.raw || '').trim() ? 'Notas: ' + splitBlocks(x.raw).join('; ') : '', (x.nextSteps || '').trim() ? 'Próximos passos: ' + x.nextSteps.trim() : ''].filter(Boolean).join('\n') }))
+      .filter((r) => r.texto).sort((a, b) => (b.x.start || '').localeCompare(a.x.start || '')).slice(0, 6)
+      .map((r) => ({ data: (r.x.start || '').slice(0, 10), texto: r.texto }));
+  },
+  async generate(m) {
+    const key = this.key(m);
+    const a = airlines().find((x) => airlineKey(x) === key);
+    const body = {
+      action: 'preparar', chave: key, companhia: m.airlineName, codigo: m.airlineCode || '',
+      aliases: [...new Set([m.airlineName, a?.name].filter(Boolean))],
+      aeroporto: (S.settings.airportCode || 'OPO').toUpperCase(),
+      concorrentes: String(S.settings.competitors || '').toUpperCase().match(/[A-Z]{3}/g) || [],
+      reunioes: this.previous(m),
+    };
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 160000);
+    try {
+      const { data, error } = await Sync.client().functions.invoke(this.fn, { body, signal: ctl.signal });
+      if (error) { let info = {}; try { info = await error.context?.json?.(); } catch (e) {} throw new Error(info?.message || 'Não foi possível preparar a reunião'); }
+      return this.keep(key, data);
+    } catch (e) { if (e.name === 'AbortError') throw new Error('Demorou demasiado. Tenta outra vez.'); throw e; }
+    finally { clearTimeout(t); }
+  },
+};
+function prepAge(d) {
+  const ts = Date.parse(d?.gerado_em || ''); if (!ts) return '';
+  const h = Math.floor((Date.now() - ts) / 3600000);
+  return h < 1 ? 'há momentos' : h < 24 ? `há ${h} h` : ago(ts);
+}
+function newsRow(n, full) {
+  const dt = n.data ? new Date(n.data).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' }) : '';
+  return `<a class="nrow ${n.importancia === 3 ? 'imp3' : ''}" href="${esc(n.link)}" target="_blank" rel="noopener noreferrer">
+    <div class="nt">${esc(n.titulo)}</div>
+    ${n.porque ? `<div class="nw">${esc(n.porque)}</div>` : ''}
+    ${full && n.angulo ? `<div class="na">→ ${esc(n.angulo)}</div>` : ''}
+    <div class="nm"><span class="ncat ${esc(n.categoria || '')}">${esc(PREP_CATS[n.categoria] || 'Outro')}</span>${esc([n.fonte, dt].filter(Boolean).join(' · '))}</div></a>`;
+}
+async function renderPrep(m) {
+  const box = $('#prep'); if (!box) return;
+  if (!m.airlineName) { box.hidden = true; return; }
+  box.hidden = false;
+  const key = PREP.key(m);
+  let d = await PREP.local(key);
+  if (!PREP.checked.has(key) && Sync.on() && navigator.onLine) {
+    PREP.checked.add(key);
+    PREP.remote(key).then((r) => { if (r && (!d || r.gerado_em !== d.gerado_em) && $('#prep') === box) renderPrep(m); }).catch(() => {});
+  }
+  if ($('#prep') !== box) return;
+  const busy = PREP.busy.has(key);
+  const can = Sync.on() && navigator.onLine;
+  const head = `<h3>${ico('news', 'sm')} Preparação <span class="r">${d ? `<span class="faint" style="font-size:12.5px;font-weight:500">${prepAge(d)}</span>` : ''}${d && can && !busy ? `<button class="ibtn sm" data-prepgo aria-label="Atualizar preparação" title="Atualizar">${ico('refresh', 'sm')}</button>` : ''}</span></h3>`;
+  if (busy) { box.innerHTML = head + `<div class="ocrbox">${ico('news')}<div style="flex:1"><b>A procurar notícias de ${esc(m.airlineName)}…</b><div class="faint" style="font-size:12.5px">CAPA, sites de referência e Google News; o Claude escolhe o que importa para o ${esc(S.settings.airportCode || 'OPO')}. Pode demorar até 1 minuto.</div><div class="bar"><i class="indet"></i></div></div></div>`; return; }
+  if (!d) {
+    box.innerHTML = head + `<p class="hint" style="margin-bottom:10px">Notícias de ${esc(m.airlineName)} que contam para a negociação (frota, rotas, finanças, Portugal) e o resumo das reuniões anteriores.</p>` +
+      (can ? `<button class="btn" data-prepgo>${ico('news', 'sm')} Preparar reunião</button>` : `<p class="faint" style="font-size:13px;margin:0">Precisa de rede e sessão do Portal.</p>`);
+    return;
+  }
+  const top = [...(d.noticias || [])].sort((a, b) => (b.importancia || 0) - (a.importancia || 0)).slice(0, 3);
+  const n = (d.noticias || []).length;
+  box.innerHTML = head + (d.resumo ? `<p class="lead">${esc(d.resumo)}</p>` : '') +
+    (top.length ? `<div>${top.map((x) => newsRow(x, false)).join('')}</div>` : '') +
+    `<div class="acts-row" style="margin-top:10px"><button class="btn" data-prepall>${ico('list', 'sm')} Ver tudo${n ? ` (${plural(n, 'notícia', 'notícias')}` + ')' : ''}</button></div>`;
+}
+function prepSheet(m) {
+  const key = PREP.key(m);
+  PREP.local(key).then((d) => {
+    if (!d) return;
+    const groups = Object.keys(PREP_CATS).map((c) => [c, (d.noticias || []).filter((x) => x.categoria === c)]).filter(([, l]) => l.length);
+    const fontes = Object.entries(d.porFonte || {}).sort((a, b) => b[1] - a[1]).map(([f, k]) => `${f} (${k})`).join(', ');
+    const sh = sheet({ title: `Preparação · ${esc(m.airlineName)}`, wide: true, body: `<div class="prep">
+      ${d.resumo ? `<p class="lead">${esc(d.resumo)}</p>` : ''}
+      ${(d.pontos || []).length ? `<div class="prep-h">Para levar à reunião</div><ul class="pts">${d.pontos.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+      ${d.reunioes && (d.reunioes.resumo || (d.reunioes.pendentes || []).length) ? `<div class="prep-h">Reuniões anteriores</div>${d.reunioes.resumo ? `<p style="font-size:14px;line-height:1.5;margin:0 0 6px">${esc(d.reunioes.resumo)}</p>` : ''}${(d.reunioes.pendentes || []).length ? `<ul class="pts">${d.reunioes.pendentes.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}` : ''}
+      ${groups.map(([c, l]) => `<div class="prep-h">${PREP_CATS[c]}</div>${l.map((x) => newsRow(x, true)).join('')}`).join('') || '<p class="faint">Não foram encontradas notícias relevantes.</p>'}
+      <p class="faint" style="font-size:12px;margin:16px 0 0">Gerada ${esc(prepAge(d))} (${fmtTs(Date.parse(d.gerado_em))}) · ${plural(d.analisadas || 0, 'notícia analisada', 'notícias analisadas')}${fontes ? ` · ${esc(fontes)}` : ''}${d.capa ? '' : ' · CAPA ainda não ligado'}. Resumos feitos pelo Claude: confirma na fonte antes de usar números.</p>
+    </div>`, foot: `<button class="btn" data-close>Fechar</button>${Sync.on() ? `<button class="btn pri" data-prepgo2>${ico('refresh', 'sm')} Atualizar</button>` : ''}` });
+    sh.el.querySelector('[data-prepgo2]')?.addEventListener('click', () => { sh.close(); runPrep(m); });
+  });
+}
+async function runPrep(m) {
+  const key = PREP.key(m); if (PREP.busy.has(key)) return;
+  if (!Sync.on() || !navigator.onLine) return toast('Precisa de rede e sessão do Portal');
+  PREP.busy.add(key); renderPrep(m);
+  try { await PREP.generate(m); toast('Preparação pronta'); }
+  catch (e) { console.warn(e); toast(e.message || 'Não foi possível preparar a reunião'); }
+  finally { PREP.busy.delete(key); renderPrep(m); }
+}
 
 const TITLE_RE = /\b(manager|management|director|head|chief|officer|executive|coordinator|coordenador|coordenadora|gestor|gestora|diretor|diretora|directora|responsavel|supervisor|lead|president|presidente|vp|vice|account|sales|commercial|comercial|station|airport|network|planning|operations|operacoes|handling|analyst|analista|specialist|especialista|consultant|consultor|consultora|representative|representante|delegado|delegada|customer|partnership|partnerships|development|marketing|cargo|ground|services|key|regional|country|area|general|senior|junior|assistant|assistente|administrator|engineer|engenheiro|engenheira|tecnico|tecnica|team|leader|duty)\b/;
 const ADDR_RE = /\b(rua|avenida|av\.?|street|st\.|road|rd\.|praca|largo|edificio|building|floor|piso|andar|lote|apartado|codigo postal|po box|zip|bp|cedex)\b/;
@@ -1459,6 +1579,8 @@ function viewMeeting(id) {
         ${m.icsStatus === 'CANCELLED' || m.icsStatus === 'TENTATIVE' ? `<div class="locline ${m.icsStatus === 'CANCELLED' ? 'cancel' : ''}">${ico(m.icsStatus === 'CANCELLED' ? 'x' : 'cal', 'sm')} ${m.icsStatus === 'CANCELLED' ? 'Cancelada na agenda' : 'Por confirmar na agenda'}</div>` : ''}
       </div>
 
+      <div class="sec prep" id="prep" hidden></div>
+
       <div class="sec"><h3>${ico('users', 'sm')} Participantes da companhia</h3>
         <div class="people" id="people"></div>
         <div class="acts-row"><button class="btn" data-card>${ico('scan', 'sm')} Cartão de visita</button><button class="btn" data-pickc>${ico('user', 'sm')} Contacto</button></div>
@@ -1514,7 +1636,7 @@ function viewMeeting(id) {
   const changed = () => { touchMeeting(m); refreshSubject(); refreshHeader(); if (desk) refreshAside(); };
 
   const refreshRaw = () => { const n = splitBlocks(m.raw).length; $('#raw-count').textContent = n ? plural(n, 'linha', 'linhas') : ''; const b = $('#b-org'); b.disabled = !n; b.innerHTML = `${ico('list', 'sm')} Organizar por temas${n ? ` (${n})` : ''}`; };
-  renderPeople(m); renderTopics(m); renderPhotos(m); refreshHeader(); refreshRaw();
+  renderPeople(m); renderTopics(m); renderPhotos(m); refreshHeader(); refreshRaw(); renderPrep(m);
   const afterNotes = () => { $('#f-raw').value = m.raw || ''; grow($('#f-raw')); refreshRaw(); renderTopics(m); changed(); };
   if (desk) renderAside(m);
 
@@ -1534,7 +1656,10 @@ function viewMeeting(id) {
   view.onclick = async (e) => {
     const t = e.target;
     if (t.closest('[data-back]')) { await flushSaves(); return goBack('#/'); }
-    if (t.closest('[data-air]')) return pickAirline((a) => { m.airlineCode = a.code; m.airlineName = a.name; changed(); }, m.airlineName || (m.plannedPeople || []).map((x) => x.company).find(Boolean) || '');
+    if (t.closest('[data-prepgo]')) return runPrep(m);
+    if (t.closest('[data-prepall]')) return prepSheet(m);
+    if (t.closest('.nrow')) return;
+    if (t.closest('[data-air]')) return pickAirline((a) => { m.airlineCode = a.code; m.airlineName = a.name; changed(); renderPrep(m); }, m.airlineName || (m.plannedPeople || []).map((x) => x.company).find(Boolean) || '');
     if (t.closest('[data-addscope]')) return addScope();
     const rs = t.closest('[data-rmscope]'); if (rs) { m.scope = scopeOf(m).filter((c) => c !== rs.dataset.rmscope); return changed(); }
     if (t.closest('[data-card]')) return scanCard(m, () => { renderPeople(m); changed(); });
@@ -2147,6 +2272,7 @@ async function viewSettings() {
       <div class="field"><label class="lbl">O teu nome (participante ANA)</label><input class="inp" data-s="ownerName" value="${esc(st.ownerName)}" placeholder="Ex.: Nuno Silva"></div>
       <div class="grid2"><div class="field"><label class="lbl">Prefixo do Subject</label><input class="inp" data-s="subjectPrefix" value="${esc(st.subjectPrefix)}" placeholder="Meeting"></div>
       <div class="field"><label class="lbl">Aeroporto no Subject</label><input class="inp" data-s="airportCode" value="${esc(st.airportCode)}" maxlength="3" style="text-transform:uppercase" placeholder="OPO"></div></div>
+      <div class="field"><label class="lbl">Aeroportos concorrentes <span class="faint" style="font-weight:500">(para a preparação das reuniões)</span></label><input class="inp" data-s="competitors" value="${esc(st.competitors)}" style="text-transform:uppercase" placeholder="LIS, FAO, VGO, SCQ"></div>
       <div class="field"><label class="lbl">Geographical Scope por defeito</label><input class="inp" data-s="defaultScope" value="${esc(st.defaultScope)}" style="text-transform:uppercase" placeholder="OPO (vários: OPO, LIS)"></div>
       <p class="faint" style="font-size:12.5px;margin:0">Exemplo: <code style="font-family:var(--mono)">${esc(st.subjectPrefix || 'Meeting')}_${esc(st.airportCode || 'OPO')}_TP_Slots e planeamento</code></p>
       <label class="check" style="margin-top:8px"><input type="checkbox" class="ck" data-sb="showLogos" ${st.showLogos !== false ? 'checked' : ''}> Mostrar logótipos das companhias <span class="faint" style="font-size:12.5px">(carregados do Google pelo código IATA; ficam guardados para usar sem rede)</span></label>

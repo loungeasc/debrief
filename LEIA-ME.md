@@ -58,6 +58,17 @@ Configuração (uma vez):
 
 Custo aproximado: ~0,015 USD por foto de notas com o Sonnet.
 
+## Preparação da reunião (notícias)
+
+Em cada reunião há uma secção **Preparação**: notícias da companhia que contam para a negociação (frota, rotas, finanças, estratégia, operações, Portugal), cada uma com «porque importa» para o aeroporto, pontos para levar à reunião e o resumo das reuniões anteriores com essa companhia. Fica guardada por companhia (partilhada com o colega) e disponível sem rede depois de aberta; ↻ atualiza.
+
+Fontes: CAPA (RSS da subscrição), Aeroroutes, AeroTime, Simple Flying, FlightGlobal, Airlines (IATA), anna.aero, aeroTELEGRAPH, AirlineGeeks, Aviation24.be, Aviación al Día, Ambitur, Preferente, Hosteltur, Jornal de Negócios, ECO e Google News. Uma tarefa no Supabase lê os feeds de hora a hora e guarda-os (200 dias), por isso o histórico vai crescendo. O Claude Sonnet escolhe e resume (~0,05 USD por preparação). Aeroportos concorrentes em Definições → Predefinições.
+
+Configuração (uma vez):
+1. SQL Editor → corre `supabase/03_preparacao.sql` (arquivo de notícias, preparações e a tarefa de hora a hora).
+2. Edge Functions → Secrets → `CAPA_RSS_URL` = endereço do feed RSS do CAPA (vários: um por linha). Não o ponhas no código: costuma ter um código pessoal.
+3. A função `debrief-noticias` (código em `supabase/functions/debrief-noticias/`) tem de estar publicada.
+
 ## Passar do telemóvel para o portátil
 
 Com a conta do Portal isto já é automático. Sem conta: Exportar → **Exportar cópia** (ficheiro `.json` com tudo, incluindo fotos) → envia para ti (AirDrop, email, Files) → no portátil, Exportar → **Importar cópia**. Junta sem duplicar.
