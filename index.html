@@ -157,6 +157,16 @@ textarea.inp{resize:vertical;line-height:1.5}
 .row .metaline{min-width:0}
 .row .metaline .loc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 .row .when{font-size:13.5px;color:var(--ink-2);margin-top:1px;font-variant-numeric:tabular-nums}
+.tbl th.sortable{cursor:pointer;user-select:none}
+.tbl th.sortable:hover{color:var(--ink)}
+.tbl th .arr{display:inline-block;width:10px;margin-left:3px;opacity:.35;font-size:10px}
+.tbl th.sorted{color:var(--ink)}
+.tbl th.sorted .arr{opacity:1;color:var(--accent)}
+.colmenu{position:relative}
+.colpanel{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:8px 12px 10px;min-width:220px}
+.colpanel .check{padding:5px 0;font-size:14px}
+.colpanel .foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:6px;padding-top:8px;font-size:12px;color:var(--ink-3)}
+.tbl .names{max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
 .tbl .loc{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
 .empty{text-align:center;padding:48px 20px;color:var(--ink-2)}
 .empty h2{font-size:18px;color:var(--ink);margin:14px 0 6px}
@@ -171,10 +181,34 @@ textarea.inp{resize:vertical;line-height:1.5}
 .banner .acts{display:flex;gap:8px;margin-top:8px}
 
 /* table (backoffice) */
-.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 14px}
-.toolbar .search{flex:1;min-width:220px;max-width:360px}
-.toolbar select.inp,.toolbar input[type=date].inp{width:auto;min-width:150px}
-.tbl-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;margin:4px 0 14px}
+.toolbar .search{flex:1 1 220px;min-width:140px;max-width:360px}
+.toolbar select.inp{width:auto;min-width:0;max-width:210px;flex:0 1 auto;text-overflow:ellipsis}
+.toolbar2{display:flex;gap:10px;align-items:center;margin:-4px 0 14px;flex-wrap:wrap}
+.toolbar2 input[type=date].inp{width:auto;min-width:150px}
+.tbl-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;overflow-x:auto}
+@media (min-width:960px) and (max-width:1279px){
+  .side{width:214px;padding:20px 12px 14px}
+  .page{padding:0 24px 32px}
+  .top{padding:20px 24px 12px;margin:0 -24px 8px}
+  .toolbar{gap:8px}
+  .toolbar select.inp{max-width:172px;padding-left:10px}
+  .colmenu .btxt{display:none}
+  .colmenu [data-colmenu]{width:44px;padding:0;justify-content:center}
+  .tbl th,.tbl td{padding-left:9px;padding-right:9px}
+  .tbl .subj{max-width:190px}
+  .tbl .loc{max-width:160px}
+  .tbl .cellair{max-width:180px}
+}
+.tbl .cellair{white-space:nowrap;overflow:hidden}
+.tbl .cellair .an{min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media (min-width:960px) and (max-width:1100px){
+  .tbl th,.tbl td{padding-left:8px;padding-right:8px}
+  .tbl .cellair .badge{display:none}
+  .tbl .cellair{max-width:150px}
+  .tbl .loc{max-width:125px}
+  .tbl .subj{max-width:150px}
+}
 .tbl{width:100%;border-collapse:collapse;font-size:14px}
 .tbl th{text-align:left;font-size:12px;font-weight:650;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap}
 .tbl td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:middle}
@@ -320,6 +354,9 @@ body.gate main{padding-bottom:0}
 .syncst.off::before{background:var(--ink-3)}
 .syncst.err::before{background:var(--danger)}
 .syncst.local::before{display:none}
+.syncst.dot{font-size:0;width:26px;height:38px;justify-content:center;cursor:pointer;flex:none}
+.syncst.dot::before{width:10px;height:10px}
+.top .ver{font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums}
 .top .syncst{margin-top:2px}
 /* settings / export */
 .setrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -337,6 +374,19 @@ body.gate main{padding-bottom:0}
 .check{display:flex;align-items:center;gap:10px;font-size:14.5px;padding:6px 0;cursor:pointer}
 .two{display:grid;gap:12px}
 @media (min-width:960px){.two{grid-template-columns:1fr 1fr;align-items:start}}
+
+/* tabela em iPad horizontal / portáteis pequenos (no fim para prevalecer) */
+@media (min-width:960px) and (max-width:1279px){
+  .tbl .subj{max-width:180px}
+  .tbl .loc{max-width:150px}
+  .tbl th{font-size:11px}
+}
+@media (min-width:960px) and (max-width:1100px){
+  .tbl .subj{max-width:125px}
+  .tbl .loc{max-width:110px}
+  .tbl .cellair{max-width:130px}
+  .tbl th{letter-spacing:.02em}
+}
 </style>
 </head>
 <body>
@@ -390,7 +440,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.3';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -629,7 +679,13 @@ const Sync = {
     if (n) return { cls: 'busy', text: `${n} por enviar` };
     return { cls: '', text: this.lastOk ? `Sincronizado ${fmtAgoShort(this.lastOk)}` : 'Sincronizado' };
   },
-  render() { const l = this.label(); $$('.syncst').forEach((el) => { el.className = 'syncst ' + l.cls; el.textContent = l.text; }); },
+  render() {
+    const l = this.label();
+    $$('.syncst').forEach((el) => {
+      if (el.dataset.dot != null) { el.className = 'syncst dot ' + l.cls; el.title = l.text; el.setAttribute('aria-label', l.text); el.textContent = ''; }
+      else { el.className = 'syncst ' + l.cls; el.textContent = l.text; }
+    });
+  },
 };
 function fmtAgoShort(ts) { const s = Math.round((Date.now() - ts) / 1000); if (s < 60) return 'agora'; const m = Math.round(s / 60); if (m < 60) return `há ${m} min`; const h = Math.round(m / 60); return h < 24 ? `há ${h} h` : `há ${Math.round(h / 24)} d`; }
 setInterval(() => Sync.render(), 30000);
@@ -992,7 +1048,7 @@ function buildDescription(m) {
 }
 function meetingWarnings(m) {
   const w = [];
-  if (!m.airlineName) w.push('Falta escolher a companhia');
+  if (!m.airlineName) w.push('Falta a companhia ou entidade');
   if (!m.contactIds.length) w.push('Falta o contacto (o campo Name é obrigatório)');
   if (!m.topics.some((t) => (t.text || '').trim()) && !(m.raw || '').trim()) w.push('Ainda não há notas nem temas');
   if ((m.raw || '').trim()) w.push('Há notas por organizar (vão para os Comments como «Notas»)');
@@ -1150,14 +1206,27 @@ function route() {
 /* =====================================================================
    VISTA: lista de reuniões
    ===================================================================== */
+function periodRange(f) {
+  const t = new Date(); const d = (x) => ymd(x); const add = (n) => { const x = new Date(t); x.setDate(x.getDate() + n); return x; };
+  switch (f.period || 'all') {
+    case 'today': return [d(t), d(t)];
+    case 'next7': return [d(t), d(add(7))];
+    case 'week': { const dow = (t.getDay() + 6) % 7; return [d(add(-dow)), d(add(6 - dow))]; }
+    case 'month': return [d(new Date(t.getFullYear(), t.getMonth(), 1)), d(new Date(t.getFullYear(), t.getMonth() + 1, 0))];
+    case 'last30': return [d(add(-30)), d(t)];
+    case 'custom': return [f.from || '', f.to || ''];
+    default: return ['', ''];
+  }
+}
 function filteredMeetings() {
   const f = S.list; const q = norm(f.q);
   return S.meetings.filter((m) => {
     if (!inState(m, f.status)) return false;
     if (f.airline && airlineKey({ code: m.airlineCode, name: m.airlineName }) !== f.airline) return false;
     const day = (m.start || '').slice(0, 10);
-    if (f.from && day < f.from) return false;
-    if (f.to && day > f.to) return false;
+    const [pf, pt] = periodRange(f);
+    if (pf && day < pf) return false;
+    if (pt && day > pt) return false;
     if (q) {
       const hay = norm([m.airlineName, m.airlineCode, subjectOf(m), m.raw, m.nextSteps, m.internal, ...m.topics.map((t) => t.name + ' ' + t.text), ...m.contactIds.map((id) => contactName(getC(id)))].join(' '));
       if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
@@ -1200,6 +1269,27 @@ function topBanners() {
   if (Sync.mode !== 'cloud' && n >= 3 && stale) h += `<div class="banner warn">${ico('db')}<div class="grow"><b>Faz uma cópia de segurança</b>Os dados existem só neste dispositivo. Última cópia: ${ago(S.settings.lastBackupAt)}.<div class="acts"><button class="btn sm" data-backup>Fazer cópia agora</button></div></div></div>`;
   return h;
 }
+const STATE_ORDER = ['planned', 'tentative', 'torecord', 'draft', 'ready', 'exported', 'changed', 'cancelled'];
+const TABLE_COLS = [
+  { k: 'data', l: 'Data', cls: 'num', def: true, v: (m) => m.start || '', h: (m) => { const d = parseLocal(m.start); return d ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}${d.getFullYear() !== new Date().getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''}` : '—'; } },
+  { k: 'hora', l: 'Hora', cls: 'num', def: true, v: (m) => (m.start || '').slice(11, 16), h: (m) => fmtTime(m.start) },
+  { k: 'companhia', l: 'Companhia', def: true, v: (m) => norm(m.airlineName), h: (m) => `<div class="cellair">${badge(m.airlineCode, true)}<span class="an">${esc(m.airlineName || '—')}</span></div>` },
+  { k: 'local', l: 'Local', def: true, v: (m) => norm(m.location), h: (m) => `<div class="loc">${esc(m.location || '—')}</div>` },
+  { k: 'assunto', l: 'Assunto', def: true, v: (m) => norm(subjectOf(m)), h: (m) => `<div class="subj">${esc(subjectOf(m))}</div>` },
+  { k: 'contactos', l: 'Contactos', def: false, v: (m) => norm(m.contactIds.map((id) => contactName(getC(id))).join(', ')), h: (m) => `<div class="names">${esc(m.contactIds.map((id) => contactName(getC(id))).join(', ') || (m.plannedPeople || []).map((x) => x.name).join(', ') || '—')}</div>` },
+  { k: 'ana', l: 'Participantes ANA', def: false, v: (m) => norm(m.internal), h: (m) => `<div class="names">${esc(m.internal || '—')}</div>` },
+  { k: 'temas', l: 'Temas', def: false, v: (m) => m.topics.length, h: (m) => `<div class="names">${esc(m.topics.map((t) => t.name).join(', ') || '—')}</div>` },
+  { k: 'fotos', l: 'Fotos', cls: 'num', def: false, v: (m) => m.photoIds.length, h: (m) => String(m.photoIds.length || '—') },
+  { k: 'autor', l: 'Criada por', def: false, v: (m) => norm(m.createdByName), h: (m) => esc(m.createdByName || '—') },
+  { k: 'estado', l: 'Estado', def: true, v: (m) => STATE_ORDER.indexOf(stateOf(m)), h: (m) => statusPill(m) },
+];
+const visibleCols = () => { const v = S.settings.tableCols; const cols = Array.isArray(v) && v.length ? TABLE_COLS.filter((c) => v.includes(c.k)) : TABLE_COLS.filter((c) => c.def); return cols.length ? cols : TABLE_COLS.filter((c) => c.def); };
+function sortRows(list) {
+  const so = S.settings.tableSort; const col = so && TABLE_COLS.find((c) => c.k === so.col); if (!col) return list;
+  const dir = so.dir === 'desc' ? -1 : 1;
+  const empty = (x) => x === '' || x == null;
+  return [...list].sort((a, b) => { const x = col.v(a), y = col.v(b); if (empty(x) !== empty(y)) return empty(x) ? 1 : -1; const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'pt'); return c * dir || (a.start || '').localeCompare(b.start || ''); });
+}
 function viewMeetings() {
   renderChrome('m');
   const f = S.list; const desk = isDesk();
@@ -1214,16 +1304,20 @@ function viewMeetings() {
   if (!S.meetings.length) {
     body = `<div class="empty"><div class="art">${ico('pen', 'lg')}</div><h2>Ainda não há reuniões</h2><p>Logo a seguir a cada reunião, regista os temas, fotografa o cartão de visita e as notas. Exportas para o Salesforce quando chegares ao escritório.</p><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button></div>`;
   } else if (desk) {
-    const sel = f.sel;
+    const sel = f.sel; const cols = visibleCols(); const so = S.settings.tableSort || {}; const rows = sortRows(list);
     body = `
       <div class="toolbar">
         <div class="search">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar companhia, tema, contacto…" value="${esc(f.q)}"></div>
         <select class="inp" id="f-status"><option value="all">Todos os estados · ${counts.all}</option>${shownFilters.map(([k, l]) => `<option value="${k}">${l} · ${counts[k]}</option>`).join('')}</select>
         <select class="inp" id="f-air"><option value="">Todas as companhias</option>${usedAir.map(([k, n]) => `<option value="${esc(k)}">${esc(n)}</option>`).join('')}</select>
-        <input class="inp" type="date" id="f-from" value="${esc(f.from)}" title="Desde"><input class="inp" type="date" id="f-to" value="${esc(f.to)}" title="Até">
+        <select class="inp" id="f-period" title="Período">${[['all', 'Todas as datas'], ['today', 'Hoje'], ['next7', 'Próximos 7 dias'], ['week', 'Esta semana'], ['month', 'Este mês'], ['last30', 'Últimos 30 dias'], ['custom', 'Escolher datas…']].map(([k, l]) => `<option value="${k}" ${(f.period || 'all') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <div class="colmenu" style="margin-left:auto"><button class="btn" data-colmenu aria-expanded="${f.colOpen ? 'true' : 'false'}">${ico('sliders', 'sm')}<span class="btxt">Colunas</span></button>
+          <div class="colpanel ${f.colOpen ? '' : 'hide'}">${TABLE_COLS.map((c) => `<label class="check"><input type="checkbox" class="ck" data-colk="${c.k}" ${cols.some((x) => x.k === c.k) ? 'checked' : ''}> ${c.l}</label>`).join('')}
+          <div class="foot"><span>${cols.length} de ${TABLE_COLS.length}</span><button class="btn sm ghost" data-colreset>Repor</button></div></div></div>
       </div>
-      ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:34px"><input type="checkbox" id="ck-all" ${list.length && list.every((m) => sel.has(m.id)) ? 'checked' : ''} aria-label="Selecionar todas"></th><th>Data</th><th>Hora</th><th>Companhia</th><th>Local</th><th>Assunto</th><th>Estado</th></tr></thead><tbody>
-      ${list.map((m) => `<tr data-id="${m.id}" class="${sel.has(m.id) ? 'sel' : ''}"><td><input type="checkbox" class="ck-row" ${sel.has(m.id) ? 'checked' : ''} aria-label="Selecionar"></td><td class="num">${fmtDateShort(m.start)}</td><td class="num">${fmtTime(m.start)}</td><td><div class="cellair">${badge(m.airlineCode, true)}${esc(m.airlineName || '—')}</div></td><td><div class="loc">${esc(m.location || '—')}</div></td><td><div class="subj">${esc(subjectOf(m))}</div></td><td>${statusPill(m)}</td></tr>`).join('')}
+      ${f.period === 'custom' ? `<div class="toolbar2"><label class="lbl" style="margin:0">De</label><input class="inp" type="date" id="f-from" value="${esc(f.from)}"><label class="lbl" style="margin:0">até</label><input class="inp" type="date" id="f-to" value="${esc(f.to)}"></div>` : ''}
+      ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:34px"><input type="checkbox" id="ck-all" ${list.length && list.every((m) => sel.has(m.id)) ? 'checked' : ''} aria-label="Selecionar todas"></th>${cols.map((c) => `<th class="sortable ${so.col === c.k ? 'sorted' : ''}" data-sortcol="${c.k}" title="Ordenar por ${c.l.toLowerCase()}">${c.l}<span class="arr">${so.col === c.k ? (so.dir === 'desc' ? '▼' : '▲') : '▲'}</span></th>`).join('')}</tr></thead><tbody>
+      ${rows.map((m) => `<tr data-id="${m.id}" class="${sel.has(m.id) ? 'sel' : ''}"><td><input type="checkbox" class="ck-row" ${sel.has(m.id) ? 'checked' : ''} aria-label="Selecionar"></td>${cols.map((c) => `<td${c.cls ? ` class="${c.cls}"` : ''}>${c.h(m)}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>` : `<div class="empty"><p>Nenhuma reunião corresponde aos filtros.</p></div>`}
       ${sel.size ? `<div class="bulk"><span>${plural(sel.size, 'selecionada', 'selecionadas')}</span><button class="btn sm" data-bulk="export">${ico('download', 'sm')} Exportar CSV</button><button class="btn sm" data-bulk="ready">Marcar prontas</button><button class="btn sm" data-bulk="exported">${ico('check', 'sm')} Marcar exportadas</button><button class="btn sm" data-bulk="delete">${ico('trash', 'sm')}</button><button class="btn sm" data-bulk="clear">${ico('x', 'sm')}</button></div>` : ''}`;
   } else {
@@ -1242,14 +1336,20 @@ function viewMeetings() {
         <div class="meta">${statusPill(m)}</div></a>`).join('')}</div>`).join('') : `<div class="empty"><p>Nada para mostrar.</p></div>`}`;
   }
 
-  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.pending} por exportar</small>` : ''}${!desk && Sync.mode === 'cloud' ? '<small><span class="syncst"></span></small>' : ''}</h1>${calUrl() ? (desk ? `<button class="btn" data-calsync title="Ler outra vez o calendário">${ico('refresh', 'sm')} Agenda</button>` : `<button class="ibtn solid" data-calsync aria-label="Atualizar agenda" title="Atualizar agenda">${ico('refresh')}</button>`) : ''}${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
+  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.pending} por exportar</small>` : ''}</h1>${!desk && Sync.mode === 'cloud' ? '<span class="syncst dot" data-dot role="button" tabindex="0"></span>' : ''}${calUrl() ? (desk ? `<button class="btn" data-calsync title="Ler outra vez o calendário">${ico('refresh', 'sm')} Agenda</button>` : `<button class="ibtn solid" data-calsync aria-label="Atualizar agenda" title="Atualizar agenda">${ico('refresh')}</button>`) : ''}${!desk && Sync.on() ? `<button class="ibtn solid" data-logout2 aria-label="Terminar sessão" title="Terminar sessão">${ico('logout')}</button>` : ''}${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
 
   const st = $('#f-status'); if (st) st.value = f.status;
+  $$('[data-colk]').forEach((cb) => cb.addEventListener('change', async () => {
+    const keys = $$('[data-colk]').filter((x) => x.checked).map((x) => x.dataset.colk);
+    if (!keys.length) { cb.checked = true; return toast('Deixa pelo menos uma coluna'); }
+    S.settings.tableCols = keys; await saveSettings(); viewMeetings();
+  }));
   const fa = $('#f-air'); if (fa) fa.value = f.airline;
   const rerender = () => { viewMeetings(); const q = $('#q'); if (q) { q.focus(); const n = q.value.length; try { q.setSelectionRange(n, n); } catch (e) {} } };
   $('#q')?.addEventListener('input', debounce((e) => { f.q = e.target.value; rerender(); }, 220));
   st && (st.onchange = () => { f.status = st.value; viewMeetings(); });
   fa && (fa.onchange = () => { f.airline = fa.value; viewMeetings(); });
+  $('#f-period') && ($('#f-period').onchange = (e) => { f.period = e.target.value; viewMeetings(); });
   $('#f-from') && ($('#f-from').onchange = (e) => { f.from = e.target.value; viewMeetings(); });
   $('#f-to') && ($('#f-to').onchange = (e) => { f.to = e.target.value; viewMeetings(); });
   $('#ck-all') && ($('#ck-all').onchange = (e) => { list.forEach((m) => (e.target.checked ? f.sel.add(m.id) : f.sel.delete(m.id))); viewMeetings(); });
@@ -1258,11 +1358,21 @@ function viewMeetings() {
     const t = e.target;
     if (t.closest('[data-new2]')) return createMeeting();
     if (t.closest('[data-goexport]')) return go('#/exportar');
+    if (t.closest('[data-logout2]')) return confirmSignOut();
+    if (t.closest('[data-dot]')) return toast(Sync.label().text);
     const cs = t.closest('[data-calsync]'); if (cs) { cs.disabled = true; cs.style.opacity = '.5'; await syncCalendar({ manual: true }); return rerenderKeep(); }
     if (t.closest('[data-dismiss-ios]')) { S.settings.iosHintDismissed = true; await saveSettings(); return viewMeetings(); }
     if (t.closest('[data-backup]')) return exportBackup();
     const stb = t.closest('[data-st]'); if (stb) { f.status = stb.dataset.st; return viewMeetings(); }
     const bulk = t.closest('[data-bulk]'); if (bulk) return bulkAction(bulk.dataset.bulk);
+    const sc = t.closest('[data-sortcol]'); if (sc) {
+      const cur = S.settings.tableSort || {}; const k = sc.dataset.sortcol;
+      S.settings.tableSort = cur.col !== k ? { col: k, dir: 'asc' } : cur.dir === 'asc' ? { col: k, dir: 'desc' } : null; // asc → desc → ordem original
+      await saveSettings(); return viewMeetings();
+    }
+    if (t.closest('[data-colmenu]')) { f.colOpen = !f.colOpen; return viewMeetings(); }
+    if (t.closest('[data-colreset]')) { S.settings.tableCols = null; await saveSettings(); return viewMeetings(); }
+    if (f.colOpen && !t.closest('.colmenu')) { f.colOpen = false; viewMeetings(); }
     const tr = t.closest('tr[data-id]');
     if (tr) {
       if (t.classList.contains('ck-row') || t.closest('td:first-child')) { const id = tr.dataset.id; f.sel.has(id) ? f.sel.delete(id) : f.sel.add(id); return viewMeetings(); }
@@ -1354,7 +1464,7 @@ function viewMeeting(id) {
     $('#ed-title').firstChild.textContent = m.airlineName || 'Nova reunião';
     const by = m.createdByName && m.createdByName !== Sync.userName ? ` · criada por ${m.createdByName.split(' ')[0]}` : (m.updatedByName && m.updatedByName !== Sync.userName ? ` · editada por ${m.updatedByName.split(' ')[0]}` : '');
     $('#ed-sub').textContent = `${fmtDay(m.start)} · ${fmtTime(m.start)}${m.status === 'exported' ? ' · exportada ' + fmtTs(m.exportedAt).slice(0, 10) : ''}${by}`;
-    $('#airpick').innerHTML = m.airlineName ? `${badge(m.airlineCode)}<div class="grow"><div class="n">${esc(m.airlineName)}</div><div class="c">${esc(m.airlineCode || 'Sem código IATA')} · tocar para mudar</div></div>${ico('chev')}` : `${badge('')}<div class="grow"><div class="n">Escolher companhia</div><div class="c">Obrigatório para exportar</div></div>${ico('chev')}`;
+    $('#airpick').innerHTML = m.airlineName ? `${badge(m.airlineCode)}<div class="grow"><div class="n">${esc(m.airlineName)}</div><div class="c">${m.airlineCode ? esc(m.airlineCode) + ' · tocar para mudar' : 'Nome livre · tocar para editar'}</div></div>${ico('chev')}` : `${badge('')}<div class="grow"><div class="n">Escolher companhia ou entidade</div><div class="c">Da lista ou com nome livre (ex.: um aeroporto)</div></div>${ico('chev')}`;
     $('#scope').innerHTML = scopeOf(m).length ? scopeOf(m).map((c) => `<span class="chip" style="font-family:var(--mono)">${c}<button class="x ibtn sm" data-rmscope="${c}" aria-label="Retirar ${c}" style="border:0;background:none">${ico('x', 'sm')}</button></span>`).join('') : '<span class="faint" style="font-size:14px">Nenhum</span>';
     const lbl = m.status === 'draft' ? `${ico('check', 'sm')} Marcar como pronta` : m.status === 'ready' ? `${ico('check', 'sm')} Pronta` : `${ico('check', 'sm')} Exportada`;
     for (const b of [$('#st-mob'), $('#st-desk')]) { b.innerHTML = lbl; b.className = 'btn ' + (m.status === 'draft' ? 'dark' : 'ok'); }
@@ -1385,7 +1495,7 @@ function viewMeeting(id) {
   view.onclick = async (e) => {
     const t = e.target;
     if (t.closest('[data-back]')) { await flushSaves(); return goBack('#/'); }
-    if (t.closest('[data-air]')) return pickAirline((a) => { m.airlineCode = a.code; m.airlineName = a.name; changed(); });
+    if (t.closest('[data-air]')) return pickAirline((a) => { m.airlineCode = a.code; m.airlineName = a.name; changed(); }, m.airlineName || (m.plannedPeople || []).map((x) => x.company).find(Boolean) || '');
     if (t.closest('[data-addscope]')) return addScope();
     const rs = t.closest('[data-rmscope]'); if (rs) { m.scope = scopeOf(m).filter((c) => c !== rs.dataset.rmscope); return changed(); }
     if (t.closest('[data-card]')) return scanCard(m, () => { renderPeople(m); changed(); });
@@ -1588,11 +1698,13 @@ function fullText(m) {
 }
 
 /* ---------- escolher companhia */
-function pickAirline(onPick) {
+function pickAirline(onPick, current = '') {
   const freq = new Map(); for (const m of S.meetings) if (m.airlineName) { const k = airlineKey({ code: m.airlineCode, name: m.airlineName }); freq.set(k, (freq.get(k) || 0) + 1); }
   const all = airlines();
-  const sh = sheet({ title: 'Companhia', body: `<div class="search" style="margin-bottom:8px">${ico('search')}<input class="inp" type="search" id="aq" placeholder="Nome ou código IATA (ex.: TP, Ryanair)" autocomplete="off"></div><div id="alist"></div>` });
+  const sh = sheet({ title: 'Companhia ou entidade', body: `<div class="search" style="margin-bottom:6px">${ico('search')}<input class="inp" type="search" id="aq" placeholder="Nome ou código IATA (ex.: TP, Ryanair, Aeroporto de Billund)" autocomplete="off"></div><p class="hint" style="margin:0 0 8px">Se não for uma companhia (aeroporto, operador turístico, entidade…), escreve o nome e escolhe «Usar este nome».</p><div id="alist"></div>` });
   const list = sh.el.querySelector('#alist'); const q = sh.el.querySelector('#aq');
+  // nome livre já usado (não é uma companhia da lista): começa preenchido para editar
+  if (current && !all.some((a) => norm(a.name) === norm(current))) q.value = current;
   const row = (a) => `<button class="pickrow" data-k="${esc(airlineKey(a))}">${badge(a.code)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.code || 'Sem código')}${a.custom ? ' · adicionada por ti' : ''}</div></div></button>`;
   const render = () => {
     const s = norm(q.value);
@@ -1604,13 +1716,16 @@ function pickAirline(onPick) {
     } else {
       const hits = all.filter((a) => norm(a.code) === s || norm(a.name).includes(s) || norm(a.code).startsWith(s)).sort((a, b) => (norm(b.code) === s) - (norm(a.code) === s) || a.name.localeCompare(b.name));
       html += hits.map(row).join('');
-      html += `<button class="pickrow" data-newair>${ico('plus')}<div class="grow"><div class="t">Adicionar «${esc(q.value.trim())}»</div><div class="s">Companhia que não está na lista</div></div></button>`;
+      html += `<button class="pickrow" data-usename>${ico('pen')}<div class="grow"><div class="t">Usar este nome: «${esc(q.value.trim())}»</div><div class="s">Para aeroportos, operadores e outras entidades — só nesta reunião</div></div></button>`;
+      html += `<button class="pickrow" data-newair>${ico('plus')}<div class="grow"><div class="t">Adicionar «${esc(q.value.trim())}» às companhias</div><div class="s">Fica na lista, com código IATA, para usares noutras reuniões</div></div></button>`;
     }
     list.innerHTML = html;
   };
   render(); q.addEventListener('input', render);
-  if (!isTouch()) setTimeout(() => q.focus(), 60);
+  if (!isTouch()) setTimeout(() => { q.focus(); q.select(); }, 60);
+  q.addEventListener('keydown', (e) => { if (e.key === 'Enter' && q.value.trim()) { const exact = all.find((a) => norm(a.name) === norm(q.value) || norm(a.code) === norm(q.value)); sh.close(); onPick(exact || { code: '', name: q.value.trim() }); } });
   list.onclick = async (e) => {
+    if (e.target.closest('[data-usename]')) { const n = q.value.trim(); if (!n) return; sh.close(); return onPick({ code: '', name: n }); }
     const r = e.target.closest('[data-k]');
     if (r) { const a = all.find((x) => airlineKey(x) === r.dataset.k); sh.close(); return onPick(a); }
     if (e.target.closest('[data-newair]')) {
@@ -1673,7 +1788,7 @@ function contactFormHTML(c) {
 function bindContactForm(root, c, touched) {
   root.addEventListener('input', (e) => { const k = e.target.dataset.cf; if (k) { c[k] = e.target.value; touched.add(k); if (k === 'email') checkDup(root, c); } });
   root.addEventListener('click', (e) => {
-    if (e.target.closest('[data-cair]')) pickAirline((a) => { c.airlineCode = a.code; c.company = a.name; touched.add('company'); const b = root.querySelector('[data-cair]'); b.innerHTML = `${badge(a.code, true)}<div class="grow"><div class="n" style="font-size:15px">${esc(a.name)}</div></div>${ico('chev')}`; });
+    if (e.target.closest('[data-cair]')) pickAirline((a) => { c.airlineCode = a.code; c.company = a.name; touched.add('company'); const b = root.querySelector('[data-cair]'); b.innerHTML = `${badge(a.code, true)}<div class="grow"><div class="n" style="font-size:15px">${esc(a.name)}</div></div>${ico('chev')}`; }, c.company || '');
     if (e.target.closest('[data-cardview]') && c.cardPhotoId) openViewer([c.cardPhotoId], 0);
   });
   hydrateImgs(root);
@@ -1958,7 +2073,7 @@ async function viewSettings() {
   const st = S.settings;
   const usedKeys = new Set(S.meetings.filter((m) => m.airlineName).map((m) => airlineKey({ code: m.airlineCode, name: m.airlineName })));
   const shown = airlines().filter((a) => usedKeys.has(airlineKey(a)) || st.airlineSf?.[airlineKey(a)] || a.custom).sort((a, b) => a.name.localeCompare(b.name));
-  view.innerHTML = `<div class="page"><div class="top"><h1>Definições</h1></div><div class="two"><div>
+  view.innerHTML = `<div class="page"><div class="top"><h1>Definições</h1><span class="ver">v${APP_VERSION}</span></div><div class="two"><div>
     <div class="sec"><h3>${ico('user', 'sm')} Predefinições</h3>
       <div class="field"><label class="lbl">O teu nome (participante ANA)</label><input class="inp" data-s="ownerName" value="${esc(st.ownerName)}" placeholder="Ex.: Nuno Silva"></div>
       <div class="grid2"><div class="field"><label class="lbl">Prefixo do Subject</label><input class="inp" data-s="subjectPrefix" value="${esc(st.subjectPrefix)}" placeholder="Meeting"></div>
