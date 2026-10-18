@@ -1,0 +1,1619 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141821">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Debrief">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Debrief</title>
+<style>
+:root{
+  --bg:#f5f4f0; --surface:#ffffff; --surface-2:#f0efea; --surface-3:#e8e6e0;
+  --ink:#17181b; --ink-2:#55585f; --ink-3:#8a8d94; --line:#e4e2dc; --line-2:#d6d3cc;
+  --accent:#3554d1; --accent-ink:#ffffff; --accent-soft:#e9edfb;
+  --hot:#ff8a3d;
+  --ok:#1d7f48; --ok-soft:#e3f3e9; --warn:#a35f00; --warn-soft:#fbf0dc; --danger:#c2372c; --danger-soft:#fbe7e5;
+  --shadow:0 1px 2px rgba(20,24,33,.05),0 6px 24px rgba(20,24,33,.06);
+  --r:14px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1013; --surface:#17181c; --surface-2:#1e2024; --surface-3:#272a2f;
+  --ink:#eceae5; --ink-2:#a6a8ad; --ink-3:#74777d; --line:#26282d; --line-2:#33363c;
+  --accent:#8aa2ff; --accent-ink:#0c1230; --accent-soft:#1c2442;
+  --ok:#5fcf8f; --ok-soft:#143322; --warn:#f0b35a; --warn-soft:#3a2a10; --danger:#ff7b6e; --danger-soft:#3b1714;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35);
+  color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.i.sm{width:16px;height:16px}
+.i.lg{width:24px;height:24px}
+.muted{color:var(--ink-2)} .faint{color:var(--ink-3)} .tnum{font-variant-numeric:tabular-nums}
+.hide{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- layout */
+.app{display:flex;min-height:100vh;min-height:100dvh}
+.side{display:none}
+main{flex:1;min-width:0;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+body.editing main{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+.page{padding:0 16px 24px;max-width:860px;margin:0 auto}
+.top{position:sticky;top:0;z-index:15;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;margin:0 -16px 6px;display:flex;align-items:center;gap:8px;border-bottom:1px solid transparent;transition:border-color .2s}
+.top.scrolled{border-bottom-color:var(--line)}
+.top h1{font-size:22px;letter-spacing:-.01em;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top h1 small{display:block;font-size:12px;font-weight:500;color:var(--ink-3);letter-spacing:0}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:flex-end;background:var(--surface);background:color-mix(in srgb,var(--surface) 90%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+body.editing .tabbar{display:none}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;color:var(--ink-3);text-decoration:none;padding:5px 0 3px;border:0;background:none}
+.tab.on{color:var(--ink)}
+.tab-new{flex:1;display:flex;justify-content:center}
+.tab-new button{width:52px;height:52px;border-radius:18px;border:0;background:var(--ink);color:var(--bg);display:grid;place-items:center;margin-top:-18px;box-shadow:0 6px 18px rgba(20,24,33,.25)}
+.tab-new .i{width:26px;height:26px;stroke-width:2.2}
+
+@media (min-width:960px){
+  .side{display:flex;flex-direction:column;gap:4px;width:252px;flex:none;position:sticky;top:0;height:100vh;height:100dvh;border-right:1px solid var(--line);padding:22px 14px 16px;background:var(--surface)}
+  .tabbar{display:none}
+  main,body.editing main{padding-bottom:0}
+  .page{padding:0 36px 40px;max-width:1240px}
+  .top{padding:22px 36px 14px;margin:0 -36px 10px}
+  .top h1{font-size:26px}
+}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 18px}
+.brand img{width:34px;height:34px;border-radius:9px}
+.brand b{font-size:16px;letter-spacing:-.01em;display:block}
+.brand span{font-size:12px;color:var(--ink-3)}
+.nav{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;color:var(--ink-2);text-decoration:none;font-weight:500}
+.nav:hover{background:var(--surface-2)}
+.nav.on{background:var(--surface-2);color:var(--ink)}
+.nav .count{margin-left:auto;font-size:12px;color:var(--ink-3)}
+.side .btn.pri{margin:0 4px 14px;justify-content:center}
+.side-foot{margin-top:auto;padding:12px 10px 0;border-top:1px solid var(--line);font-size:12px;color:var(--ink-3);display:flex;flex-direction:column;gap:6px}
+.side-foot .lock{display:flex;gap:6px;align-items:center}
+
+/* ---------- controls */
+.btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:14.5px;white-space:nowrap;text-decoration:none;color:var(--ink);transition:transform .08s,background .15s}
+.btn:active{transform:scale(.98)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.ok{background:var(--ok-soft);border-color:transparent;color:var(--ok)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.danger{color:var(--danger)}
+.btn.sm{height:34px;padding:0 11px;border-radius:10px;font-size:13.5px}
+.btn.block{width:100%;justify-content:center}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.ibtn{width:38px;height:38px;border-radius:11px;border:0;background:transparent;display:inline-grid;place-items:center;color:var(--ink-2);flex:none}
+.ibtn:hover{background:var(--surface-2)}
+.ibtn.sm{width:32px;height:32px;border-radius:9px}
+.ibtn.solid{background:var(--surface);border:1px solid var(--line)}
+label.lbl{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);margin:0 0 6px}
+.inp,select.inp,textarea.inp{width:100%;font-size:16px;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:var(--surface);outline:none;min-height:44px;-webkit-appearance:none;appearance:none}
+select.inp{background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);background-position:calc(100% - 17px) 19px,calc(100% - 12px) 19px;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea.inp{resize:vertical;line-height:1.5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1.4fr 1fr;gap:10px}
+.field{margin-bottom:12px}
+.seg{display:flex;background:var(--surface-2);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;height:38px;border:0;border-radius:9px;background:transparent;font-weight:600;font-size:14px;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:6px}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.search{position:relative}
+.search .i{position:absolute;left:12px;top:12px;color:var(--ink-3)}
+.search .inp{padding-left:40px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:500;color:var(--ink)}
+.chip.add{border-style:dashed;color:var(--ink-2);background:transparent}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip .x{margin-right:-5px;width:22px;height:22px;border-radius:99px;display:grid;place-items:center;color:var(--ink-3)}
+.filters{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none;margin:0 -16px;padding-left:16px;padding-right:16px}
+.filters::-webkit-scrollbar{display:none}
+.filters .chip{flex:none}
+
+/* ---------- badges and pills */
+.badge{--h:220;width:40px;height:40px;border-radius:11px;flex:none;display:grid;place-items:center;font:700 12.5px/1 var(--mono);letter-spacing:.02em;background:hsl(var(--h) 55% 93%);color:hsl(var(--h) 50% 30%)}
+.badge.sm{width:30px;height:30px;border-radius:8px;font-size:11px}
+.badge.none{background:var(--surface-2);color:var(--ink-3)}
+@media (prefers-color-scheme:dark){.badge{background:hsl(var(--h) 28% 20%);color:hsl(var(--h) 75% 80%)}}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:99px;font-size:11.5px;font-weight:650;white-space:nowrap;background:var(--surface-2);color:var(--ink-2)}
+.pill::before{content:"";width:6px;height:6px;border-radius:99px;background:currentColor;opacity:.8}
+.pill.ready{background:var(--warn-soft);color:var(--warn)}
+.pill.exported{background:var(--ok-soft);color:var(--ok)}
+.pill.changed{background:var(--danger-soft);color:var(--danger)}
+
+/* ---------- lists */
+.group-h{font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:18px 2px 8px}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line);text-decoration:none;color:inherit;background:none;width:100%;text-align:left;border-left:0;border-right:0;border-bottom:0}
+.row:first-child{border-top:0}
+.row:active{background:var(--surface-2)}
+.row .main{flex:1;min-width:0}
+.row .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .s{font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.row .meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none;font-size:12px;color:var(--ink-3)}
+.row .metaline{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--ink-3);margin-top:4px}
+.row .metaline span{display:inline-flex;align-items:center;gap:3px}
+.empty{text-align:center;padding:48px 20px;color:var(--ink-2)}
+.empty h2{font-size:18px;color:var(--ink);margin:14px 0 6px}
+.empty p{margin:0 auto 18px;max-width:340px}
+.empty .art{width:64px;height:64px;border-radius:18px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto;color:var(--ink-2)}
+.banner{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:var(--r);background:var(--accent-soft);color:var(--ink);margin:4px 0 12px;font-size:14px}
+.banner.warn{background:var(--warn-soft)}
+.banner .i{color:var(--accent);margin-top:1px}
+.banner.warn .i{color:var(--warn)}
+.banner .grow{flex:1}
+.banner b{display:block;margin-bottom:2px}
+.banner .acts{display:flex;gap:8px;margin-top:8px}
+
+/* table (backoffice) */
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 14px}
+.toolbar .search{flex:1;min-width:220px;max-width:360px}
+.toolbar select.inp,.toolbar input[type=date].inp{width:auto;min-width:150px}
+.tbl-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-size:12px;font-weight:650;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap}
+.tbl td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:middle}
+.tbl tr:first-child td{border-top:0}
+.tbl tbody tr{cursor:pointer}
+.tbl tbody tr:hover td{background:var(--surface-2)}
+.tbl tr.sel td{background:var(--accent-soft)}
+.tbl .cellair{display:flex;align-items:center;gap:10px;font-weight:600}
+.tbl .subj{max-width:380px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbl .num{color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl input[type=checkbox],.ck{width:18px;height:18px;accent-color:var(--accent);margin:0;vertical-align:middle}
+.bulk{position:sticky;bottom:16px;margin:14px auto 0;display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--bg);padding:8px 8px 8px 16px;border-radius:14px;box-shadow:var(--shadow);width:max-content;max-width:100%;flex-wrap:wrap}
+.bulk .btn{background:transparent;border-color:rgba(255,255,255,.18);color:var(--bg)}
+@media (prefers-color-scheme:dark){.bulk .btn{border-color:rgba(0,0,0,.2)}}
+
+/* ---------- editor */
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.sec>h3{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin:0 0 12px}
+.sec>h3 .r{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
+.airpick{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:left;min-height:60px}
+.airpick .n{font-weight:650;font-size:16px}
+.airpick .c{font-size:12.5px;color:var(--ink-3)}
+.airpick .grow{flex:1;min-width:0}
+.people{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.person{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.person .av{width:36px;height:36px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;overflow:hidden;flex:none;color:var(--ink-3)}
+.person .av img{width:100%;height:100%;object-fit:cover}
+.person .grow{flex:1;min-width:0;cursor:pointer}
+.person .t{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person .s{font-size:12.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acts-row{display:flex;gap:8px;flex-wrap:wrap}
+.acts-row .btn{flex:1;justify-content:center;min-width:0}
+.topic{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--surface);overflow:hidden}
+.topic:focus-within{border-color:var(--line-2);box-shadow:0 0 0 3px var(--surface-2)}
+.topic-h{display:flex;align-items:center;gap:4px;padding:6px 6px 0 12px}
+.topic-h input{flex:1;min-width:0;border:0;background:transparent;font-weight:700;font-size:15px;padding:6px 0;outline:none}
+.topic textarea{display:block;width:100%;border:0;background:transparent;padding:4px 12px 12px;font-size:16px;line-height:1.5;resize:none;outline:none;min-height:76px}
+.topic textarea::placeholder{color:var(--ink-3)}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.ph{position:relative;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--surface-2);border:0;padding:0}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph.add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--line-2);background:transparent;color:var(--ink-2);font-size:12.5px;font-weight:600}
+.ph.on{outline:2.5px solid var(--accent);outline-offset:1px}
+.subj-row{display:flex;gap:6px;align-items:center}
+.subj-row .inp{flex:1}
+.saved{font-size:12px;color:var(--ink-3);display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.saved::before{content:"";width:6px;height:6px;border-radius:9px;background:var(--ok)}
+.saved.busy::before{background:var(--warn)}
+.actionbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;gap:8px;align-items:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--surface);background:color-mix(in srgb,var(--surface) 92%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line)}
+.actionbar .btn{flex:1;justify-content:center;height:46px}
+.ed-cols{display:block}
+.ed-aside{display:none}
+.ed-desk-acts{display:none}
+@media (min-width:960px){
+  .actionbar{display:none}
+  .ed-desk-acts{display:flex;gap:8px;align-items:center}
+  .ed-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,440px);gap:22px;align-items:start}
+  .ed-aside{display:block;position:sticky;top:96px;max-height:calc(100vh - 116px);overflow:auto;padding-bottom:6px}
+  .ed-cols .sec-photos-mobile{display:none}
+}
+.viewer-inline{border-radius:12px;overflow:hidden;background:var(--surface-2);margin-bottom:10px;cursor:zoom-in}
+.viewer-inline img{width:100%;display:block}
+.sfprev{white-space:pre-wrap;font-size:13.5px;line-height:1.5;background:var(--surface-2);border-radius:10px;padding:12px;max-height:340px;overflow:auto;margin:0;font-family:inherit}
+
+/* ---------- sheets */
+.sheet-back{position:fixed;inset:0;z-index:50;background:rgba(10,12,16,.38);display:flex;align-items:flex-end;justify-content:center;animation:fade .18s ease-out}
+.sheet{width:100%;max-height:90vh;max-height:90dvh;background:var(--bg);border-radius:22px 22px 0 0;display:flex;flex-direction:column;animation:up .26s cubic-bezier(.2,.8,.2,1);box-shadow:var(--shadow)}
+.sheet-h{display:flex;align-items:center;gap:8px;padding:14px 12px 10px 18px;border-bottom:1px solid var(--line)}
+.sheet-h h2{flex:1;font-size:17px;margin:0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sheet-b{overflow:auto;padding:14px 16px calc(18px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.sheet-f{display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--bg)}
+.sheet-f .btn{flex:1;justify-content:center;height:46px}
+@media (min-width:700px){
+  .sheet-back{align-items:center;padding:24px}
+  .sheet{max-width:580px;border-radius:20px;max-height:86vh;animation:pop .2s ease-out}
+  .sheet.wide{max-width:820px}
+  .sheet-b{padding-bottom:18px}.sheet-f{padding-bottom:12px;border-radius:0 0 20px 20px}
+}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes pop{from{transform:scale(.97);opacity:0}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.pickrow{display:flex;align-items:center;gap:12px;width:100%;padding:10px 6px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left}
+.pickrow:last-child{border-bottom:0}
+.pickrow .grow{flex:1;min-width:0}
+.pickrow .t{font-weight:600}
+.pickrow .s{font-size:12.5px;color:var(--ink-3)}
+.sfrow{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.sfrow:last-child{border-bottom:0}
+.sfrow .k{font-size:12px;font-weight:650;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+.sfrow .v{font-size:15px;margin-top:2px;word-break:break-word}
+.sfrow .grow{flex:1;min-width:0}
+.warnlist{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-size:13.5px}
+.warnlist div{display:flex;gap:6px;align-items:center}
+.ocrbox{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--accent-soft);margin-bottom:14px;font-size:14px}
+.ocrbox .bar{height:4px;border-radius:9px;background:var(--surface-3);overflow:hidden;margin-top:6px}
+.ocrbox .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.cardimg{border-radius:12px;overflow:hidden;background:var(--surface-2);margin-bottom:14px;max-height:220px;display:flex;justify-content:center}
+.cardimg img{max-width:100%;max-height:220px;object-fit:contain;display:block}
+details.raw summary{cursor:pointer;font-size:13px;color:var(--ink-2);padding:6px 0}
+details.raw pre{white-space:pre-wrap;font-size:12.5px;background:var(--surface-2);padding:10px;border-radius:10px;margin:6px 0 0}
+.dup{padding:10px 12px;border-radius:12px;background:var(--warn-soft);font-size:14px;margin-bottom:12px;display:flex;gap:10px;align-items:center}
+.dup .grow{flex:1}
+
+/* ---------- viewer, toast */
+.viewer{position:fixed;inset:0;z-index:80;background:#000;display:flex;flex-direction:column;animation:fade .15s}
+.viewer-h{display:flex;gap:8px;align-items:center;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;color:#fff}
+.viewer-h .ibtn{color:#fff}
+.viewer-h .ibtn:hover{background:rgba(255,255,255,.12)}
+.viewer-h span{flex:1;text-align:center;font-size:14px;opacity:.8}
+.viewer-b{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;touch-action:pinch-zoom pan-x pan-y}
+.viewer-b img{max-width:100%;max-height:100%;object-fit:contain}
+.viewer-b.zoom{display:block}
+.viewer-b.zoom img{max-width:none;max-height:none}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:var(--shadow);display:flex;gap:12px;align-items:center;max-width:calc(100vw - 32px);animation:up .2s}
+.toast button{background:none;border:0;color:var(--hot);font-weight:700;padding:0}
+@media (min-width:960px){.toast{bottom:28px}}
+
+/* settings / export */
+.setrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setrow .grow{flex:1;min-width:0}
+.setrow .inp{min-height:40px;padding:8px 10px}
+.kpi{display:flex;gap:10px;margin-bottom:12px}
+.kpi div{flex:1;background:var(--surface-2);border-radius:12px;padding:10px 12px}
+.kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kpi span{font-size:12px;color:var(--ink-2)}
+.how{font-size:14px;color:var(--ink-2)}
+.how ol{padding-left:20px;margin:8px 0}
+.how li{margin-bottom:6px}
+.how code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:5px;color:var(--ink)}
+.check{display:flex;align-items:center;gap:10px;font-size:14.5px;padding:6px 0;cursor:pointer}
+.two{display:grid;gap:12px}
+@media (min-width:960px){.two{grid-template-columns:1fr 1fr;align-items:start}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5h3l1.8-2.5h6.4L17 8.5h3a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.3" r="3.4"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 15.5l-5-5L5.5 20"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20c1.4-3.8 4.3-5.8 7.5-5.8s6.1 2 7.5 5.8"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.2" r="3.4"/><path d="M2.8 19c1-3.4 3.4-5 6.2-5s5.2 1.6 6.2 5"/><path d="M15.5 4.8a3.4 3.4 0 0 1 0 6.7M17.6 14.2c1.9.7 3 2.2 3.6 4.8"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10.8" r="2"/><path d="M5.6 16c.6-1.5 1.6-2.2 2.9-2.2s2.3.7 2.9 2.2M14 10h4.5M14 13.5h3"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6.3 7l.9 12.2a1 1 0 0 0 1 .8h7.6a1 1 0 0 0 1-.8L17.7 7M10 11v5.5M14 11v5.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 18.5v-13M6.5 11L12 5.5l5.5 5.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5.5v13M6.5 13l5.5 5.5 5.5-5.5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 20V9M7 13.5l5-5 5 5M5 4h14"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3.5v11.5M8 7.5l4-4 4 4M5.5 11.5V19a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-7.5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9.5M18.5 7H20M4 17h3.5M12.5 17H20"/><circle cx="16" cy="7" r="2.3"/><circle cx="10" cy="17" r="2.3"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 12.5h8M8 16h5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4.5 12L20 4.5l-4.5 15.5-3.3-6.2z"/><path d="M12.2 13.8L20 4.5"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11.8a7 7 0 0 0-14 0C5 14.7 12 21 12 21z"/><circle cx="12" cy="9.3" r="2.5"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.6c0 4.6-3.2 8.2-7.5 9.4-4.3-1.2-7.5-4.8-7.5-9.4V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15M7.5 12h9"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5.5 4h3.3l1.7 4.4-2.2 1.4a11 11 0 0 0 5.9 5.9l1.4-2.2 4.4 1.7v3.3a1.5 1.5 0 0 1-1.6 1.5C10.6 19.5 4.5 13.4 4 5.6A1.5 1.5 0 0 1 5.5 4z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4.2h-4.2"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M10.5 13.5L3.5 11l1.2-1.6 7.6.6 4.4-5a1.9 1.9 0 0 1 2.8 2.7l-5 4.4.6 7.6-1.6 1.2-2.5-7z"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side" id="side"></aside>
+  <main id="view"></main>
+</div>
+<nav class="tabbar" id="tabbar"></nav>
+<div id="layer"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Debrief — notas de reuniões com companhias aéreas
+   Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
+   ===================================================================== */
+const APP_VERSION = '1.0.0';
+
+/* ---------- utilidades */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const ico = (n, c = '') => `<svg class="i ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const pad = (n) => String(n).padStart(2, '0');
+const toLocalInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const parseLocal = (s) => { if (!s) return null; const [dp, tp = '00:00'] = s.split('T'); const [y, m, d] = dp.split('-').map(Number); const [hh, mm] = tp.split(':').map(Number); return new Date(y, m - 1, d, hh || 0, mm || 0); };
+const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const isDesk = () => window.matchMedia('(min-width: 960px)').matches;
+const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+
+function fmtDay(s) {
+  const d = parseLocal(s); if (!d) return '';
+  const t = new Date(); const y = new Date(); y.setDate(t.getDate() - 1);
+  if (ymd(d) === ymd(t)) return 'Hoje';
+  if (ymd(d) === ymd(y)) return 'Ontem';
+  return d.toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short', year: d.getFullYear() !== t.getFullYear() ? 'numeric' : undefined });
+}
+const fmtTime = (s) => { const d = parseLocal(s); return d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : ''; };
+const fmtDateShort = (s) => { const d = parseLocal(s); return d ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}` : ''; };
+const fmtTs = (ts) => { if (!ts) return '—'; const d = new Date(ts); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+function ago(ts) {
+  if (!ts) return 'nunca';
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  if (days <= 0) return 'hoje'; if (days === 1) return 'ontem'; return `há ${days} dias`;
+}
+function hue(code) { let h = 0; for (const ch of String(code || '?')) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; }
+function badge(code, sm) { const c = (code || '').slice(0, 3); return c ? `<span class="badge ${sm ? 'sm' : ''}" style="--h:${hue(c)}">${esc(c)}</span>` : `<span class="badge none ${sm ? 'sm' : ''}">${ico('plane', 'sm')}</span>`; }
+
+/* ---------- base de dados local */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('debrief', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        ['meetings', 'contacts', 'photos'].forEach((n) => { if (!d.objectStoreNames.contains(n)) d.createObjectStore(n, { keyPath: 'id' }); });
+        if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');
+      };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  req(store, mode, fn) {
+    return new Promise((res, rej) => {
+      const tx = this.db.transaction(store, mode); const st = tx.objectStore(store);
+      const r = fn(st); let out;
+      if (r) r.onsuccess = () => { out = r.result; };
+      tx.oncomplete = () => res(out); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+    });
+  },
+  all(s) { return this.req(s, 'readonly', (st) => st.getAll()); },
+  get(s, k) { return this.req(s, 'readonly', (st) => st.get(k)); },
+  put(s, v, k) { return this.req(s, 'readwrite', (st) => (k === undefined ? st.put(v) : st.put(v, k))); },
+  del(s, k) { return this.req(s, 'readwrite', (st) => st.delete(k)); },
+  clear(s) { return this.req(s, 'readwrite', (st) => st.clear()); },
+};
+
+/* ---------- companhias */
+const AIRLINES_BASE = [
+  ['TP', 'TAP Air Portugal', 'flytap.com tap.pt tapportugal.com'], ['S4', 'Azores Airlines', 'azoresairlines.pt sata.pt'], ['SP', 'SATA Air Açores', 'sata.pt'],
+  ['FR', 'Ryanair', 'ryanair.com'], ['U2', 'easyJet', 'easyjet.com'], ['W6', 'Wizz Air', 'wizzair.com'], ['VY', 'Vueling', 'vueling.com'],
+  ['IB', 'Iberia', 'iberia.com iberia.es'], ['I2', 'Iberia Express', 'iberiaexpress.com'], ['UX', 'Air Europa', 'aireuropa.com'], ['V7', 'Volotea', 'volotea.com'],
+  ['HV', 'Transavia', 'transavia.com'], ['TO', 'Transavia France', 'transavia.fr'], ['AF', 'Air France', 'airfrance.fr airfrance.com'], ['KL', 'KLM', 'klm.com klm.nl'],
+  ['LH', 'Lufthansa', 'lufthansa.com dlh.de'], ['LX', 'SWISS', 'swiss.com'], ['OS', 'Austrian Airlines', 'austrian.com'], ['SN', 'Brussels Airlines', 'brusselsairlines.com'],
+  ['EW', 'Eurowings', 'eurowings.com'], ['EN', 'Air Dolomiti', 'airdolomiti.it'], ['DE', 'Condor', 'condor.com'], ['BA', 'British Airways', 'ba.com britishairways.com'],
+  ['EI', 'Aer Lingus', 'aerlingus.com'], ['LS', 'Jet2.com', 'jet2.com'], ['BY', 'TUI Airways', 'tui.co.uk'], ['X3', 'TUI fly Deutschland', 'tuifly.com'],
+  ['TB', 'TUI fly Belgium', 'tuifly.be'], ['OR', 'TUI fly Netherlands', 'tui.nl'], ['LG', 'Luxair', 'luxair.lu'], ['SK', 'SAS', 'flysas.com sas.se sas.dk sas.no'],
+  ['DY', 'Norwegian', 'norwegian.com'], ['AY', 'Finnair', 'finnair.com'], ['FI', 'Icelandair', 'icelandair.is icelandair.com'], ['BT', 'airBaltic', 'airbaltic.com airbaltic.lv'],
+  ['LO', 'LOT Polish Airlines', 'lot.com lot.pl'], ['AZ', 'ITA Airways', 'ita-airways.com itaspa.com'], ['NO', 'Neos', 'neosair.it'], ['WK', 'Edelweiss', 'flyedelweiss.com'],
+  ['A3', 'Aegean Airlines', 'aegeanair.com'], ['GQ', 'Sky Express', 'skyexpress.gr'], ['JU', 'Air Serbia', 'airserbia.com'], ['OU', 'Croatia Airlines', 'croatiaairlines.hr'],
+  ['RO', 'TAROM', 'tarom.ro'], ['KM', 'KM Malta Airlines', 'kmmaltaairlines.com'], ['QS', 'Smartwings', 'smartwings.com'], ['TK', 'Turkish Airlines', 'thy.com turkishairlines.com'],
+  ['PC', 'Pegasus Airlines', 'flypgs.com'], ['XQ', 'SunExpress', 'sunexpress.com'], ['YW', 'Air Nostrum', 'airnostrum.es'], ['NT', 'Binter', 'bintercanarias.com binter.es'],
+  ['E9', 'Iberojet', 'iberojet.com evelop.com'], ['AT', 'Royal Air Maroc', 'royalairmaroc.com'], ['3O', 'Air Arabia Maroc', 'airarabia.com'], ['AH', 'Air Algérie', 'airalgerie.dz'],
+  ['TU', 'Tunisair', 'tunisair.com.tn'], ['MS', 'EgyptAir', 'egyptair.com'], ['VR', 'Cabo Verde Airlines', 'caboverdeairlines.com'], ['DT', 'TAAG Angola Airlines', 'taag.co.ao taag.com'],
+  ['TM', 'LAM Mozambique Airlines', 'lam.co.mz'], ['ET', 'Ethiopian Airlines', 'ethiopianairlines.com'], ['EK', 'Emirates', 'emirates.com'], ['QR', 'Qatar Airways', 'qatarairways.com.qa qatarairways.com'],
+  ['EY', 'Etihad Airways', 'etihad.ae etihad.com'], ['SV', 'Saudia', 'saudia.com'], ['UA', 'United Airlines', 'united.com'], ['DL', 'Delta Air Lines', 'delta.com'],
+  ['AA', 'American Airlines', 'aa.com'], ['AC', 'Air Canada', 'aircanada.ca aircanada.com'], ['TS', 'Air Transat', 'transat.com airtransat.com'], ['AD', 'Azul', 'voeazul.com.br'],
+  ['G3', 'GOL', 'voegol.com.br'], ['LA', 'LATAM Airlines', 'latam.com'], ['5K', 'Hi Fly', 'hifly.aero'], ['YU', 'EuroAtlantic Airways', 'euroatlantic.pt'],
+  ['WI', 'White Airways', 'whiteairways.com'], ['WT', 'Swiftair', 'swiftair.com'], ['QY', 'DHL (European Air Transport)', 'dhl.com'], ['FX', 'FedEx Express', 'fedex.com'], ['5X', 'UPS Airlines', 'ups.com'],
+];
+const airlineKey = (a) => (a?.code || a?.name || '').toUpperCase();
+function airlines() {
+  const map = new Map();
+  for (const [code, name, dom] of AIRLINES_BASE) map.set(code, { code, name, domains: dom.split(' '), custom: false });
+  for (const c of S.settings.customAirlines || []) map.set(airlineKey(c), { code: c.code || '', name: c.name, domains: (c.domains || '').split(' ').filter(Boolean), custom: true });
+  return [...map.values()];
+}
+const sfAcc = (a) => S.settings.airlineSf?.[airlineKey(a)] || {};
+
+/* ---------- estado */
+const DEFAULT_SETTINGS = {
+  ownerName: '', airportCode: 'OPO', subjectPrefix: 'Meeting', defaultScope: 'OPO', tradeshowOptions: [],
+  topics: ['Operações e pontualidade', 'Slots e planeamento', 'Rotas e desenvolvimento', 'Taxas e incentivos', 'Handling', 'Lounge', 'Passageiros e PMR', 'Infraestruturas', 'Segurança', 'Comercial e retalho', 'Sustentabilidade', 'Outros'],
+  customAirlines: [], airlineSf: {},
+  sfIncludeParticipants: true, sfIncludeInternal: true,
+  sfRecordTypeId: '', sfFlagField: 'Flag__c', sfTradeshowField: 'Type_of_Tradeshow__c', sfScopeField: 'Geographical_Scope__c',
+  lastBackupAt: 0, iosHintDismissed: false,
+};
+const S = { meetings: [], contacts: [], settings: { ...DEFAULT_SETTINGS }, list: { q: '', status: 'all', airline: '', from: '', to: '', sel: new Set() }, clist: { q: '' } };
+
+async function loadAll() {
+  const [m, c, st] = await Promise.all([DB.all('meetings'), DB.all('contacts'), DB.get('kv', 'settings')]);
+  S.meetings = m || []; S.contacts = c || [];
+  S.settings = { ...DEFAULT_SETTINGS, ...(st || {}) };
+}
+const saveSettings = () => DB.put('kv', S.settings, 'settings');
+const getM = (id) => S.meetings.find((x) => x.id === id);
+const getC = (id) => S.contacts.find((x) => x.id === id);
+const contactName = (c) => [c?.firstName, c?.lastName].filter(Boolean).join(' ') || c?.email || 'Sem nome';
+const changedAfterExport = (m) => m.status === 'exported' && m.exportedAt && m.updatedAt > m.exportedAt + 1500;
+
+let persistAsked = false;
+async function askPersist() {
+  if (persistAsked) return; persistAsked = true;
+  try { if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch (e) {}
+}
+
+/* ---------- reuniões */
+function newMeeting() {
+  const st = S.settings;
+  const d = new Date(Date.now() - 60 * 60000); d.setSeconds(0, 0); d.setMinutes(d.getMinutes() - (d.getMinutes() % 15));
+  const now = Date.now();
+  return {
+    id: uid(), airlineCode: '', airlineName: '', start: toLocalInput(d), contactIds: [], internal: st.ownerName || '', topics: [], nextSteps: '', photoIds: [],
+    flag: '', tradeshow: '', scope: parseCodes(st.defaultScope),
+    subject: '', subjectAuto: true, status: 'draft', exportedAt: 0, createdAt: now, updatedAt: now,
+  };
+}
+const parseCodes = (v) => [...new Set(String(v || '').toUpperCase().split(/[\s,;]+/).filter((x) => /^[A-Z0-9]{3}$/.test(x)))];
+const scopeOf = (m) => (Array.isArray(m.scope) ? m.scope : parseCodes(S.settings.defaultScope));
+function autoSubject(m) {
+  const st = S.settings;
+  const parts = [st.subjectPrefix || 'Meeting', st.airportCode || 'OPO'];
+  if (m.airlineCode || m.airlineName) parts.push(m.airlineCode || m.airlineName);
+  const names = m.topics.map((t) => t.name).filter(Boolean);
+  let s = parts.join('_') + (names.length ? '_' + names.join(', ') : '');
+  return s.length > 255 ? s.slice(0, 254) + '…' : s;
+}
+const subjectOf = (m) => (m.subjectAuto || !m.subject ? autoSubject(m) : m.subject);
+
+const saveQueue = new Map();
+const flushSaves = async () => { const items = [...saveQueue.values()]; saveQueue.clear(); for (const m of items) await DB.put('meetings', m); setSaved(false); };
+const flushDebounced = debounce(flushSaves, 450);
+function touchMeeting(m) {
+  m.updatedAt = Date.now(); saveQueue.set(m.id, m); setSaved(true); flushDebounced(); askPersist();
+}
+function setSaved(busy) { $$('.saved').forEach((el) => { el.classList.toggle('busy', busy); el.textContent = busy ? 'A guardar…' : 'Guardado'; }); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSaves(); });
+window.addEventListener('pagehide', () => flushSaves());
+
+async function deleteMeeting(m) {
+  for (const pid of m.photoIds) { await DB.del('photos', pid); dropURL(pid); }
+  await DB.del('meetings', m.id); S.meetings = S.meetings.filter((x) => x.id !== m.id); saveQueue.delete(m.id);
+}
+
+/* ---------- fotos */
+const urlCache = new Map();
+function dropURL(id) { for (const k of [id + ':t', id + ':f']) { if (urlCache.has(k)) { URL.revokeObjectURL(urlCache.get(k)); urlCache.delete(k); } } }
+async function photoURL(id, full) {
+  const k = id + (full ? ':f' : ':t'); if (urlCache.has(k)) return urlCache.get(k);
+  const p = await DB.get('photos', id); if (!p) return '';
+  const u = URL.createObjectURL(new Blob([full ? p.data : p.thumb], { type: p.mime || 'image/jpeg' }));
+  urlCache.set(k, u); return u;
+}
+async function hydrateImgs(root) {
+  for (const img of $$('img[data-pid]', root)) { if (!img.src) img.src = await photoURL(img.dataset.pid, img.dataset.full === '1'); }
+}
+function loadImage(file) {
+  return new Promise((res, rej) => { const u = URL.createObjectURL(file); const img = new Image(); img.onload = () => { res(img); setTimeout(() => URL.revokeObjectURL(u), 1000); }; img.onerror = () => rej(new Error('Imagem inválida')); img.src = u; });
+}
+function canvasBlob(img, max, q) {
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h);
+  return new Promise((res) => cv.toBlob((b) => res({ blob: b, w, h }), 'image/jpeg', q));
+}
+async function savePhoto(file, kind, owner) {
+  const img = await loadImage(file);
+  const full = await canvasBlob(img, kind === 'card' ? 1800 : 2200, 0.84);
+  const thumb = await canvasBlob(img, 420, 0.72);
+  const now = Date.now();
+  const p = { id: uid(), kind, owner, mime: 'image/jpeg', data: await full.blob.arrayBuffer(), thumb: await thumb.blob.arrayBuffer(), w: full.w, h: full.h, createdAt: now, updatedAt: now };
+  await DB.put('photos', p); askPersist();
+  return p;
+}
+function pickImages({ capture = false, multiple = false } = {}) {
+  return new Promise((resolve) => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+    if (capture) inp.setAttribute('capture', 'environment');
+    if (multiple) inp.multiple = true;
+    inp.style.display = 'none'; document.body.appendChild(inp);
+    inp.addEventListener('change', () => { resolve([...inp.files]); inp.remove(); });
+    inp.addEventListener('cancel', () => { resolve([]); inp.remove(); });
+    inp.click();
+  });
+}
+
+/* ---------- leitura de cartões (OCR local, sem rede) */
+const OCR = {
+  worker: null, loading: null, onProgress: null,
+  async get() {
+    if (this.worker) return this.worker;
+    if (!this.loading) {
+      this.loading = (async () => {
+        if (!window.Tesseract) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'vendor/ocr/tesseract.min.js'; s.onload = res; s.onerror = () => rej(new Error('Não foi possível carregar o leitor')); document.head.appendChild(s); });
+        const base = new URL('vendor/ocr/', location.href).href;
+        return Tesseract.createWorker(['eng', 'por'], 1, {
+          workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang', gzip: true, cacheMethod: 'none', workerBlobURL: false,
+          logger: (m) => { if (this.onProgress) this.onProgress(m); },
+        });
+      })();
+    }
+    try { this.worker = await this.loading; } catch (e) { this.loading = null; throw e; }
+    return this.worker;
+  },
+  async read(blob, onProgress) {
+    this.onProgress = onProgress;
+    const w = await this.get();
+    const { data } = await w.recognize(blob);
+    this.onProgress = null;
+    return data.text || '';
+  },
+};
+
+const TITLE_RE = /\b(manager|management|director|head|chief|officer|executive|coordinator|coordenador|coordenadora|gestor|gestora|diretor|diretora|directora|responsavel|supervisor|lead|president|presidente|vp|vice|account|sales|commercial|comercial|station|airport|network|planning|operations|operacoes|handling|analyst|analista|specialist|especialista|consultant|consultor|consultora|representative|representante|delegado|delegada|customer|partnership|partnerships|development|marketing|cargo|ground|services|key|regional|country|area|general|senior|junior|assistant|assistente|administrator|engineer|engenheiro|engenheira|tecnico|tecnica|team|leader|duty)\b/;
+const ADDR_RE = /\b(rua|avenida|av\.?|street|st\.|road|rd\.|praca|largo|edificio|building|floor|piso|andar|lote|apartado|codigo postal|po box|zip|bp|cedex)\b/;
+const PLACE_RE = /\b(portugal|lisboa|lisbon|porto|maia|madrid|london|paris|dublin|terminal|aeroporto)\b/;
+const COMPANY_RE = /\b(airlines?|airways|air|aviation|aeroportos?|airport|lda|s\.?a\.?|ltd|limited|gmbh|plc|inc|group|grupo|holding|sas|spa|s\.?p\.?a\.?|ag|nv|bv)\b/;
+
+function titleCase(s) { return s.toLowerCase().replace(/(^|[\s'’-])([\p{L}])/gu, (a, b, c) => b + c.toUpperCase()).replace(/\b(De|Da|Do|Dos|Das|E|Van|Von|Del|La|Le)\b/g, (w) => w.toLowerCase()); }
+
+function parseCard(text) {
+  const raw = String(text || '').replace(/\r/g, '');
+  const lines = raw.split('\n').map((l) => l.replace(/[|_~•·¦]+/g, ' ').replace(/\s+/g, ' ').trim()).filter((l) => l.length > 1);
+  const out = { firstName: '', lastName: '', title: '', company: '', airlineCode: '', airlineName: '', email: '', phone: '', mobile: '', website: '' };
+
+  const em = raw.replace(/\s*@\s*/g, '@').replace(/\s*\.\s*(com|pt|es|fr|de|co|uk|net|org|aero|it|nl|be)\b/gi, '.$1').match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/);
+  if (em) out.email = em[0].toLowerCase().replace(/[.,;:]+$/, '');
+  const web = raw.match(/\b(?:https?:\/\/)?www\.[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?:\/[^\s]*)?/i) || raw.match(/\bhttps?:\/\/[^\s]+/i);
+  if (web) out.website = web[0].replace(/[.,;:]+$/, '').toLowerCase();
+
+  for (const line of lines) {
+    if (line.includes('@') || /www\./i.test(line)) continue;
+    const nums = line.match(/\+?\(?\d[\d\s().\/-]{7,}\d/g); if (!nums) continue;
+    const low = norm(line);
+    if (/\b(fax|f\s*[:.])/.test(low)) continue;
+    for (const n0 of nums) {
+      const digits = n0.replace(/[^\d]/g, ''); if (digits.length < 9 || digits.length > 15) continue;
+      const n = n0.replace(/\s+/g, ' ').trim();
+      const isMob = /\b(m|mob|mobile|movel|tlm|tlmv|telem|telemovel|cell|cel|gsm|handy)\b/.test(low) || /^(00351|351)?9[1236]\d{7}$/.test(digits);
+      if (isMob && !out.mobile) out.mobile = n; else if (!out.phone) out.phone = n; else if (!out.mobile) out.mobile = n;
+    }
+  }
+
+  const all = airlines();
+  const dom = (out.email.split('@')[1] || out.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] || '').toLowerCase();
+  let air = null;
+  if (dom) air = all.find((a) => a.domains.some((d) => dom === d || dom.endsWith('.' + d)));
+  if (!air) {
+    const nt = norm(raw);
+    const cands = all.filter((a) => a.name.length >= 4).sort((a, b) => b.name.length - a.name.length);
+    air = cands.find((a) => nt.includes(norm(a.name)));
+  }
+  if (air) { out.airlineCode = air.code; out.airlineName = air.name; out.company = air.name; }
+
+  const cand = lines.filter((l) => !/\d/.test(l) && !l.includes('@') && !/www\.|https?:/i.test(l) && l.length >= 4 && l.length <= 60);
+  const isName = (l) => {
+    const words = l.split(' ').filter(Boolean); if (words.length < 2 || words.length > 5) return false;
+    const n = norm(l);
+    if (TITLE_RE.test(n) || ADDR_RE.test(n) || PLACE_RE.test(n) || COMPANY_RE.test(n)) return false;
+    if (air && n.includes(norm(air.name))) return false;
+    if (!/^[\p{L}'’.\- ]+$/u.test(l)) return false;
+    const caps = words.filter((w) => /^\p{Lu}/u.test(w) || /^(de|da|do|dos|das|e|van|von|del)$/i.test(w)).length;
+    return caps >= words.length - 1;
+  };
+  const nameIdx = cand.findIndex(isName);
+  if (nameIdx >= 0) {
+    let nm = cand[nameIdx]; if (nm === nm.toUpperCase()) nm = titleCase(nm);
+    const parts = nm.split(' '); out.firstName = parts.shift(); out.lastName = parts.join(' ');
+  }
+  const nameLine = nameIdx >= 0 ? cand[nameIdx] : null;
+  const titles = cand.filter((l) => l !== nameLine && TITLE_RE.test(norm(l)) && !ADDR_RE.test(norm(l)) && !(air && norm(l) === norm(air.name)));
+  if (titles.length) {
+    const li = nameLine ? lines.indexOf(nameLine) : -1;
+    const after = titles.find((t) => li >= 0 && Math.abs(lines.indexOf(t) - li) <= 2);
+    let t = after || titles[0]; if (t === t.toUpperCase() && t.length > 4) t = titleCase(t);
+    out.title = t;
+  }
+  return out;
+}
+
+/* ---------- Salesforce: texto e ficheiros */
+function participantsLine(m) {
+  const cs = m.contactIds.map(getC).filter(Boolean);
+  if (!cs.length) return '';
+  return cs.map((c) => contactName(c) + (c.title ? ` (${c.title})` : '')).join('; ');
+}
+function buildDescription(m) {
+  const st = S.settings; const out = [];
+  for (const t of m.topics) {
+    const txt = (t.text || '').trim(); if (!txt) continue;
+    out.push((t.name || 'Tema').toUpperCase(), txt, '');
+  }
+  if ((m.nextSteps || '').trim()) out.push('PRÓXIMOS PASSOS', m.nextSteps.trim(), '');
+  if (st.sfIncludeParticipants) { const p = participantsLine(m); if (p) out.push(`Participantes ${m.airlineName || 'companhia'}: ${p}`); }
+  if (st.sfIncludeInternal && (m.internal || '').trim()) out.push(`Participantes ANA: ${m.internal.trim()}`);
+  return out.join('\n').trim();
+}
+function meetingWarnings(m) {
+  const w = [];
+  if (!m.airlineName) w.push('Falta escolher a companhia');
+  if (!m.contactIds.length) w.push('Falta o contacto (o campo Name é obrigatório)');
+  if (!m.topics.some((t) => (t.text || '').trim())) w.push('Ainda não há texto em nenhum tema');
+  if (m.topics.some((t) => !(t.text || '').trim())) w.push('Há temas sem texto (ficam de fora)');
+  return w;
+}
+function csvCell(v) { v = v == null ? '' : String(v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+const toCSV = (rows) => rows.map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+function primaryContact(m) { const cs = m.contactIds.map(getC).filter(Boolean); return cs.find((c) => c.sfId) || cs[0] || null; }
+const dueDate = (m) => { const d = parseLocal(m.start); return d ? `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}` : ''; };
+
+function notesCSV(list) {
+  const st = S.settings;
+  const rows = [['Subject', 'ActivityDate', 'Description', 'WhatId', 'WhoId', 'RecordTypeId', st.sfFlagField || 'Flag__c', st.sfTradeshowField || 'Type_of_Tradeshow__c', st.sfScopeField || 'Geographical_Scope__c', 'Ref_Companhia', 'Ref_ContaSalesforce', 'Ref_Contacto', 'Ref_DebriefId']];
+  for (const m of list) {
+    const s = parseLocal(m.start), pc = primaryContact(m), acc = sfAcc({ code: m.airlineCode, name: m.airlineName });
+    rows.push([subjectOf(m), s ? ymd(s) : '', buildDescription(m), acc.id || '', pc?.sfId || '', st.sfRecordTypeId || '', m.flag || '', m.tradeshow || '', scopeOf(m).join(';'), m.airlineName || '', acc.name || '', pc ? contactName(pc) : '', m.id]);
+  }
+  return toCSV(rows);
+}
+function contactsCSV(list) {
+  const rows = [['First Name', 'Last Name', 'Title', 'Account Name', 'Email', 'Phone', 'Mobile Phone', 'Description', 'Ref_Website', 'Ref_DebriefId']];
+  for (const c of list) {
+    const acc = sfAcc({ code: c.airlineCode, name: c.company });
+    rows.push([c.firstName || '', c.lastName || c.firstName || c.email || 'Sem nome', c.title || '', acc.name || c.company || '', c.email || '', c.phone || '', c.mobile || '', c.notes || '', c.website || '', c.id]);
+  }
+  return toCSV(rows);
+}
+
+async function saveFile(name, data, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type });
+  if (isTouch() && navigator.canShare) {
+    try { const f = new File([blob], name, { type: blob.type }); if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); return true; } } catch (e) { if (e.name === 'AbortError') return false; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  return true;
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) {
+    const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (er) {} ta.remove(); return ok;
+  }
+}
+
+/* ---------- camadas: folhas, toast, visualizador */
+const layer = $('#layer');
+function sheet({ title, body, foot = '', wide = false, onClose }) {
+  const back = document.createElement('div'); back.className = 'sheet-back';
+  back.innerHTML = `<div class="sheet ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-h"><h2>${title}</h2><button class="ibtn" data-close aria-label="Fechar">${ico('x')}</button></div><div class="sheet-b">${body}</div>${foot ? `<div class="sheet-f">${foot}</div>` : ''}</div>`;
+  layer.appendChild(back);
+  const api = { el: back, close() { back.remove(); document.removeEventListener('keydown', onKey); onClose && onClose(); } };
+  const onKey = (e) => { if (e.key === 'Escape' && layer.lastElementChild === back) api.close(); };
+  document.addEventListener('keydown', onKey);
+  back.addEventListener('click', (e) => { if (e.target === back || e.target.closest('[data-close]')) api.close(); });
+  return api;
+}
+function toast(msg, action) {
+  $('.toast')?.remove();
+  const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button>${esc(action.label)}</button>` : ''}`;
+  document.body.appendChild(t);
+  if (action) t.querySelector('button').onclick = () => { t.remove(); action.fn(); };
+  setTimeout(() => t.remove(), action ? 6000 : 2600);
+}
+function confirmSheet(title, text, okLabel = 'Apagar', danger = true) {
+  return new Promise((res) => {
+    let done = false;
+    const sh = sheet({ title, body: `<p class="muted" style="margin:0">${text}</p>`, foot: `<button class="btn" data-close>Cancelar</button><button class="btn ${danger ? 'dark' : 'pri'}" data-ok>${okLabel}</button>`, onClose: () => { if (!done) res(false); } });
+    if (danger) sh.el.querySelector('[data-ok]').style.cssText = 'background:var(--danger);border-color:var(--danger);color:#fff';
+    sh.el.querySelector('[data-ok]').onclick = () => { done = true; sh.close(); res(true); };
+  });
+}
+function promptSheet(title, label, value = '', okLabel = 'Guardar') {
+  return new Promise((res) => {
+    let done = false;
+    const sh = sheet({ title, body: `<label class="lbl">${label}</label><input class="inp" id="pr-v" value="${esc(value)}">`, foot: `<button class="btn" data-close>Cancelar</button><button class="btn pri" data-ok>${okLabel}</button>`, onClose: () => { if (!done) res(null); } });
+    const inp = sh.el.querySelector('#pr-v'); setTimeout(() => inp.focus(), 60);
+    const ok = () => { done = true; const v = inp.value.trim(); sh.close(); res(v); };
+    sh.el.querySelector('[data-ok]').onclick = ok; inp.onkeydown = (e) => { if (e.key === 'Enter') ok(); };
+  });
+}
+async function openViewer(ids, index, { onDelete } = {}) {
+  let i = index;
+  const v = document.createElement('div'); v.className = 'viewer';
+  v.innerHTML = `<div class="viewer-h"><button class="ibtn" data-x aria-label="Fechar">${ico('x')}</button><span></span>${onDelete ? `<button class="ibtn" data-del aria-label="Apagar foto">${ico('trash')}</button>` : ''}<button class="ibtn" data-prev aria-label="Anterior">${ico('back')}</button><button class="ibtn" data-next aria-label="Seguinte">${ico('chev')}</button></div><div class="viewer-b"><img alt="Foto"></div>`;
+  layer.appendChild(v);
+  const img = v.querySelector('img'), lab = v.querySelector('span'), body = v.querySelector('.viewer-b');
+  const show = async () => { lab.textContent = `${i + 1} / ${ids.length}`; img.src = await photoURL(ids[i], true); body.classList.remove('zoom'); v.querySelector('[data-prev]').style.visibility = ids.length > 1 ? '' : 'hidden'; v.querySelector('[data-next]').style.visibility = ids.length > 1 ? '' : 'hidden'; };
+  const close = () => { v.remove(); document.removeEventListener('keydown', key); };
+  const key = (e) => { if (e.key === 'Escape') close(); if (e.key === 'ArrowRight') { i = (i + 1) % ids.length; show(); } if (e.key === 'ArrowLeft') { i = (i - 1 + ids.length) % ids.length; show(); } };
+  document.addEventListener('keydown', key);
+  v.querySelector('[data-x]').onclick = close;
+  v.querySelector('[data-prev]').onclick = () => { i = (i - 1 + ids.length) % ids.length; show(); };
+  v.querySelector('[data-next]').onclick = () => { i = (i + 1) % ids.length; show(); };
+  img.onclick = () => { if (!isTouch()) body.classList.toggle('zoom'); };
+  if (onDelete) v.querySelector('[data-del]').onclick = async () => { if (!(await confirmSheet('Apagar foto?', 'A foto é removida deste dispositivo.'))) return; await onDelete(ids[i]); ids.splice(i, 1); if (!ids.length) return close(); i = Math.min(i, ids.length - 1); show(); };
+  show();
+}
+
+/* ---------- navegação */
+const view = $('#view');
+function go(h) { if (location.hash === h) route(); else location.hash = h; }
+window.addEventListener('hashchange', route);
+let lastWide = isDesk();
+window.addEventListener('resize', debounce(() => { if (isDesk() !== lastWide) { lastWide = isDesk(); route(); } }, 150));
+window.addEventListener('scroll', () => { const t = $('.top'); if (t) t.classList.toggle('scrolled', window.scrollY > 4); }, { passive: true });
+
+function renderChrome(active) {
+  const pending = S.meetings.filter((m) => m.status !== 'exported').length;
+  $('#side').innerHTML = `
+    <div class="brand"><img src="icons/icon-192.png" alt=""><div><b>Debrief</b><span>Reuniões com companhias</span></div></div>
+    <button class="btn pri" data-new>${ico('plus')} Nova reunião</button>
+    <a class="nav ${active === 'm' ? 'on' : ''}" href="#/">${ico('list')} Reuniões <span class="count">${pending ? pending + ' por exportar' : ''}</span></a>
+    <a class="nav ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users')} Contactos <span class="count">${S.contacts.length || ''}</span></a>
+    <a class="nav ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send')} Exportar</a>
+    <a class="nav ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders')} Definições</a>
+    <div class="side-foot"><span class="lock">${ico('shield', 'sm')} Dados só neste dispositivo</span><span>Última cópia de segurança: ${ago(S.settings.lastBackupAt)}</span><span>v${APP_VERSION}</span></div>`;
+  $('#tabbar').innerHTML = `
+    <a class="tab ${active === 'm' ? 'on' : ''}" href="#/">${ico('list', 'lg')}Reuniões</a>
+    <a class="tab ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users', 'lg')}Contactos</a>
+    <div class="tab-new"><button data-new aria-label="Nova reunião">${ico('plus')}</button></div>
+    <a class="tab ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send', 'lg')}Exportar</a>
+    <a class="tab ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders', 'lg')}Definições</a>`;
+  $$('[data-new]').forEach((b) => (b.onclick = createMeeting));
+}
+async function createMeeting() {
+  const m = newMeeting(); S.meetings.push(m); await DB.put('meetings', m); askPersist(); go('#/r/' + m.id);
+}
+
+const navStack = [];
+function goBack(fallback) { if (navStack.length > 1) history.back(); else go(fallback); }
+function route() {
+  flushSaves();
+  const cur = location.hash || '#/';
+  if (navStack.length > 1 && navStack[navStack.length - 2] === cur) navStack.pop(); else if (navStack[navStack.length - 1] !== cur) navStack.push(cur);
+  const h = location.hash.replace(/^#\/?/, '');
+  const [a, b] = h.split('/');
+  document.body.classList.remove('editing');
+  window.scrollTo(0, 0);
+  if (a === 'r' && b) return viewMeeting(b);
+  if (a === 'contactos' && b) return viewContact(b);
+  if (a === 'contactos') return viewContacts();
+  if (a === 'exportar') return viewExport();
+  if (a === 'definicoes') return viewSettings();
+  return viewMeetings();
+}
+
+/* =====================================================================
+   VISTA: lista de reuniões
+   ===================================================================== */
+function filteredMeetings() {
+  const f = S.list; const q = norm(f.q);
+  return S.meetings.filter((m) => {
+    if (f.status === 'pending' && m.status === 'exported') return false;
+    if (f.status === 'draft' && m.status !== 'draft') return false;
+    if (f.status === 'ready' && m.status !== 'ready') return false;
+    if (f.status === 'exported' && m.status !== 'exported') return false;
+    if (f.airline && airlineKey({ code: m.airlineCode, name: m.airlineName }) !== f.airline) return false;
+    const day = (m.start || '').slice(0, 10);
+    if (f.from && day < f.from) return false;
+    if (f.to && day > f.to) return false;
+    if (q) {
+      const hay = norm([m.airlineName, m.airlineCode, subjectOf(m), m.location, m.nextSteps, m.internal, ...m.topics.map((t) => t.name + ' ' + t.text), ...m.contactIds.map((id) => contactName(getC(id)))].join(' '));
+      if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
+    }
+    return true;
+  }).sort((x, y) => (y.start || '').localeCompare(x.start || '') || y.createdAt - x.createdAt);
+}
+function statusPill(m) {
+  if (changedAfterExport(m)) return '<span class="pill changed">Alterada após exportar</span>';
+  return { draft: '<span class="pill">Rascunho</span>', ready: '<span class="pill ready">Pronta</span>', exported: '<span class="pill exported">Exportada</span>' }[m.status] || '';
+}
+function topBanners() {
+  let h = '';
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone;
+  if (ios && !S.settings.iosHintDismissed) h += `<div class="banner">${ico('share')}<div class="grow"><b>Instala no ecrã principal</b>No Safari: Partilhar → «Adicionar ao ecrã principal». Assim a app abre sem rede e o iPhone não apaga os dados por falta de uso.<div class="acts"><button class="btn sm" data-dismiss-ios>Já está</button></div></div></div>`;
+  const n = S.meetings.length;
+  const stale = !S.settings.lastBackupAt || Date.now() - S.settings.lastBackupAt > 7 * 86400000;
+  if (n >= 3 && stale) h += `<div class="banner warn">${ico('db')}<div class="grow"><b>Faz uma cópia de segurança</b>Os dados existem só neste dispositivo. Última cópia: ${ago(S.settings.lastBackupAt)}.<div class="acts"><button class="btn sm" data-backup>Fazer cópia agora</button></div></div></div>`;
+  return h;
+}
+function viewMeetings() {
+  renderChrome('m');
+  const f = S.list; const desk = isDesk();
+  const list = filteredMeetings();
+  const counts = { all: S.meetings.length, pending: S.meetings.filter((m) => m.status !== 'exported').length, ready: S.meetings.filter((m) => m.status === 'ready').length, exported: S.meetings.filter((m) => m.status === 'exported').length };
+  const usedAir = [...new Map(S.meetings.filter((m) => m.airlineName).map((m) => [airlineKey({ code: m.airlineCode, name: m.airlineName }), m.airlineName])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+
+  let body = '';
+  if (!S.meetings.length) {
+    body = `<div class="empty"><div class="art">${ico('pen', 'lg')}</div><h2>Ainda não há reuniões</h2><p>Logo a seguir a cada reunião, regista os temas, fotografa o cartão de visita e as notas. Exportas para o Salesforce quando chegares ao escritório.</p><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button></div>`;
+  } else if (desk) {
+    const sel = f.sel;
+    body = `
+      <div class="toolbar">
+        <div class="search">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar companhia, tema, contacto…" value="${esc(f.q)}"></div>
+        <select class="inp" id="f-status"><option value="all">Todos os estados</option><option value="pending">Por exportar</option><option value="draft">Rascunhos</option><option value="ready">Prontas</option><option value="exported">Exportadas</option></select>
+        <select class="inp" id="f-air"><option value="">Todas as companhias</option>${usedAir.map(([k, n]) => `<option value="${esc(k)}">${esc(n)}</option>`).join('')}</select>
+        <input class="inp" type="date" id="f-from" value="${esc(f.from)}" title="Desde"><input class="inp" type="date" id="f-to" value="${esc(f.to)}" title="Até">
+      </div>
+      ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:34px"><input type="checkbox" id="ck-all" ${list.length && list.every((m) => sel.has(m.id)) ? 'checked' : ''} aria-label="Selecionar todas"></th><th>Data</th><th>Companhia</th><th>Assunto</th><th>Temas</th><th>Contactos</th><th>Fotos</th><th>Estado</th></tr></thead><tbody>
+      ${list.map((m) => `<tr data-id="${m.id}" class="${sel.has(m.id) ? 'sel' : ''}"><td><input type="checkbox" class="ck-row" ${sel.has(m.id) ? 'checked' : ''} aria-label="Selecionar"></td><td class="num">${fmtDateShort(m.start)} · ${fmtTime(m.start)}</td><td><div class="cellair">${badge(m.airlineCode, true)}${esc(m.airlineName || '—')}</div></td><td><div class="subj">${esc(subjectOf(m))}</div></td><td class="num">${m.topics.length}</td><td class="num">${m.contactIds.length}</td><td class="num">${m.photoIds.length}</td><td>${statusPill(m)}</td></tr>`).join('')}
+      </tbody></table></div>` : `<div class="empty"><p>Nenhuma reunião corresponde aos filtros.</p></div>`}
+      ${sel.size ? `<div class="bulk"><span>${plural(sel.size, 'selecionada', 'selecionadas')}</span><button class="btn sm" data-bulk="export">${ico('download', 'sm')} Exportar CSV</button><button class="btn sm" data-bulk="ready">Marcar prontas</button><button class="btn sm" data-bulk="exported">${ico('check', 'sm')} Marcar exportadas</button><button class="btn sm" data-bulk="delete">${ico('trash', 'sm')}</button><button class="btn sm" data-bulk="clear">${ico('x', 'sm')}</button></div>` : ''}`;
+  } else {
+    const groups = new Map();
+    for (const m of list) { const k = fmtDay(m.start) || 'Sem data'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
+    body = `
+      <div class="search" style="margin-bottom:10px">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar" value="${esc(f.q)}"></div>
+      <div class="filters">${[['all', 'Todas', counts.all], ['pending', 'Por exportar', counts.pending], ['ready', 'Prontas', counts.ready], ['exported', 'Exportadas', counts.exported]].map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
+      ${list.length ? [...groups.entries()].map(([g, ms]) => `<div class="group-h">${esc(g)}</div><div class="list">${ms.map((m) => `
+        <a class="row" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="t">${esc(m.airlineName || 'Companhia por escolher')}</div><div class="s">${esc(m.topics.map((t) => t.name).join(' · ') || 'Sem temas')}</div>
+        <div class="metaline"><span>${ico('cal', 'sm')} ${fmtTime(m.start)}</span>${m.contactIds.length ? `<span>${ico('user', 'sm')} ${m.contactIds.length}</span>` : ''}${m.photoIds.length ? `<span>${ico('image', 'sm')} ${m.photoIds.length}</span>` : ''}</div></div>
+        <div class="meta">${statusPill(m)}</div></a>`).join('')}</div>`).join('') : `<div class="empty"><p>Nada para mostrar.</p></div>`}`;
+  }
+
+  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.pending} por exportar</small>` : ''}</h1>${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
+
+  const st = $('#f-status'); if (st) st.value = f.status;
+  const fa = $('#f-air'); if (fa) fa.value = f.airline;
+  const rerender = () => { viewMeetings(); const q = $('#q'); if (q) { q.focus(); const n = q.value.length; try { q.setSelectionRange(n, n); } catch (e) {} } };
+  $('#q')?.addEventListener('input', debounce((e) => { f.q = e.target.value; rerender(); }, 220));
+  st && (st.onchange = () => { f.status = st.value; viewMeetings(); });
+  fa && (fa.onchange = () => { f.airline = fa.value; viewMeetings(); });
+  $('#f-from') && ($('#f-from').onchange = (e) => { f.from = e.target.value; viewMeetings(); });
+  $('#f-to') && ($('#f-to').onchange = (e) => { f.to = e.target.value; viewMeetings(); });
+  $('#ck-all') && ($('#ck-all').onchange = (e) => { list.forEach((m) => (e.target.checked ? f.sel.add(m.id) : f.sel.delete(m.id))); viewMeetings(); });
+
+  view.onclick = async (e) => {
+    const t = e.target;
+    if (t.closest('[data-new2]')) return createMeeting();
+    if (t.closest('[data-goexport]')) return go('#/exportar');
+    if (t.closest('[data-dismiss-ios]')) { S.settings.iosHintDismissed = true; await saveSettings(); return viewMeetings(); }
+    if (t.closest('[data-backup]')) return exportBackup();
+    const stb = t.closest('[data-st]'); if (stb) { f.status = stb.dataset.st; return viewMeetings(); }
+    const bulk = t.closest('[data-bulk]'); if (bulk) return bulkAction(bulk.dataset.bulk);
+    const tr = t.closest('tr[data-id]');
+    if (tr) {
+      if (t.classList.contains('ck-row') || t.closest('td:first-child')) { const id = tr.dataset.id; f.sel.has(id) ? f.sel.delete(id) : f.sel.add(id); return viewMeetings(); }
+      return go('#/r/' + tr.dataset.id);
+    }
+  };
+}
+async function bulkAction(kind) {
+  const ids = [...S.list.sel]; const ms = ids.map(getM).filter(Boolean);
+  if (kind === 'clear') { S.list.sel.clear(); return viewMeetings(); }
+  if (kind === 'export') return exportNotes(ms, { mark: true });
+  if (kind === 'ready' || kind === 'exported') {
+    for (const m of ms) { m.status = kind; if (kind === 'exported') { m.updatedAt = Date.now(); m.exportedAt = m.updatedAt; } else m.updatedAt = Date.now(); await DB.put('meetings', m); }
+    toast(kind === 'ready' ? 'Marcadas como prontas' : 'Marcadas como exportadas'); return viewMeetings();
+  }
+  if (kind === 'delete') {
+    if (!(await confirmSheet(`Apagar ${plural(ms.length, 'reunião', 'reuniões')}?`, 'As reuniões e as fotos das notas são apagadas deste dispositivo. Os contactos ficam.'))) return;
+    for (const m of ms) await deleteMeeting(m);
+    S.list.sel.clear(); toast('Apagadas'); viewMeetings();
+  }
+}
+
+/* =====================================================================
+   VISTA: editor de reunião (captura no telemóvel / revisão no portátil)
+   ===================================================================== */
+function viewMeeting(id) {
+  const m = getM(id); if (!m) return go('#/');
+  renderChrome('m');
+  document.body.classList.add('editing');
+  const desk = isDesk();
+  if (!Array.isArray(m.scope)) m.scope = scopeOf(m);
+  const tsOpts = [...new Set([...(S.settings.tradeshowOptions || []), ...S.meetings.map((x) => x.tradeshow).filter(Boolean)])];
+  const scopeSugg = [...new Set(['OPO', 'LIS', 'FAO', 'FNC', 'PXO', 'PDL', 'HOR', 'SMA', 'FLW', 'BYJ', ...S.meetings.flatMap((x) => x.scope || [])])];
+
+  view.innerHTML = `<div class="page">
+    <div class="top"><button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button><h1 id="ed-title">${esc(m.airlineName || 'Nova reunião')}<small id="ed-sub"></small></h1>
+      <span class="saved">Guardado</span>
+      <div class="ed-desk-acts"><button class="btn" data-sf>${ico('send', 'sm')} Salesforce</button><button class="btn" data-status id="st-desk"></button></div>
+      <button class="ibtn" data-menu aria-label="Mais opções">${ico('dots')}</button></div>
+    <div class="ed-cols"><div>
+      <div class="sec">
+        <div class="field"><button class="airpick" data-air id="airpick"></button></div>
+        <div class="field" style="margin-bottom:0"><label class="lbl" for="f-start">Data e hora</label><input class="inp" type="datetime-local" id="f-start" data-f="start" value="${esc(m.start)}"></div>
+      </div>
+
+      <div class="sec"><h3>${ico('users', 'sm')} Participantes da companhia</h3>
+        <div class="people" id="people"></div>
+        <div class="acts-row"><button class="btn" data-card>${ico('scan', 'sm')} Cartão de visita</button><button class="btn" data-pickc>${ico('user', 'sm')} Contacto</button></div>
+      </div>
+
+      <div class="sec"><h3>${ico('pen', 'sm')} Temas abordados <span class="r faint" id="t-count"></span></h3>
+        <div id="topics"></div>
+        <div class="chips" id="topic-add"></div>
+      </div>
+
+      <div class="sec sec-photos-mobile"><h3>${ico('image', 'sm')} Fotos das notas <span class="r faint" id="p-count"></span></h3>
+        <div class="photos" id="photos"></div>
+      </div>
+
+      <div class="sec"><h3>${ico('check', 'sm')} Próximos passos</h3>
+        <textarea class="inp" data-f="nextSteps" id="f-next" rows="3" placeholder="Compromissos, pedidos, prazos…">${esc(m.nextSteps)}</textarea>
+      </div>
+
+      <div class="sec"><h3>${ico('send', 'sm')} Campos do Meeting Note</h3>
+        <label class="lbl" for="f-subj">Subject</label>
+        <div class="subj-row"><input class="inp" id="f-subj" value="${esc(subjectOf(m))}"><button class="ibtn solid" data-subjauto title="Voltar ao assunto automático" aria-label="Assunto automático">${ico('refresh')}</button></div>
+        <div class="faint" id="subj-hint" style="font-size:12.5px;margin:6px 0 12px"></div>
+        <div class="grid2"><div class="field"><label class="lbl" for="f-flag">Flag</label><input class="inp" id="f-flag" data-f="flag" value="${esc(m.flag)}" placeholder="Opcional"></div>
+        <div class="field"><label class="lbl" for="f-ts">Type of Tradeshow</label><input class="inp" id="f-ts" data-f="tradeshow" list="tsl" value="${esc(m.tradeshow)}" placeholder="--None--"><datalist id="tsl">${tsOpts.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></div></div>
+        <label class="lbl">Geographical Scope</label>
+        <div class="chips" id="scope" style="margin-bottom:8px"></div>
+        <div class="subj-row" style="margin-bottom:12px"><input class="inp" id="f-scope" list="scl" maxlength="3" placeholder="Código (ex.: LIS)" autocapitalize="characters" style="text-transform:uppercase"><datalist id="scl">${scopeSugg.map((c) => `<option value="${c}">`).join('')}</datalist><button class="btn" data-addscope>${ico('plus', 'sm')} Juntar</button></div>
+        <div class="field" style="margin:0"><label class="lbl" for="f-int">Participantes ANA <span class="faint" style="font-weight:500">(vão no fim dos Comments)</span></label><input class="inp" id="f-int" data-f="internal" value="${esc(m.internal)}" placeholder="Quem esteve da tua parte"></div>
+      </div>
+      ${desk ? '' : `<div style="text-align:center;padding:6px 0 10px"><button class="btn ghost danger" data-del>${ico('trash', 'sm')} Apagar reunião</button></div>`}
+    </div>
+    <div class="ed-aside" id="aside"></div>
+    </div></div>
+    <div class="actionbar"><button class="btn" data-sf>${ico('send', 'sm')} Salesforce</button><button class="btn" data-status id="st-mob"></button></div>`;
+
+  const refreshHeader = () => {
+    $('#ed-title').firstChild.textContent = m.airlineName || 'Nova reunião';
+    $('#ed-sub').textContent = `${fmtDay(m.start)} · ${fmtTime(m.start)}${m.status === 'exported' ? ' · exportada ' + fmtTs(m.exportedAt).slice(0, 10) : ''}`;
+    $('#airpick').innerHTML = m.airlineName ? `${badge(m.airlineCode)}<div class="grow"><div class="n">${esc(m.airlineName)}</div><div class="c">${esc(m.airlineCode || 'Sem código IATA')} · tocar para mudar</div></div>${ico('chev')}` : `${badge('')}<div class="grow"><div class="n">Escolher companhia</div><div class="c">Obrigatório para exportar</div></div>${ico('chev')}`;
+    $('#scope').innerHTML = scopeOf(m).length ? scopeOf(m).map((c) => `<span class="chip" style="font-family:var(--mono)">${c}<button class="x ibtn sm" data-rmscope="${c}" aria-label="Retirar ${c}" style="border:0;background:none">${ico('x', 'sm')}</button></span>`).join('') : '<span class="faint" style="font-size:14px">Nenhum</span>';
+    const lbl = m.status === 'draft' ? `${ico('check', 'sm')} Marcar como pronta` : m.status === 'ready' ? `${ico('check', 'sm')} Pronta` : `${ico('check', 'sm')} Exportada`;
+    for (const b of [$('#st-mob'), $('#st-desk')]) { b.innerHTML = lbl; b.className = 'btn ' + (m.status === 'draft' ? 'dark' : 'ok'); }
+    $('#subj-hint').textContent = m.subjectAuto ? `Automático: ${S.settings.subjectPrefix || 'Meeting'}_${S.settings.airportCode || 'OPO'}_<código IATA>_<temas>. Podes editar.` : 'Assunto personalizado.';
+  };
+  const refreshSubject = () => { const el = $('#f-subj'); if (m.subjectAuto && document.activeElement !== el) el.value = autoSubject(m); };
+  const refreshAside = debounce(() => renderAside(m), 300);
+  const changed = () => { touchMeeting(m); refreshSubject(); refreshHeader(); if (desk) refreshAside(); };
+
+  renderPeople(m); renderTopics(m); renderPhotos(m); refreshHeader();
+  if (desk) renderAside(m);
+
+  view.oninput = (e) => {
+    const el = e.target;
+    if (el.dataset.f) { m[el.dataset.f] = el.value; changed(); }
+    if (el.id === 'f-subj') { m.subject = el.value; m.subjectAuto = false; changed(); }
+    if (el.dataset.tname != null) { const t = m.topics.find((x) => x.id === el.dataset.tname); t.name = el.value; changed(); }
+    if (el.dataset.ttext != null) { const t = m.topics.find((x) => x.id === el.dataset.ttext); t.text = el.value; grow(el); changed(); }
+    if (el.id === 'f-next') grow(el);
+  };
+  const addScope = () => { const el = $('#f-scope'); const add = parseCodes(el.value); if (!add.length) return toast('Usa códigos de 3 letras (ex.: LIS)'); m.scope = [...new Set([...scopeOf(m), ...add])]; el.value = ''; changed(); };
+  $('#f-scope').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addScope(); } };
+  view.onchange = null;
+
+  view.onclick = async (e) => {
+    const t = e.target;
+    if (t.closest('[data-back]')) { await flushSaves(); return goBack('#/'); }
+    if (t.closest('[data-air]')) return pickAirline((a) => { m.airlineCode = a.code; m.airlineName = a.name; changed(); });
+    if (t.closest('[data-addscope]')) return addScope();
+    const rs = t.closest('[data-rmscope]'); if (rs) { m.scope = scopeOf(m).filter((c) => c !== rs.dataset.rmscope); return changed(); }
+    if (t.closest('[data-card]')) return scanCard(m, () => { renderPeople(m); changed(); });
+    if (t.closest('[data-pickc]')) return pickContact(m, () => { renderPeople(m); changed(); });
+    const rm = t.closest('[data-rmc]'); if (rm) { m.contactIds = m.contactIds.filter((x) => x !== rm.dataset.rmc); renderPeople(m); return changed(); }
+    const oc = t.closest('[data-openc]'); if (oc) return contactSheet(getC(oc.dataset.openc), { onSaved: () => { renderPeople(m); changed(); } });
+    const ta = t.closest('[data-addt]'); if (ta) return addTopic(m, ta.dataset.addt);
+    if (t.closest('[data-addcustom]')) { const n = await promptSheet('Outro tema', 'Nome do tema'); if (n) addTopic(m, n); return; }
+    const tu = t.closest('[data-tup]'); if (tu) return moveTopic(m, tu.dataset.tup, -1);
+    const td = t.closest('[data-tdown]'); if (td) return moveTopic(m, td.dataset.tdown, 1);
+    const tr = t.closest('[data-trm]'); if (tr) {
+      const tp = m.topics.find((x) => x.id === tr.dataset.trm);
+      if ((tp.text || '').trim() && !(await confirmSheet('Remover tema?', `O texto de «${esc(tp.name)}» é apagado.`, 'Remover'))) return;
+      m.topics = m.topics.filter((x) => x.id !== tr.dataset.trm); renderTopics(m); return changed();
+    }
+    const addp = t.closest('[data-addphoto]'); if (addp) return addPhotos(m, addp.dataset.addphoto === 'cam');
+    const ph = t.closest('[data-ph]'); if (ph) {
+      if (desk && t.closest('#aside')) { m._sel = ph.dataset.ph; return renderAside(m); }
+      return openViewer([...m.photoIds], m.photoIds.indexOf(ph.dataset.ph), { onDelete: (pid) => removePhoto(m, pid) });
+    }
+    if (t.closest('[data-bigview]')) return openViewer([...m.photoIds], Math.max(0, m.photoIds.indexOf(m._sel)), { onDelete: (pid) => removePhoto(m, pid) });
+    if (t.closest('[data-subjauto]')) { m.subjectAuto = true; m.subject = ''; $('#f-subj').value = autoSubject(m); return changed(); }
+    if (t.closest('[data-sf]')) { await flushSaves(); return sfSheet(m, () => { refreshHeader(); if (desk) renderAside(m); }); }
+    if (t.closest('[data-status]')) return toggleStatus(m, () => { refreshHeader(); if (desk) renderAside(m); });
+    if (t.closest('[data-del]')) return delMeetingFlow(m);
+    if (t.closest('[data-menu]')) return meetingMenu(m);
+    if (t.closest('[data-copydesc]')) { await copyText(buildDescription(m)); return toast('Descrição copiada'); }
+  };
+  async function removePhoto(mm, pid) { await DB.del('photos', pid); dropURL(pid); mm.photoIds = mm.photoIds.filter((x) => x !== pid); renderPhotos(mm); touchMeeting(mm); if (desk) renderAside(mm); }
+  $$('textarea', view).forEach(grow);
+}
+function grow(el) { if (!el) return; el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight + 2, 76) + 'px'; }
+
+function renderPeople(m) {
+  const box = $('#people'); if (!box) return;
+  const cs = m.contactIds.map(getC).filter(Boolean);
+  box.innerHTML = cs.length ? cs.map((c) => `<div class="person"><div class="av">${c.cardPhotoId ? `<img data-pid="${c.cardPhotoId}" alt="">` : ico('user', 'sm')}</div><div class="grow" data-openc="${c.id}"><div class="t">${esc(contactName(c))}</div><div class="s">${esc([c.title, c.email].filter(Boolean).join(' · ') || 'Sem detalhes')}</div></div><button class="ibtn sm" data-rmc="${c.id}" aria-label="Retirar da reunião">${ico('x', 'sm')}</button></div>`).join('') : `<div class="faint" style="font-size:14px">Fotografa o cartão de visita e os dados são lidos automaticamente.</div>`;
+  hydrateImgs(box);
+}
+function renderTopics(m) {
+  const box = $('#topics'); if (!box) return;
+  box.innerHTML = m.topics.map((t, i) => `<div class="topic" data-tid="${t.id}"><div class="topic-h"><input data-tname="${t.id}" value="${esc(t.name)}" aria-label="Nome do tema"><button class="ibtn sm" data-tup="${t.id}" ${i === 0 ? 'disabled style="opacity:.3"' : ''} aria-label="Subir">${ico('up', 'sm')}</button><button class="ibtn sm" data-tdown="${t.id}" ${i === m.topics.length - 1 ? 'disabled style="opacity:.3"' : ''} aria-label="Descer">${ico('down', 'sm')}</button><button class="ibtn sm" data-trm="${t.id}" aria-label="Remover tema">${ico('x', 'sm')}</button></div><textarea data-ttext="${t.id}" placeholder="O que foi dito sobre este tema… (dica: usa o microfone do teclado para ditar)">${esc(t.text)}</textarea></div>`).join('');
+  const used = new Set(m.topics.map((t) => norm(t.name)));
+  $('#topic-add').innerHTML = S.settings.topics.filter((n) => !used.has(norm(n))).map((n) => `<button class="chip add" data-addt="${esc(n)}">${ico('plus', 'sm')}${esc(n)}</button>`).join('') + `<button class="chip add" data-addcustom>${ico('plus', 'sm')}Outro…</button>`;
+  $('#t-count').textContent = m.topics.length ? plural(m.topics.length, 'tema', 'temas') : '';
+  $$('textarea', box).forEach(grow);
+}
+function addTopic(m, name) {
+  const t = { id: uid(), name, text: '' }; m.topics.push(t); renderTopics(m); touchMeeting(m);
+  const el = $(`[data-ttext="${t.id}"]`); if (el) { el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  const sj = $('#f-subj'); if (sj && m.subjectAuto) sj.value = autoSubject(m);
+  if (isDesk()) renderAside(m);
+}
+function moveTopic(m, id, dir) {
+  const i = m.topics.findIndex((t) => t.id === id); const j = i + dir; if (j < 0 || j >= m.topics.length) return;
+  [m.topics[i], m.topics[j]] = [m.topics[j], m.topics[i]]; renderTopics(m); touchMeeting(m);
+  const sj = $('#f-subj'); if (sj && m.subjectAuto) sj.value = autoSubject(m);
+}
+function photoTiles(m) {
+  return m.photoIds.map((pid) => `<button class="ph ${m._sel === pid ? 'on' : ''}" data-ph="${pid}" aria-label="Ver foto"><img data-pid="${pid}" alt=""></button>`).join('') +
+    `<button class="ph add" data-addphoto="cam">${ico('camera', 'lg')}Câmara</button><button class="ph add" data-addphoto="gal">${ico('image', 'lg')}Galeria</button>`;
+}
+function renderPhotos(m) {
+  const box = $('#photos'); if (!box) return;
+  box.innerHTML = photoTiles(m); $('#p-count').textContent = m.photoIds.length ? plural(m.photoIds.length, 'foto', 'fotos') : '';
+  hydrateImgs(box);
+}
+async function addPhotos(m, cam) {
+  const files = await pickImages({ capture: cam, multiple: !cam }); if (!files.length) return;
+  toast(files.length > 1 ? `A guardar ${files.length} fotos…` : 'A guardar foto…');
+  for (const f of files) { try { const p = await savePhoto(f, 'note', m.id); m.photoIds.push(p.id); if (!m._sel) m._sel = p.id; } catch (e) { toast('Não foi possível ler uma das imagens'); } }
+  renderPhotos(m); touchMeeting(m); if (isDesk()) renderAside(m);
+  toast(files.length > 1 ? 'Fotos guardadas' : 'Foto guardada');
+}
+function renderAside(m) {
+  const box = $('#aside'); if (!box) return;
+  if (m._sel && !m.photoIds.includes(m._sel)) m._sel = null;
+  if (!m._sel && m.photoIds.length) m._sel = m.photoIds[0];
+  const desc = buildDescription(m);
+  box.innerHTML = `
+    <div class="sec"><h3>${ico('image', 'sm')} Fotos das notas <span class="r faint">${m.photoIds.length ? plural(m.photoIds.length, 'foto', 'fotos') : ''}</span></h3>
+      ${m._sel ? `<div class="viewer-inline" data-bigview title="Abrir em ecrã inteiro"><img data-pid="${m._sel}" data-full="1" alt="Nota manuscrita"></div>` : '<p class="faint" style="margin:0 0 10px;font-size:14px">Sem fotos. No telemóvel, fotografa as notas logo a seguir à reunião — aqui ficam ao lado do texto para transcreveres.</p>'}
+      <div class="photos">${photoTiles(m)}</div></div>
+    <div class="sec"><h3>${ico('send', 'sm')} Pré-visualização Salesforce <span class="r"><button class="btn sm" data-copydesc>${ico('copy', 'sm')} Copiar</button></span></h3>
+      <div style="font-weight:650;margin-bottom:8px">${esc(subjectOf(m))}</div>
+      <pre class="sfprev">${esc(desc) || '<span class="faint">A descrição aparece aqui à medida que escreves os temas.</span>'}</pre></div>`;
+  hydrateImgs(box);
+}
+async function toggleStatus(m, after) {
+  if (m.status === 'draft') {
+    const w = meetingWarnings(m).filter((x) => !x.startsWith('Há temas'));
+    if (w.length) { toast(w[0]); return; }
+    m.status = 'ready'; touchMeeting(m); toast('Pronta para exportar');
+  } else if (m.status === 'ready') { m.status = 'draft'; touchMeeting(m); }
+  else {
+    const ok = await confirmSheet('Voltar a «Pronta»?', `Esta reunião foi marcada como exportada em ${fmtTs(m.exportedAt)}. Se a voltares a marcar como pronta, volta a entrar na próxima exportação.`, 'Marcar como pronta', false);
+    if (!ok) return; m.status = 'ready'; m.exportedAt = 0; touchMeeting(m);
+  }
+  after && after();
+}
+async function delMeetingFlow(m) {
+  if (!(await confirmSheet('Apagar reunião?', 'A reunião e as fotos das notas são apagadas deste dispositivo. Os contactos ficam guardados.'))) return;
+  await deleteMeeting(m); toast('Reunião apagada'); go('#/');
+}
+function meetingMenu(m) {
+  const sh = sheet({ title: 'Opções', body: `
+    <button class="pickrow" data-o="dup">${ico('copy')}<div class="grow"><div class="t">Duplicar</div><div class="s">Cria uma nova com a mesma companhia, contactos e temas (sem texto)</div></div></button>
+    <button class="pickrow" data-o="copyall">${ico('send')}<div class="grow"><div class="t">Copiar tudo em texto</div><div class="s">Assunto, data e descrição, para colar onde quiseres</div></div></button>
+    <button class="pickrow" data-o="del" style="color:var(--danger)">${ico('trash')}<div class="grow"><div class="t">Apagar reunião</div></div></button>` });
+  sh.el.onclick = async (e) => {
+    const o = e.target.closest('[data-o]')?.dataset.o; if (!o) return; sh.close();
+    if (o === 'del') return delMeetingFlow(m);
+    if (o === 'copyall') { await copyText(fullText(m)); return toast('Copiado'); }
+    if (o === 'dup') { const n = newMeeting(); Object.assign(n, { airlineCode: m.airlineCode, airlineName: m.airlineName, contactIds: [...m.contactIds], internal: m.internal, scope: [...scopeOf(m)], tradeshow: m.tradeshow, flag: m.flag, topics: m.topics.map((t) => ({ id: uid(), name: t.name, text: '' })) }); S.meetings.push(n); await DB.put('meetings', n); go('#/r/' + n.id); toast('Reunião duplicada'); }
+  };
+}
+function fullText(m) {
+  const pc = primaryContact(m);
+  return `Subject: ${subjectOf(m)}\nName: ${pc ? contactName(pc) : '—'}\nRelated To: ${m.airlineName || '—'}\nDue Date: ${dueDate(m)}${m.flag ? '\nFlag: ' + m.flag : ''}${m.tradeshow ? '\nType of Tradeshow: ' + m.tradeshow : ''}\nGeographical Scope: ${scopeOf(m).join(', ') || '—'}\n\nComments:\n${buildDescription(m)}`;
+}
+
+/* ---------- escolher companhia */
+function pickAirline(onPick) {
+  const freq = new Map(); for (const m of S.meetings) if (m.airlineName) { const k = airlineKey({ code: m.airlineCode, name: m.airlineName }); freq.set(k, (freq.get(k) || 0) + 1); }
+  const all = airlines();
+  const sh = sheet({ title: 'Companhia', body: `<div class="search" style="margin-bottom:8px">${ico('search')}<input class="inp" type="search" id="aq" placeholder="Nome ou código IATA (ex.: TP, Ryanair)" autocomplete="off"></div><div id="alist"></div>` });
+  const list = sh.el.querySelector('#alist'); const q = sh.el.querySelector('#aq');
+  const row = (a) => `<button class="pickrow" data-k="${esc(airlineKey(a))}">${badge(a.code)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.code || 'Sem código')}${a.custom ? ' · adicionada por ti' : ''}</div></div></button>`;
+  const render = () => {
+    const s = norm(q.value);
+    let html = '';
+    if (!s) {
+      const recent = all.filter((a) => freq.has(airlineKey(a))).sort((a, b) => freq.get(airlineKey(b)) - freq.get(airlineKey(a))).slice(0, 6);
+      if (recent.length) html += `<div class="group-h" style="margin-top:6px">Recentes</div>` + recent.map(row).join('');
+      html += `<div class="group-h">Todas</div>` + [...all].sort((a, b) => a.name.localeCompare(b.name)).map(row).join('');
+    } else {
+      const hits = all.filter((a) => norm(a.code) === s || norm(a.name).includes(s) || norm(a.code).startsWith(s)).sort((a, b) => (norm(b.code) === s) - (norm(a.code) === s) || a.name.localeCompare(b.name));
+      html += hits.map(row).join('');
+      html += `<button class="pickrow" data-newair>${ico('plus')}<div class="grow"><div class="t">Adicionar «${esc(q.value.trim())}»</div><div class="s">Companhia que não está na lista</div></div></button>`;
+    }
+    list.innerHTML = html;
+  };
+  render(); q.addEventListener('input', render);
+  if (!isTouch()) setTimeout(() => q.focus(), 60);
+  list.onclick = async (e) => {
+    const r = e.target.closest('[data-k]');
+    if (r) { const a = all.find((x) => airlineKey(x) === r.dataset.k); sh.close(); return onPick(a); }
+    if (e.target.closest('[data-newair]')) {
+      sh.close();
+      const a = await newAirlineSheet(q.value.trim()); if (a) onPick(a);
+    }
+  };
+}
+function newAirlineSheet(name = '') {
+  return new Promise((res) => {
+    let done = false;
+    const sh = sheet({ title: 'Nova companhia', body: `<div class="field"><label class="lbl">Nome</label><input class="inp" id="na-n" value="${esc(name)}"></div><div class="field"><label class="lbl">Código IATA (opcional)</label><input class="inp" id="na-c" maxlength="3" style="text-transform:uppercase" placeholder="Ex.: TP"></div><div class="field" style="margin:0"><label class="lbl">Domínio do email (opcional)</label><input class="inp" id="na-d" placeholder="Ex.: flytap.com — ajuda a reconhecer cartões"></div>`, foot: `<button class="btn" data-close>Cancelar</button><button class="btn pri" data-ok>Adicionar</button>`, onClose: () => { if (!done) res(null); } });
+    sh.el.querySelector('[data-ok]').onclick = async () => {
+      const n = sh.el.querySelector('#na-n').value.trim(); if (!n) return;
+      const a = { code: sh.el.querySelector('#na-c').value.trim().toUpperCase(), name: n, domains: sh.el.querySelector('#na-d').value.trim().toLowerCase() };
+      S.settings.customAirlines = (S.settings.customAirlines || []).filter((x) => airlineKey(x) !== airlineKey(a)); S.settings.customAirlines.push(a); await saveSettings();
+      done = true; sh.close(); res({ code: a.code, name: a.name });
+    };
+  });
+}
+
+/* ---------- contactos */
+function newContact(extra = {}) { const now = Date.now(); return { id: uid(), firstName: '', lastName: '', title: '', company: '', airlineCode: '', email: '', phone: '', mobile: '', website: '', notes: '', sfId: '', cardPhotoId: '', ocrText: '', exportedAt: 0, createdAt: now, updatedAt: now, ...extra }; }
+async function scanCard(m, after) {
+  const files = await pickImages({ capture: true }); if (!files.length) return;
+  let photo; try { photo = await savePhoto(files[0], 'card', ''); } catch (e) { return toast('Não foi possível ler a imagem'); }
+  const c = newContact({ cardPhotoId: photo.id, airlineCode: m?.airlineCode || '', company: m?.airlineName || '' });
+  contactSheet(c, { isNew: true, runOcr: true, meeting: m, onSaved: after });
+}
+function pickContact(m, after) {
+  const sh = sheet({ title: 'Adicionar contacto', body: `<div class="search" style="margin-bottom:8px">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar contactos" autocomplete="off"></div><button class="pickrow" data-newc>${ico('plus')}<div class="grow"><div class="t">Novo contacto sem cartão</div><div class="s">Escrever os dados à mão</div></div></button><div id="clist"></div>` });
+  const q = sh.el.querySelector('#cq'); const list = sh.el.querySelector('#clist');
+  const render = () => {
+    const s = norm(q.value); const k = airlineKey({ code: m.airlineCode, name: m.airlineName });
+    const cs = S.contacts.filter((c) => !m.contactIds.includes(c.id)).filter((c) => !s || norm([contactName(c), c.company, c.email, c.title].join(' ')).includes(s))
+      .sort((a, b) => (airlineKey({ code: b.airlineCode, name: b.company }) === k) - (airlineKey({ code: a.airlineCode, name: a.company }) === k) || contactName(a).localeCompare(contactName(b)));
+    list.innerHTML = cs.length ? cs.slice(0, 80).map((c) => `<button class="pickrow" data-c="${c.id}">${badge(c.airlineCode, true)}<div class="grow"><div class="t">${esc(contactName(c))}</div><div class="s">${esc([c.title, c.company].filter(Boolean).join(' · '))}</div></div></button>`).join('') : `<p class="faint" style="font-size:14px">${S.contacts.length ? 'Sem resultados.' : 'Ainda não tens contactos guardados.'}</p>`;
+  };
+  render(); q.addEventListener('input', render);
+  sh.el.onclick = (e) => {
+    const r = e.target.closest('[data-c]'); if (r) { m.contactIds.push(r.dataset.c); sh.close(); return after(); }
+    if (e.target.closest('[data-newc]')) { sh.close(); contactSheet(newContact({ airlineCode: m.airlineCode, company: m.airlineName }), { isNew: true, meeting: m, onSaved: after }); }
+  };
+}
+function contactFormHTML(c) {
+  const f = (k, l, type = 'text', ph = '', extra = '') => `<div class="field"><label class="lbl" for="c-${k}">${l}</label><input class="inp" id="c-${k}" data-cf="${k}" type="${type}" value="${esc(c[k])}" placeholder="${ph}" ${extra}></div>`;
+  return `
+    <div id="ocr-slot"></div><div id="dup-slot"></div>
+    ${c.cardPhotoId ? `<div class="cardimg" data-cardview><img data-pid="${c.cardPhotoId}" data-full="1" alt="Cartão de visita"></div>` : ''}
+    <div class="grid2">${f('firstName', 'Nome próprio', 'text', '', 'autocapitalize="words"')}${f('lastName', 'Apelido', 'text', '', 'autocapitalize="words"')}</div>
+    ${f('title', 'Cargo', 'text', 'Ex.: Station Manager')}
+    <div class="field"><label class="lbl">Companhia</label><button class="airpick" data-cair style="min-height:52px">${badge(c.airlineCode, true)}<div class="grow"><div class="n" style="font-size:15px">${esc(c.company || 'Escolher companhia')}</div></div>${ico('chev')}</button></div>
+    ${f('email', 'Email', 'email', '', 'autocapitalize="off" inputmode="email"')}
+    <div class="grid2">${f('phone', 'Telefone', 'tel')}${f('mobile', 'Telemóvel', 'tel')}</div>
+    ${f('website', 'Website', 'url', '', 'autocapitalize="off"')}
+    <div class="field"><label class="lbl" for="c-notes">Notas</label><textarea class="inp" id="c-notes" data-cf="notes" rows="2">${esc(c.notes)}</textarea></div>
+    <details class="raw"><summary>Salesforce (opcional)</summary><div style="padding-top:8px">${f('sfId', 'ID do contacto no Salesforce', 'text', '003… (só para importar com o Data Loader)', 'autocapitalize="off"')}</div></details>
+    ${c.ocrText ? `<details class="raw ocr-raw"><summary>Texto lido do cartão</summary><pre>${esc(c.ocrText)}</pre></details>` : ''}`;
+}
+function bindContactForm(root, c, touched) {
+  root.addEventListener('input', (e) => { const k = e.target.dataset.cf; if (k) { c[k] = e.target.value; touched.add(k); if (k === 'email') checkDup(root, c); } });
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('[data-cair]')) pickAirline((a) => { c.airlineCode = a.code; c.company = a.name; touched.add('company'); const b = root.querySelector('[data-cair]'); b.innerHTML = `${badge(a.code, true)}<div class="grow"><div class="n" style="font-size:15px">${esc(a.name)}</div></div>${ico('chev')}`; });
+    if (e.target.closest('[data-cardview]') && c.cardPhotoId) openViewer([c.cardPhotoId], 0);
+  });
+  hydrateImgs(root);
+}
+function checkDup(root, c) {
+  const slot = root.querySelector('#dup-slot'); if (!slot) return;
+  const em = (c.email || '').trim().toLowerCase();
+  const d = em && S.contacts.find((x) => x.id !== c.id && (x.email || '').toLowerCase() === em);
+  slot.innerHTML = d ? `<div class="dup">${ico('user')}<div class="grow"><b>Já tens este contacto:</b> ${esc(contactName(d))}${d.company ? ' · ' + esc(d.company) : ''}</div><button class="btn sm" data-usedup="${d.id}">Usar esse</button></div>` : '';
+}
+function contactSheet(c, { isNew = false, runOcr = false, meeting = null, onSaved } = {}) {
+  if (!c) return;
+  const work = { ...c }; const touched = new Set();
+  const sh = sheet({ title: isNew ? 'Novo contacto' : contactName(c), body: contactFormHTML(work), foot: `${isNew ? '<button class="btn" data-close>Cancelar</button>' : `<button class="btn" data-openfull>Ver ficha</button>`}<button class="btn pri" data-save>${ico('check', 'sm')} Guardar</button>`, onClose: async () => { if (isNew && !saved && work.cardPhotoId) { await DB.del('photos', work.cardPhotoId); dropURL(work.cardPhotoId); } } });
+  let saved = false;
+  const root = sh.el.querySelector('.sheet-b');
+  bindContactForm(root, work, touched);
+  if (runOcr) runCardOcr(root, work, touched);
+  sh.el.querySelector('[data-openfull]')?.addEventListener('click', () => { sh.close(); go('#/contactos/' + c.id); });
+  root.addEventListener('click', async (e) => {
+    const u = e.target.closest('[data-usedup]'); if (!u) return;
+    const d = getC(u.dataset.usedup);
+    for (const k of ['title', 'phone', 'mobile', 'website']) if (!d[k] && work[k]) d[k] = work[k];
+    if (work.cardPhotoId && !d.cardPhotoId) { d.cardPhotoId = work.cardPhotoId; d.ocrText = work.ocrText; saved = true; }
+    d.updatedAt = Date.now(); await DB.put('contacts', d);
+    if (meeting && !meeting.contactIds.includes(d.id)) meeting.contactIds.push(d.id);
+    if (meeting && !meeting.airlineName && d.company) { meeting.airlineCode = d.airlineCode; meeting.airlineName = d.company; }
+    sh.close(); toast('Contacto existente associado'); onSaved && onSaved(d);
+  });
+  sh.el.querySelector('[data-save]').onclick = async () => {
+    if (!work.firstName && !work.lastName && !work.email) return toast('Escreve pelo menos o nome ou o email');
+    work.updatedAt = Date.now();
+    if (work.cardPhotoId) { const p = await DB.get('photos', work.cardPhotoId); if (p && p.owner !== work.id) { p.owner = work.id; await DB.put('photos', p); } }
+    const i = S.contacts.findIndex((x) => x.id === work.id); if (i >= 0) S.contacts[i] = work; else S.contacts.push(work);
+    await DB.put('contacts', work); saved = true;
+    if (meeting) {
+      if (!meeting.contactIds.includes(work.id)) meeting.contactIds.push(work.id);
+      if (!meeting.airlineName && work.company) { meeting.airlineCode = work.airlineCode; meeting.airlineName = work.company; }
+    }
+    sh.close(); toast(isNew ? 'Contacto guardado' : 'Alterações guardadas'); onSaved && onSaved(work);
+  };
+}
+async function runCardOcr(root, c, touched, force = false) {
+  const slot = root.querySelector('#ocr-slot');
+  slot.innerHTML = `<div class="ocrbox">${ico('scan')}<div style="flex:1"><b id="ocr-msg">A ler o cartão…</b><div class="faint" style="font-size:12.5px" id="ocr-sub">Tudo no telemóvel, sem enviar a imagem. Na primeira vez demora mais.</div><div class="bar"><i id="ocr-bar"></i></div></div></div>`;
+  const bar = slot.querySelector('#ocr-bar');
+  try {
+    const p = await DB.get('photos', c.cardPhotoId);
+    const blob = new Blob([p.data], { type: 'image/jpeg' });
+    const text = await OCR.read(blob, (mm) => { if (bar && mm.status === 'recognizing text') bar.style.width = Math.round(mm.progress * 100) + '%'; else if (bar && mm.progress != null) bar.style.width = Math.round(mm.progress * 30) + '%'; });
+    c.ocrText = text;
+    const r = parseCard(text);
+    const map = { firstName: r.firstName, lastName: r.lastName, title: r.title, email: r.email, phone: r.phone, mobile: r.mobile, website: r.website };
+    for (const [k, v] of Object.entries(map)) { if (v && !touched.has(k) && (force || !c[k])) { c[k] = v; const el = root.querySelector(`[data-cf="${k}"]`); if (el) el.value = v; } }
+    if (r.airlineName && !touched.has('company')) { c.airlineCode = r.airlineCode; c.company = r.airlineName; const b = root.querySelector('[data-cair]'); if (b) b.innerHTML = `${badge(r.airlineCode, true)}<div class="grow"><div class="n" style="font-size:15px">${esc(r.airlineName)}</div></div>${ico('chev')}`; }
+    const got = Object.values(map).filter(Boolean).length;
+    slot.innerHTML = `<div class="ocrbox">${ico('check')}<div style="flex:1"><b>${got ? 'Cartão lido — confirma os dados' : 'Não consegui ler muita coisa'}</b><div class="faint" style="font-size:12.5px">${got ? 'Corrige o que estiver errado antes de guardar.' : 'Preenche à mão; a foto fica guardada.'}</div></div></div>`;
+    root.querySelectorAll('.ocr-raw').forEach((x) => x.remove());
+    const raw = document.createElement('details'); raw.className = 'raw ocr-raw'; raw.innerHTML = `<summary>Texto lido do cartão</summary><pre>${esc(text)}</pre>`; root.appendChild(raw);
+    checkDup(root, c);
+  } catch (e) {
+    console.error(e);
+    slot.innerHTML = `<div class="ocrbox">${ico('x')}<div style="flex:1"><b>Leitura automática indisponível</b><div class="faint" style="font-size:12.5px">Preenche os dados à mão — a foto do cartão fica guardada.</div></div></div>`;
+  }
+}
+
+function viewContacts() {
+  renderChrome('c');
+  const f = S.clist; const desk = isDesk(); const q = norm(f.q);
+  const list = S.contacts.filter((c) => !q || norm([contactName(c), c.company, c.email, c.title, c.phone, c.mobile].join(' ')).includes(q)).sort((a, b) => (a.company || '').localeCompare(b.company || '') || contactName(a).localeCompare(contactName(b)));
+  const meetCount = (id) => S.meetings.filter((m) => m.contactIds.includes(id)).length;
+  let body;
+  if (!S.contacts.length) body = `<div class="empty"><div class="art">${ico('card', 'lg')}</div><h2>Sem contactos</h2><p>Fotografa um cartão de visita — os dados são lidos no próprio telemóvel.</p><button class="btn pri" data-scan>${ico('scan')} Fotografar cartão</button></div>`;
+  else if (desk) body = `<div class="toolbar"><div class="search">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar contactos" value="${esc(f.q)}"></div></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Cargo</th><th>Companhia</th><th>Email</th><th>Telefone</th><th>Reuniões</th><th>Salesforce</th></tr></thead><tbody>
+    ${list.map((c) => `<tr data-cid="${c.id}"><td style="font-weight:600">${esc(contactName(c))}</td><td class="muted">${esc(c.title)}</td><td><div class="cellair">${badge(c.airlineCode, true)}<span style="font-weight:500">${esc(c.company || '—')}</span></div></td><td class="muted">${esc(c.email)}</td><td class="num">${esc(c.mobile || c.phone)}</td><td class="num">${meetCount(c.id)}</td><td>${c.exportedAt ? '<span class="pill exported">Exportado</span>' : '<span class="pill">Novo</span>'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  else body = `<div class="search" style="margin-bottom:12px">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar" value="${esc(f.q)}"></div>
+    <div class="list">${list.map((c) => `<a class="row" href="#/contactos/${c.id}">${badge(c.airlineCode)}<div class="main"><div class="t">${esc(contactName(c))}</div><div class="s">${esc([c.title, c.company].filter(Boolean).join(' · ') || c.email)}</div></div>${ico('chev', 'sm faint')}</a>`).join('') || '<div class="empty"><p>Sem resultados.</p></div>'}</div>`;
+  view.innerHTML = `<div class="page"><div class="top"><h1>Contactos${desk && S.contacts.length ? `<small>${plural(S.contacts.length, 'contacto', 'contactos')}</small>` : ''}</h1><button class="btn ${desk ? '' : 'sm'}" data-newc>${ico('plus', 'sm')} Novo</button><button class="btn pri ${desk ? '' : 'sm'}" data-scan>${ico('scan', 'sm')} Cartão</button></div>${body}</div>`;
+  $('#cq')?.addEventListener('input', debounce((e) => { f.q = e.target.value; viewContacts(); const el = $('#cq'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }, 220));
+  view.onclick = (e) => {
+    if (e.target.closest('[data-scan]')) return scanCard(null, (c) => { viewContacts(); });
+    if (e.target.closest('[data-newc]')) return contactSheet(newContact(), { isNew: true, onSaved: () => viewContacts() });
+    const tr = e.target.closest('tr[data-cid]'); if (tr) go('#/contactos/' + tr.dataset.cid);
+  };
+}
+function viewContact(id, opts = {}) {
+  const c = getC(id); if (!c) return go('#/contactos');
+  renderChrome('c');
+  const work = { ...c }; const touched = new Set();
+  const ms = S.meetings.filter((m) => m.contactIds.includes(c.id)).sort((a, b) => (b.start || '').localeCompare(a.start || ''));
+  view.innerHTML = `<div class="page"><div class="top"><button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button><h1>${esc(contactName(c))}<small>${esc(c.company || '')}</small></h1><button class="btn pri" data-save>${ico('check', 'sm')} Guardar</button></div>
+    <div class="two"><div class="sec" id="cform">${contactFormHTML(work)}
+      ${c.cardPhotoId ? `<button class="btn sm" data-reocr style="margin-top:6px">${ico('refresh', 'sm')} Ler cartão novamente</button>` : `<button class="btn sm" data-addcard style="margin-top:6px">${ico('scan', 'sm')} Juntar foto do cartão</button>`}
+    </div>
+    <div><div class="sec"><h3>${ico('list', 'sm')} Reuniões <span class="r faint">${ms.length}</span></h3>${ms.length ? `<div class="list">${ms.map((m) => `<a class="row" href="#/r/${m.id}"><div class="main"><div class="t">${esc(subjectOf(m))}</div><div class="s">${fmtDateShort(m.start)} · ${fmtTime(m.start)}</div></div>${statusPill(m)}</a>`).join('')}</div>` : '<p class="faint" style="margin:0;font-size:14px">Ainda não está associado a nenhuma reunião.</p>'}</div>
+    <div style="text-align:center"><button class="btn ghost danger" data-delc>${ico('trash', 'sm')} Apagar contacto</button></div></div></div></div>`;
+  const root = $('#cform');
+  bindContactForm(root, work, touched); checkDup(root, work);
+  if (opts.ocr) runCardOcr(root, work, touched, true);
+  view.onclick = async (e) => {
+    if (e.target.closest('[data-back]')) return goBack('#/contactos');
+    if (e.target.closest('[data-save]')) {
+      work.updatedAt = Date.now(); Object.assign(c, work); await DB.put('contacts', c); toast('Guardado'); return viewContact(id);
+    }
+    if (e.target.closest('[data-reocr]')) return runCardOcr(root, work, touched, true);
+    if (e.target.closest('[data-addcard]')) {
+      const files = await pickImages({ capture: true }); if (!files.length) return;
+      const p = await savePhoto(files[0], 'card', c.id); c.cardPhotoId = p.id; c.updatedAt = Date.now(); await DB.put('contacts', c);
+      return viewContact(id, { ocr: true });
+    }
+    const u = e.target.closest('[data-usedup]'); if (u) return go('#/contactos/' + u.dataset.usedup);
+    if (e.target.closest('[data-delc]')) {
+      if (!(await confirmSheet('Apagar contacto?', `${esc(contactName(c))} é removido deste dispositivo e das reuniões onde aparece.`))) return;
+      for (const m of S.meetings) if (m.contactIds.includes(c.id)) { m.contactIds = m.contactIds.filter((x) => x !== c.id); m.updatedAt = Date.now(); await DB.put('meetings', m); }
+      if (c.cardPhotoId) { await DB.del('photos', c.cardPhotoId); dropURL(c.cardPhotoId); }
+      await DB.del('contacts', c.id); S.contacts = S.contacts.filter((x) => x.id !== c.id); toast('Contacto apagado'); go('#/contactos');
+    }
+  };
+}
+
+/* ---------- folha Salesforce (copiar/colar) */
+function sfSheet(m, after) {
+  const w = meetingWarnings(m);
+  const pc = primaryContact(m); const acc = sfAcc({ code: m.airlineCode, name: m.airlineName });
+  const others = m.contactIds.length - (pc ? 1 : 0);
+  const rows = [
+    ['Subject', subjectOf(m)],
+    ['Name (contacto)', pc ? contactName(pc) : '—', false, pc ? [pc.title, pc.email].filter(Boolean).join(' · ') + (others > 0 ? ` · +${others} nos Comments` : '') : 'Obrigatório no Salesforce'],
+    ['Related To', acc.name || m.airlineName || '—'],
+    ['Due Date', dueDate(m)],
+    ['Flag', m.flag || '—'],
+    ['Type of Tradeshow', m.tradeshow || '--None--', !m.tradeshow],
+    ['Geographical Scope', scopeOf(m).join(', ') || '—', true, scopeOf(m).length ? 'Escolhe na lista Available → Chosen' : ''],
+  ];
+  const desc = buildDescription(m);
+  const sh = sheet({ title: 'New Meeting Note', wide: true, body: `
+    ${w.length ? `<div class="warnlist">${w.map((x) => `<div>${ico('x', 'sm')} ${esc(x)}</div>`).join('')}</div>` : ''}
+    <p class="muted" style="margin:0 0 10px;font-size:14px">No Salesforce, abre a conta <b>${esc(acc.name || m.airlineName || 'da companhia')}</b> e carrega em <b>New Meeting Note</b>. Os campos estão pela mesma ordem do formulário — toca para copiar.</p>
+    <div class="sec" style="padding:4px 14px">${rows.map(([k, v, noCopy, hint], i) => `<div class="sfrow"><div class="grow"><div class="k">${k}</div><div class="v">${esc(v)}</div>${hint ? `<div class="faint" style="font-size:12.5px">${esc(hint)}</div>` : ''}</div>${noCopy || v === '—' ? '' : `<button class="ibtn solid" data-cp="${i}" aria-label="Copiar ${esc(k)}">${ico('copy', 'sm')}</button>`}</div>`).join('')}</div>
+    <div class="sec"><h3>Comments <span class="r"><button class="btn sm pri" data-cpdesc>${ico('copy', 'sm')} Copiar comments</button></span></h3><pre class="sfprev">${esc(desc) || '—'}</pre></div>`,
+    foot: m.status === 'exported' ? `<button class="btn" data-close>Fechar</button>` : `<button class="btn" data-close>Fechar</button><button class="btn dark" data-markexp>${ico('check', 'sm')} Já gravei — marcar exportada</button>` });
+  sh.el.onclick = async (ev) => {
+    const cp = ev.target.closest('[data-cp]'); if (cp) { await copyText(rows[cp.dataset.cp][1]); toast(`${rows[cp.dataset.cp][0]} copiado`); }
+    if (ev.target.closest('[data-cpdesc]')) { await copyText(desc); toast('Comments copiados'); }
+    if (ev.target.closest('[data-markexp]')) { m.status = 'exported'; m.updatedAt = Date.now(); m.exportedAt = m.updatedAt; await DB.put('meetings', m); sh.close(); toast('Marcada como exportada'); after && after(); }
+  };
+}
+
+/* =====================================================================
+   VISTA: exportar
+   ===================================================================== */
+const XP = { scope: 'ready', from: '', to: '', mark: true, onlyNewContacts: true };
+function exportSet() {
+  return S.meetings.filter((m) => {
+    if (XP.scope === 'ready' && m.status !== 'ready') return false;
+    if (XP.scope === 'pending' && m.status === 'exported') return false;
+    const d = (m.start || '').slice(0, 10);
+    if (XP.from && d < XP.from) return false; if (XP.to && d > XP.to) return false;
+    return true;
+  }).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+}
+function viewExport() {
+  renderChrome('x');
+  const set = exportSet(); const noContact = set.filter((m) => !m.contactIds.length).length;
+  const cs = S.contacts.filter((c) => !XP.onlyNewContacts || !c.exportedAt);
+  const noAcc = set.filter((m) => m.airlineName && !sfAcc({ code: m.airlineCode, name: m.airlineName }).id).length;
+  view.innerHTML = `<div class="page"><div class="top"><h1>Exportar<small>Para o Salesforce e cópias de segurança</small></h1></div>
+  <div class="two"><div>
+    <div class="sec"><h3>${ico('list', 'sm')} Que reuniões?</h3>
+      <div class="field"><div class="seg" id="xp-scope"><button data-sc="ready">Prontas</button><button data-sc="pending">Por exportar</button><button data-sc="all">Todas</button></div></div>
+      <div class="grid2"><div class="field"><label class="lbl">Desde</label><input class="inp" type="date" id="xp-from" value="${esc(XP.from)}"></div><div class="field"><label class="lbl">Até</label><input class="inp" type="date" id="xp-to" value="${esc(XP.to)}"></div></div>
+      <div class="kpi"><div><b>${set.length}</b><span>${set.length === 1 ? 'meeting note' : 'meeting notes'}</span></div><div><b>${cs.length}</b><span>${cs.length === 1 ? 'contacto' : 'contactos'}${XP.onlyNewContacts ? ' novos' : ''}</span></div></div>
+      ${set.length ? `<div class="list" style="max-height:260px;overflow:auto">${set.map((m) => `<a class="row" href="#/r/${m.id}" style="padding:9px 12px">${badge(m.airlineCode, true)}<div class="main"><div class="t" style="font-size:14px">${esc(subjectOf(m))}</div><div class="s">${dueDate(m)}${m.contactIds.length ? '' : ' · sem contacto'}</div></div>${statusPill(m)}</a>`).join('')}</div>` : `<p class="faint" style="margin:0;font-size:14px">Nenhuma reunião neste filtro. Marca as reuniões como «Pronta» quando estiverem revistas.</p>`}
+    </div>
+
+    <div class="sec"><h3>${ico('copy', 'sm')} Opção A · Copiar e colar</h3>
+      <p class="how" style="margin:0 0 10px">Funciona sempre, sem permissões especiais. Abre cada reunião e toca em <b>Salesforce</b>: tens os campos do <b>New Meeting Note</b> pela ordem do formulário, prontos a colar.</p>
+      <button class="btn" data-copybatch ${set.length ? '' : 'disabled'}>${ico('copy', 'sm')} Copiar todas em texto</button>
+    </div>
+
+    <div class="sec"><h3>${ico('download', 'sm')} Opção B · Ficheiros para importação</h3>
+      ${noAcc ? `<div class="warnlist"><div>${ico('x', 'sm')} ${plural(noAcc, 'reunião não tem', 'reuniões não têm')} o ID da conta Salesforce (WhatId). Podes importar na mesma, mas ficam sem ligação à conta. Define os IDs em Definições → Companhias.</div></div>` : ''}
+      ${noContact ? `<div class="warnlist"><div>${ico('x', 'sm')} ${plural(noContact, 'reunião não tem', 'reuniões não têm')} contacto (Name).</div></div>` : ''}
+      <button class="btn block" data-dl="notes" ${set.length ? '' : 'disabled'} style="margin-bottom:10px">${ico('download', 'sm')} Meeting Notes para o Data Loader (${set.length})</button>
+      <button class="btn block" data-dl="contacts" ${cs.length ? '' : 'disabled'}>${ico('download', 'sm')} Contactos para o Assistente de Importação (${cs.length})</button>
+      <label class="check" style="margin-top:10px"><input type="checkbox" class="ck" id="xp-new" ${XP.onlyNewContacts ? 'checked' : ''}> Só contactos ainda não exportados</label>
+      <label class="check"><input type="checkbox" class="ck" id="xp-mark" ${XP.mark ? 'checked' : ''}> Marcar como exportados depois de descarregar</label>
+    </div>
+  </div><div>
+    <div class="sec how"><h3>${ico('send', 'sm')} Como importar no Salesforce</h3>
+      <b style="color:var(--ink)">Meeting Notes → Data Loader</b>
+      <ol><li>Abre o Data Loader e escolhe <code>Insert</code>, objeto <code>Task</code> (as Meeting Notes são tarefas).</li><li>Escolhe o ficheiro CSV e carrega em <i>Auto-Match Fields to Columns</i>.</li><li>As colunas <code>Ref_…</code> são só para tua referência: deixa-as por mapear.</li></ol>
+      <p style="margin:0 0 10px">Antes da primeira importação, pede ao administrador o <b>ID do tipo de registo «Meeting Note»</b> e os <b>nomes API</b> dos campos Flag, Type of Tradeshow e Geographical Scope, e põe-nos em Definições → Importação. O <code>WhatId</code> (conta) e o <code>WhoId</code> (contacto) só são preenchidos se tiveres posto os IDs nas definições ou nas fichas. Sem Data Loader, usa a opção A.</p>
+      <b style="color:var(--ink)">Contactos → Assistente de Importação de Dados</b>
+      <ol><li>Configuração → <i>Assistente de Importação de Dados</i> → <i>Contas e Contactos</i> → adicionar novos.</li><li>Associa à conta pelo nome da conta (coluna <code>Account Name</code>).</li><li>Codificação de caracteres: <code>UTF-8</code>.</li></ol>
+      <p style="margin:0">Se o nome da conta no Salesforce não for igual ao nome da companhia aqui, define-o em Definições → Companhias.</p>
+    </div>
+    <div class="sec"><h3>${ico('db', 'sm')} Cópia de segurança e passagem para o portátil</h3>
+      <p class="how" style="margin:0 0 10px">Um ficheiro com tudo (reuniões, contactos e fotos). No portátil, abre o Debrief e importa-o: junta-se ao que lá estiver, sem duplicar. Última cópia: <b>${ago(S.settings.lastBackupAt)}</b>.</p>
+      <div class="acts-row"><button class="btn" data-backup>${ico(isTouch() ? 'share' : 'download', 'sm')} Exportar cópia</button><button class="btn" data-restore>${ico('upload', 'sm')} Importar cópia</button></div>
+    </div>
+  </div></div></div>`;
+  $$('#xp-scope button').forEach((b) => b.classList.toggle('on', b.dataset.sc === XP.scope));
+  $('#xp-from').onchange = (e) => { XP.from = e.target.value; viewExport(); };
+  $('#xp-to').onchange = (e) => { XP.to = e.target.value; viewExport(); };
+  $('#xp-new').onchange = (e) => { XP.onlyNewContacts = e.target.checked; viewExport(); };
+  $('#xp-mark').onchange = (e) => { XP.mark = e.target.checked; };
+  view.onclick = async (e) => {
+    const sc = e.target.closest('[data-sc]'); if (sc) { XP.scope = sc.dataset.sc; return viewExport(); }
+    const dl = e.target.closest('[data-dl]');
+    if (dl) {
+      if (dl.dataset.dl === 'contacts') return exportContacts(cs, { mark: XP.mark });
+      return exportNotes(set, { mark: XP.mark });
+    }
+    if (e.target.closest('[data-copybatch]')) { await copyText(set.map(fullText).join('\n\n────────────\n\n')); return toast(`${plural(set.length, 'reunião copiada', 'reuniões copiadas')}`); }
+    if (e.target.closest('[data-backup]')) return exportBackup();
+    if (e.target.closest('[data-restore]')) return importBackup();
+  };
+}
+function rerenderKeep() { const y = window.scrollY; route(); window.scrollTo(0, y); }
+const stamp = () => { const d = new Date(); return `${ymd(d)}_${pad(d.getHours())}${pad(d.getMinutes())}`; };
+async function exportNotes(ms, { mark = true } = {}) {
+  if (!ms.length) return;
+  const ok = await saveFile(`salesforce_meeting_notes_${stamp()}.csv`, notesCSV(ms), 'text/csv;charset=utf-8'); if (!ok) return;
+  if (mark) { const now = Date.now(); for (const m of ms) { m.status = 'exported'; m.updatedAt = now; m.exportedAt = now; await DB.put('meetings', m); } }
+  toast(mark ? 'Ficheiro criado e reuniões marcadas como exportadas' : 'Ficheiro criado');
+  S.list.sel.clear(); rerenderKeep();
+}
+async function exportContacts(cs, { mark = true } = {}) {
+  if (!cs.length) return;
+  const ok = await saveFile(`salesforce_contactos_${stamp()}.csv`, contactsCSV(cs), 'text/csv;charset=utf-8'); if (!ok) return;
+  if (mark) { const now = Date.now(); for (const c of cs) { c.exportedAt = now; await DB.put('contacts', c); } }
+  toast('Ficheiro de contactos criado'); rerenderKeep();
+}
+
+/* ---------- cópia de segurança */
+function abToB64(ab) { const u8 = new Uint8Array(ab); let s = ''; const CH = 0x8000; for (let i = 0; i < u8.length; i += CH) s += String.fromCharCode.apply(null, u8.subarray(i, i + CH)); return btoa(s); }
+function b64ToAb(b64) { const s = atob(b64); const u8 = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i); return u8.buffer; }
+async function exportBackup() {
+  await flushSaves();
+  toast('A preparar a cópia…');
+  const photos = await DB.all('photos');
+  const payload = { app: 'debrief', format: 1, version: APP_VERSION, exportedAt: new Date().toISOString(), settings: { ...S.settings, lastBackupAt: undefined, iosHintDismissed: undefined },
+    meetings: S.meetings, contacts: S.contacts, photos: photos.map((p) => ({ ...p, data: abToB64(p.data), thumb: abToB64(p.thumb) })) };
+  const ok = await saveFile(`debrief_copia_${stamp()}.json`, JSON.stringify(payload), 'application/json');
+  if (ok) { S.settings.lastBackupAt = Date.now(); await saveSettings(); toast(`Cópia criada · ${plural(S.meetings.length, 'reunião', 'reuniões')}, ${plural(photos.length, 'foto', 'fotos')}`); route(); }
+}
+async function importBackup() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    let data; try { data = JSON.parse(await f.text()); } catch (e) { return toast('Ficheiro inválido'); }
+    if (data.app !== 'debrief') return toast('Este ficheiro não é uma cópia do Debrief');
+    const n = { m: 0, c: 0, p: 0 };
+    const newer = (inc, cur) => !cur || (inc.updatedAt || 0) > (cur.updatedAt || 0);
+    for (const p of data.photos || []) { const cur = await DB.get('photos', p.id); if (!cur) { await DB.put('photos', { ...p, data: b64ToAb(p.data), thumb: b64ToAb(p.thumb) }); n.p++; } }
+    for (const c of data.contacts || []) { if (newer(c, getC(c.id))) { await DB.put('contacts', c); n.c++; } }
+    for (const m of data.meetings || []) { if (newer(m, getM(m.id))) { await DB.put('meetings', m); n.m++; } }
+    if (data.settings) {
+      const s = data.settings, cur = S.settings;
+      for (const a of s.customAirlines || []) if (!(cur.customAirlines || []).some((x) => airlineKey(x) === airlineKey(a))) cur.customAirlines.push(a);
+      cur.airlineSf = { ...(s.airlineSf || {}), ...(cur.airlineSf || {}) };
+      for (const t of s.topics || []) if (!cur.topics.some((x) => norm(x) === norm(t))) cur.topics.push(t);
+      await saveSettings();
+    }
+    await loadAll(); askPersist();
+    toast(`Importado: ${plural(n.m, 'reunião', 'reuniões')}, ${plural(n.c, 'contacto', 'contactos')}, ${plural(n.p, 'foto', 'fotos')}`);
+    route();
+  };
+  inp.click();
+}
+
+/* =====================================================================
+   VISTA: definições
+   ===================================================================== */
+async function viewSettings() {
+  renderChrome('s');
+  const st = S.settings;
+  const usedKeys = new Set(S.meetings.filter((m) => m.airlineName).map((m) => airlineKey({ code: m.airlineCode, name: m.airlineName })));
+  const shown = airlines().filter((a) => usedKeys.has(airlineKey(a)) || st.airlineSf?.[airlineKey(a)] || a.custom).sort((a, b) => a.name.localeCompare(b.name));
+  view.innerHTML = `<div class="page"><div class="top"><h1>Definições</h1></div><div class="two"><div>
+    <div class="sec"><h3>${ico('user', 'sm')} Predefinições</h3>
+      <div class="field"><label class="lbl">O teu nome (participante ANA)</label><input class="inp" data-s="ownerName" value="${esc(st.ownerName)}" placeholder="Ex.: Nuno Silva"></div>
+      <div class="grid2"><div class="field"><label class="lbl">Prefixo do Subject</label><input class="inp" data-s="subjectPrefix" value="${esc(st.subjectPrefix)}" placeholder="Meeting"></div>
+      <div class="field"><label class="lbl">Aeroporto no Subject</label><input class="inp" data-s="airportCode" value="${esc(st.airportCode)}" maxlength="3" style="text-transform:uppercase" placeholder="OPO"></div></div>
+      <div class="field"><label class="lbl">Geographical Scope por defeito</label><input class="inp" data-s="defaultScope" value="${esc(st.defaultScope)}" style="text-transform:uppercase" placeholder="OPO (vários: OPO, LIS)"></div>
+      <p class="faint" style="font-size:12.5px;margin:0">Exemplo: <code style="font-family:var(--mono)">${esc(st.subjectPrefix || 'Meeting')}_${esc(st.airportCode || 'OPO')}_TP_Slots e planeamento</code></p>
+    </div>
+    <div class="sec"><h3>${ico('pen', 'sm')} Temas <span class="r faint">aparecem como atalhos em cada reunião</span></h3>
+      <div id="topics-set"></div>
+      <div class="subj-row" style="margin-top:10px"><input class="inp" id="new-topic" placeholder="Novo tema"><button class="btn" data-addtopic>${ico('plus', 'sm')} Adicionar</button></div>
+    </div>
+    <div class="sec"><h3>${ico('send', 'sm')} Salesforce</h3>
+      <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeParticipants" ${st.sfIncludeParticipants ? 'checked' : ''}> Incluir participantes da companhia nos Comments</label>
+      <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeInternal" ${st.sfIncludeInternal ? 'checked' : ''}> Incluir participantes ANA nos Comments</label>
+    </div>
+    <div class="sec"><h3>${ico('download', 'sm')} Importação com Data Loader <span class="r faint">avançado</span></h3>
+      <p class="faint" style="font-size:12.5px;margin:0 0 10px">Só precisas disto se usares o ficheiro CSV. Pede estes valores ao administrador do Salesforce.</p>
+      <div class="field"><label class="lbl">ID do tipo de registo «Meeting Note»</label><input class="inp" data-s="sfRecordTypeId" value="${esc(st.sfRecordTypeId)}" placeholder="012…" autocapitalize="off" style="font-family:var(--mono)"></div>
+      <div class="field"><label class="lbl">Nome API do campo Flag</label><input class="inp" data-s="sfFlagField" value="${esc(st.sfFlagField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
+      <div class="field"><label class="lbl">Nome API do campo Type of Tradeshow</label><input class="inp" data-s="sfTradeshowField" value="${esc(st.sfTradeshowField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
+      <div class="field" style="margin:0"><label class="lbl">Nome API do campo Geographical Scope</label><input class="inp" data-s="sfScopeField" value="${esc(st.sfScopeField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
+    </div>
+  </div><div>
+    <div class="sec"><h3>${ico('plane', 'sm')} Companhias e contas Salesforce</h3>
+      <p class="faint" style="font-size:13px;margin:0 0 8px">Opcional. O nome da conta ajuda a importar contactos; o ID da conta (começa por 001) liga as Meeting Notes à conta no Data Loader.</p>
+      <div id="air-set">${shown.length ? shown.map((a) => { const sf = st.airlineSf?.[airlineKey(a)] || {}; return `<button class="pickrow" data-airset="${esc(airlineKey(a))}">${badge(a.code, true)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${sf.id ? 'ID ' + esc(sf.id) : 'Sem ID de conta'}${sf.name ? ' · ' + esc(sf.name) : ''}</div></div>${ico('chev', 'sm')}</button>`; }).join('') : '<p class="faint" style="font-size:14px;margin:0">As companhias das tuas reuniões aparecem aqui.</p>'}</div>
+      <button class="btn sm" data-airfind style="margin-top:10px">${ico('search', 'sm')} Configurar outra companhia</button>
+    </div>
+    <div class="sec"><h3>${ico('shield', 'sm')} Dados e privacidade</h3>
+      <div class="setrow"><div class="grow"><b>Onde ficam os dados</b><div class="faint" style="font-size:13px">Só neste dispositivo e neste browser. Nada é enviado para servidores — nem as fotos, nem a leitura dos cartões.</div></div></div>
+      <div class="setrow"><div class="grow"><b>Armazenamento</b><div class="faint" style="font-size:13px" id="stor">A calcular…</div></div></div>
+      <div class="setrow"><div class="grow"><b>Leitor de cartões offline</b><div class="faint" style="font-size:13px" id="ocrst">A verificar…</div></div></div>
+      <div class="setrow"><div class="grow"><b>Cópia de segurança</b><div class="faint" style="font-size:13px">Última: ${ago(st.lastBackupAt)}</div></div><button class="btn sm" data-goexp>Abrir</button></div>
+      <div class="setrow"><div class="grow"><b style="color:var(--danger)">Apagar tudo</b><div class="faint" style="font-size:13px">Remove reuniões, contactos, fotos e definições deste dispositivo.</div></div><button class="btn sm danger" data-wipe>Apagar</button></div>
+    </div>
+  </div></div></div>`;
+  renderTopicSettings();
+  const saveSoon = debounce(saveSettings, 300);
+  view.oninput = (e) => { const k = e.target.dataset.s; if (k) { let v = e.target.value; if (k === 'airportCode') v = v.trim().toUpperCase(); if (k === 'defaultScope') v = v.toUpperCase(); st[k] = v; saveSoon(); } };
+  view.onchange = async (e) => {
+    const k = e.target.dataset.s; if (k && e.target.tagName === 'SELECT') { st[k] = e.target.value; await saveSettings(); }
+    const b = e.target.dataset.sb; if (b) { st[b] = e.target.checked; await saveSettings(); }
+  };
+  view.onclick = async (e) => {
+    const t = e.target;
+    if (t.closest('[data-addtopic]')) { const v = $('#new-topic').value.trim(); if (v && !st.topics.some((x) => norm(x) === norm(v))) { st.topics.push(v); await saveSettings(); $('#new-topic').value = ''; renderTopicSettings(); } return; }
+    const tu = t.closest('[data-tsu]'); if (tu) { const i = +tu.dataset.tsu; if (i > 0) { [st.topics[i - 1], st.topics[i]] = [st.topics[i], st.topics[i - 1]]; await saveSettings(); renderTopicSettings(); } return; }
+    const td = t.closest('[data-tsd]'); if (td) { const i = +td.dataset.tsd; if (i < st.topics.length - 1) { [st.topics[i + 1], st.topics[i]] = [st.topics[i], st.topics[i + 1]]; await saveSettings(); renderTopicSettings(); } return; }
+    const tr = t.closest('[data-tsr]'); if (tr) { st.topics.splice(+tr.dataset.tsr, 1); await saveSettings(); renderTopicSettings(); return; }
+    const as = t.closest('[data-airset]'); if (as) return airSfSheet(as.dataset.airset);
+    if (t.closest('[data-airfind]')) return pickAirline((a) => airSfSheet(airlineKey(a)));
+    if (t.closest('[data-goexp]')) return go('#/exportar');
+    if (t.closest('[data-wipe]')) return wipeAll();
+  };
+  $('#new-topic').onkeydown = (e) => { if (e.key === 'Enter') $('[data-addtopic]').click(); };
+  try {
+    const est = await navigator.storage?.estimate?.(); const per = await navigator.storage?.persisted?.();
+    const mb = (b) => (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
+    $('#stor').textContent = est ? `${mb(est.usage || 0)} usados · ${per ? 'protegido contra limpeza automática' : 'o browser pode limpar se faltar espaço — instala a app e faz cópias'}` : 'Indisponível neste browser';
+  } catch (e) { $('#stor').textContent = 'Indisponível neste browser'; }
+  try {
+    const c = await caches.open('debrief-ocr-v6'); const k = await c.keys();
+    $('#ocrst').textContent = k.length >= 5 ? 'Pronto — funciona sem rede' : 'Ainda a descarregar (precisa de rede na primeira utilização)';
+  } catch (e) { $('#ocrst').textContent = 'Disponível quando a app estiver alojada num site (https)'; }
+}
+function renderTopicSettings() {
+  const st = S.settings;
+  $('#topics-set').innerHTML = st.topics.map((t, i) => `<div class="setrow"><input class="inp" value="${esc(t)}" data-tsn="${i}" aria-label="Nome do tema"><button class="ibtn sm" data-tsu="${i}" aria-label="Subir">${ico('up', 'sm')}</button><button class="ibtn sm" data-tsd="${i}" aria-label="Descer">${ico('down', 'sm')}</button><button class="ibtn sm" data-tsr="${i}" aria-label="Remover">${ico('x', 'sm')}</button></div>`).join('');
+  $$('[data-tsn]').forEach((el) => el.addEventListener('change', async () => { const v = el.value.trim(); if (v) { st.topics[+el.dataset.tsn] = v; await saveSettings(); } }));
+}
+function airSfSheet(key) {
+  const a = airlines().find((x) => airlineKey(x) === key) || { name: key, code: '' };
+  const sf = S.settings.airlineSf?.[key] || {};
+  const sh = sheet({ title: a.name, body: `
+    <div class="field"><label class="lbl">Nome da conta no Salesforce</label><input class="inp" id="sf-n" value="${esc(sf.name || '')}" placeholder="${esc(a.name)}"></div>
+    <div class="field"><label class="lbl">ID da conta (WhatId)</label><input class="inp" id="sf-i" value="${esc(sf.id || '')}" placeholder="001…" autocapitalize="off" style="font-family:var(--mono)"></div>
+    <p class="faint" style="font-size:13px;margin:0">O ID está no URL da conta no Salesforce, a seguir a <code>/Account/</code>. Tem 15 ou 18 caracteres e começa por 001.</p>
+    ${a.custom ? `<button class="btn sm danger" data-rmair style="margin-top:12px">${ico('trash', 'sm')} Remover companhia da lista</button>` : ''}`,
+    foot: `<button class="btn" data-close>Cancelar</button><button class="btn pri" data-ok>Guardar</button>` });
+  sh.el.querySelector('[data-ok]').onclick = async () => {
+    const id = sh.el.querySelector('#sf-i').value.trim(), name = sh.el.querySelector('#sf-n').value.trim();
+    if (id && !/^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(id)) return toast('O ID deve ter 15 ou 18 caracteres');
+    S.settings.airlineSf = S.settings.airlineSf || {};
+    if (id || name) S.settings.airlineSf[key] = { id, name }; else delete S.settings.airlineSf[key];
+    await saveSettings(); sh.close(); toast('Guardado'); viewSettings();
+  };
+  sh.el.querySelector('[data-rmair]')?.addEventListener('click', async () => { S.settings.customAirlines = S.settings.customAirlines.filter((x) => airlineKey(x) !== key); await saveSettings(); sh.close(); viewSettings(); });
+}
+async function wipeAll() {
+  const sh = sheet({ title: 'Apagar todos os dados?', body: `<p class="muted" style="margin:0 0 12px">Isto apaga <b>${plural(S.meetings.length, 'reunião', 'reuniões')}</b> e <b>${plural(S.contacts.length, 'contacto', 'contactos')}</b> deste dispositivo. Não dá para desfazer. Faz primeiro uma cópia de segurança.</p><label class="lbl">Escreve APAGAR para confirmar</label><input class="inp" id="wipe-c" autocapitalize="characters">`, foot: `<button class="btn" data-close>Cancelar</button><button class="btn" data-ok style="background:var(--danger);border-color:var(--danger);color:#fff">Apagar tudo</button>` });
+  sh.el.querySelector('[data-ok]').onclick = async () => {
+    if (sh.el.querySelector('#wipe-c').value.trim().toUpperCase() !== 'APAGAR') return toast('Escreve APAGAR para confirmar');
+    for (const s of ['meetings', 'contacts', 'photos', 'kv']) await DB.clear(s);
+    for (const k of [...urlCache.keys()]) URL.revokeObjectURL(urlCache.get(k)); urlCache.clear();
+    await loadAll(); sh.close(); toast('Dados apagados'); go('#/');
+  };
+}
+
+/* ---------- arranque */
+(async function init() {
+  try { await DB.open(); await loadAll(); }
+  catch (e) { view.innerHTML = `<div class="page"><div class="empty"><h2>Não foi possível abrir a base de dados</h2><p>Este browser está a bloquear o armazenamento local (por exemplo, em navegação privada). Abre o Debrief numa janela normal.</p></div></div>`; return; }
+  route();
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      reg.addEventListener('updatefound', () => { const w = reg.installing; w && w.addEventListener('statechange', () => { if (w.state === 'activated' && navigator.serviceWorker.controller) toast('Nova versão instalada', { label: 'Recarregar', fn: async () => { await flushSaves(); location.reload(); } }); }); });
+    } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>
