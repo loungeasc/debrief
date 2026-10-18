@@ -29,9 +29,20 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
 
 Subject automático: `Meeting_OPO_<código IATA>_<temas>` (prefixo e aeroporto em Definições).
 
+## Partilhar com o colega (Supabase do Portal)
+
+As reuniões, contactos e fotos ficam numa base partilhada no Supabase do Portal do Lounge (UE). Cada dispositivo guarda uma cópia para trabalhar sem rede e sincroniza sozinho quando volta a ter rede (e em tempo real enquanto a app está aberta).
+
+Configuração (uma vez):
+1. No Supabase do Portal, SQL Editor → corre `supabase/01_crm_reunioes.sql`. Só acrescenta uma tabela, uma pasta privada de fotos e regras de acesso; não mexe no Portal.
+2. Corre `supabase/02_dar_acesso.sql` com o teu email e depois com o do teu colega. Só quem tiver esta permissão vê as reuniões — os outros administradores do Portal não.
+3. Abre o Debrief e entra com a conta do Portal.
+
+Os dados que já tens no dispositivo são enviados na primeira vez que entras.
+
 ## Passar do telemóvel para o portátil
 
-Exportar → **Exportar cópia** (ficheiro `.json` com tudo, incluindo fotos) → envia para ti (AirDrop, email, Files) → no portátil, Exportar → **Importar cópia**. Junta sem duplicar.
+Com a conta do Portal isto já é automático. Sem conta: Exportar → **Exportar cópia** (ficheiro `.json` com tudo, incluindo fotos) → envia para ti (AirDrop, email, Files) → no portátil, Exportar → **Importar cópia**. Junta sem duplicar.
 
 Faz cópias regularmente: se o browser for limpo, os dados perdem-se.
 

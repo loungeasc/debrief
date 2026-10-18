@@ -1,5 +1,5 @@
 /* Debrief — service worker: funciona sem rede. Nenhum dado do utilizador passa por aqui. */
-const VERSION = 'debrief-v1.1.0';
+const VERSION = 'debrief-v1.2.0';
 const SHELL = VERSION + '-shell';
 const OCR = 'debrief-ocr-v6';
 
@@ -11,7 +11,8 @@ const SHELL_FILES = [
   './icons/icon-512.png',
   './icons/maskable-512.png',
   './icons/apple-touch-icon.png',
-  './icons/favicon.png'
+  './icons/favicon.png',
+  './vendor/supabase/supabase.js'
 ];
 
 const OCR_FILES = [

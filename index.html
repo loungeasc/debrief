@@ -292,6 +292,21 @@ details.raw pre{white-space:pre-wrap;font-size:12.5px;background:var(--surface-2
 .toast button{background:none;border:0;color:var(--hot);font-weight:700;padding:0}
 @media (min-width:960px){.toast{bottom:28px}}
 
+/* login / sincronização */
+body.gate .side,body.gate .tabbar{display:none}
+body.gate main{padding-bottom:0}
+.gatebox{max-width:400px;margin:0 auto;padding:calc(48px + env(safe-area-inset-top)) 20px 40px}
+.gatebox img{width:64px;height:64px;border-radius:16px;display:block;margin-bottom:18px}
+.gatebox h1{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+.gatebox p{color:var(--ink-2);margin:0 0 20px}
+.gatebox .err{color:var(--danger);font-size:14px;min-height:20px;margin:6px 0 10px}
+.syncst{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3);white-space:nowrap}
+.syncst::before{content:"";width:7px;height:7px;border-radius:9px;background:var(--ok)}
+.syncst.busy::before{background:var(--warn)}
+.syncst.off::before{background:var(--ink-3)}
+.syncst.err::before{background:var(--danger)}
+.syncst.local::before{display:none}
+.top .syncst{margin-top:2px}
 /* settings / export */
 .setrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .setrow:last-child{border-bottom:0}
@@ -353,13 +368,14 @@ details.raw pre{white-space:pre-wrap;font-size:12.5px;background:var(--surface-2
 <nav class="tabbar" id="tabbar"></nav>
 <div id="layer"></div>
 
+<script src="vendor/supabase/supabase.js"></script>
 <script>
 'use strict';
 /* =====================================================================
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -420,10 +436,206 @@ const DB = {
   },
   all(s) { return this.req(s, 'readonly', (st) => st.getAll()); },
   get(s, k) { return this.req(s, 'readonly', (st) => st.get(k)); },
-  put(s, v, k) { return this.req(s, 'readwrite', (st) => (k === undefined ? st.put(v) : st.put(v, k))); },
-  del(s, k) { return this.req(s, 'readwrite', (st) => st.delete(k)); },
+  rawPut(s, v, k) { return this.req(s, 'readwrite', (st) => (k === undefined ? st.put(v) : st.put(v, k))); },
+  rawDel(s, k) { return this.req(s, 'readwrite', (st) => st.delete(k)); },
+  async put(s, v, k) { await this.rawPut(s, v, k); if (STORE_TIPO[s]) Sync.mark(STORE_TIPO[s], v.id); },
+  async del(s, k) { await this.rawDel(s, k); if (STORE_TIPO[s]) Sync.mark(STORE_TIPO[s], k, true); },
   clear(s) { return this.req(s, 'readwrite', (st) => st.clear()); },
 };
+
+const STORE_TIPO = { meetings: 'meeting', contacts: 'contact', photos: 'photo' };
+const TIPO_STORE = { meeting: 'meetings', contact: 'contacts', photo: 'photos' };
+
+/* ---------- sincronização com o Supabase do Portal (offline-first) */
+const CLOUD = { url: 'https://uogrldgopqzdicrwcwir.supabase.co', key: 'sb_publishable_wjWRDRsB9LNA7XIn4fsXBw_-_b2yVnV', bucket: 'crm-fotos', table: 'crm_registos' };
+const SHARED_KEYS = ['topics', 'customAirlines', 'airlineSf', 'tradeshowOptions', 'subjectPrefix', 'airportCode', 'defaultScope', 'sfIncludeParticipants', 'sfIncludeInternal', 'sfRecordTypeId', 'sfFlagField', 'sfTradeshowField', 'sfScopeField'];
+const sharedSettings = () => Object.fromEntries(SHARED_KEYS.map((k) => [k, S.settings[k]]));
+const stripLocal = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (!k.startsWith('_')) r[k] = v; return r; };
+const Sync = {
+  sb: null, mode: null, userId: null, userName: '', email: '', access: null,
+  outbox: {}, cursor: '1970-01-01T00:00:00.000Z', bootstrappedFor: null,
+  state: 'idle', lastOk: 0, error: '', busy: false, again: false, timer: null, channel: null,
+  on() { return this.mode === 'cloud' && !!this.userId; },
+  async load() {
+    const k = (await DB.get('kv', 'sync')) || {};
+    this.mode = k.mode || null; this.userId = k.userId || null; this.userName = k.userName || ''; this.email = k.email || '';
+    this.outbox = k.outbox || {}; this.cursor = k.cursor || this.cursor; this.bootstrappedFor = k.bootstrappedFor || null; this.access = k.access ?? null; this.lastOk = k.lastOk || 0;
+  },
+  save() { return DB.rawPut('kv', { mode: this.mode, userId: this.userId, userName: this.userName, email: this.email, outbox: this.outbox, cursor: this.cursor, bootstrappedFor: this.bootstrappedFor, access: this.access, lastOk: this.lastOk }, 'sync'); },
+  saveSoon: debounce(() => Sync.save(), 400),
+  client() {
+    if (!this.sb && window.supabase) this.sb = window.supabase.createClient(CLOUD.url, CLOUD.key, { auth: { persistSession: true, autoRefreshToken: true } });
+    return this.sb;
+  },
+  mark(tipo, id, del = false) {
+    if (!this.on() || !id) return;
+    this.outbox[tipo + ':' + id] = { ts: Date.now(), del: !!del };
+    this.saveSoon(); this.render(); this.schedule(2500);
+  },
+  pending() { return Object.keys(this.outbox).length; },
+  schedule(ms = 1500) { if (!this.on()) return; clearTimeout(this.timer); this.timer = setTimeout(() => this.run(), ms); },
+  async run() {
+    if (!this.on()) return;
+    if (this.busy) { this.again = true; return; }
+    if (!navigator.onLine) { this.state = 'offline'; return this.render(); }
+    this.busy = true; this.state = 'syncing'; this.render();
+    try {
+      await flushSaves();
+      await this.push();
+      const changed = await this.pull();
+      this.state = 'idle'; this.error = ''; this.lastOk = Date.now(); this.save();
+      if (changed) await onRemoteChanges();
+    } catch (e) {
+      console.error('sync', e);
+      const msg = String(e?.message || e);
+      if (/JWT|session|auth/i.test(msg)) { this.state = 'error'; this.error = 'Sessão expirada — volta a entrar'; }
+      else if (/row-level security|permission|42501/i.test(msg)) { this.state = 'error'; this.error = 'Sem permissão para as reuniões'; }
+      else if (!navigator.onLine || /fetch|network/i.test(msg)) { this.state = 'offline'; }
+      else { this.state = 'error'; this.error = msg.slice(0, 120); }
+    } finally {
+      this.busy = false; this.render();
+      if (this.again) { this.again = false; this.schedule(500); }
+    }
+  },
+  async push() {
+    const entries = Object.entries(this.outbox); if (!entries.length) return;
+    const sb = this.client(); const rows = []; const sent = {};
+    for (const [key, ent] of entries) {
+      const i = key.indexOf(':'); const tipo = key.slice(0, i), id = key.slice(i + 1);
+      sent[key] = ent.ts;
+      if (tipo === 'settings') { rows.push({ id, tipo, dados: sharedSettings(), apagado: false, atualizado_cliente: S.settings.sharedUpdatedAt || ent.ts }); continue; }
+      if (ent.del) {
+        rows.push({ id, tipo, dados: {}, apagado: true, atualizado_cliente: ent.ts });
+        if (tipo === 'photo') await sb.storage.from(CLOUD.bucket).remove([`${id}.jpg`, `${id}_t.jpg`]).catch(() => {});
+        continue;
+      }
+      const rec = await DB.get(TIPO_STORE[tipo], id);
+      if (!rec) { delete this.outbox[key]; continue; }
+      if (tipo === 'photo') {
+        for (const [buf, path] of [[rec.data, `${id}.jpg`], [rec.thumb, `${id}_t.jpg`]]) {
+          if (!buf) continue;
+          const { error } = await sb.storage.from(CLOUD.bucket).upload(path, new Blob([buf], { type: 'image/jpeg' }), { upsert: true, contentType: 'image/jpeg' });
+          if (error) throw error;
+        }
+        const { data, thumb, ...meta } = rec; void data; void thumb;
+        rows.push({ id, tipo, dados: stripLocal(meta), apagado: false, atualizado_cliente: rec.updatedAt || ent.ts });
+      } else {
+        rows.push({ id, tipo, dados: stripLocal(rec), apagado: false, atualizado_cliente: rec.updatedAt || ent.ts });
+      }
+    }
+    for (let k = 0; k < rows.length; k += 100) {
+      const { error } = await sb.from(CLOUD.table).upsert(rows.slice(k, k + 100), { onConflict: 'tipo,id', ignoreDuplicates: false });
+      if (error) throw error;
+    }
+    for (const [key, ts] of Object.entries(sent)) if (this.outbox[key] && this.outbox[key].ts === ts) delete this.outbox[key];
+    await this.save();
+  },
+  async pull() {
+    const sb = this.client(); let changed = false; let max = this.cursor;
+    const since = new Date(new Date(this.cursor).getTime() - 5000).toISOString();
+    for (let off = 0; ; off += 500) {
+      const { data, error } = await sb.from(CLOUD.table).select('id,tipo,dados,apagado,atualizado_cliente,atualizado_em').gt('atualizado_em', since).order('atualizado_em', { ascending: true }).range(off, off + 499);
+      if (error) throw error;
+      for (const row of data) { if (await this.apply(row)) changed = true; if (row.atualizado_em > max) max = row.atualizado_em; }
+      if (data.length < 500) break;
+    }
+    this.cursor = max; return changed;
+  },
+  async apply(row) {
+    const key = row.tipo + ':' + row.id; const pend = this.outbox[key];
+    const rv = Number(row.atualizado_cliente) || 0;
+    if (pend && pend.ts >= rv) return false;
+    if (pend) delete this.outbox[key];
+    if (row.tipo === 'settings') {
+      if (rv <= (S.settings.sharedUpdatedAt || 0)) return false;
+      Object.assign(S.settings, row.dados || {}); S.settings.sharedUpdatedAt = rv; S._sharedHash = JSON.stringify(sharedSettings());
+      await DB.rawPut('kv', S.settings, 'settings'); return true;
+    }
+    const store = TIPO_STORE[row.tipo]; if (!store) return false;
+    const local = await DB.get(store, row.id);
+    if (row.apagado) {
+      if (!local) return false;
+      if ((local.updatedAt || 0) > rv) return false;
+      await DB.rawDel(store, row.id); if (row.tipo === 'photo') dropURL(row.id); return true;
+    }
+    if (local && (local.updatedAt || 0) >= rv) return false;
+    let rec = { ...(row.dados || {}) };
+    if (row.tipo === 'photo') { rec.data = local?.data || null; rec.thumb = local?.thumb || null; if (local && (local.updatedAt || 0) !== rv) dropURL(row.id); }
+    rec.updatedAt = rv;
+    await DB.rawPut(store, rec); return true;
+  },
+  async verify() {
+    const sb = this.client();
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return 'nosession';
+    this.userId = session.user.id; this.email = session.user.email || '';
+    if (navigator.onLine) {
+      try {
+        const { data, error } = await sb.rpc('crm_tem_acesso'); if (error) throw error;
+        this.access = !!data;
+        const prof = await sb.from('profiles').select('full_name').eq('id', this.userId).maybeSingle();
+        if (prof.data?.full_name) this.userName = prof.data.full_name;
+      } catch (e) { console.warn('verify', e); if (this.access == null) this.access = false; }
+    }
+    await this.save();
+    return this.access ? 'ok' : 'noaccess';
+  },
+  async start() {
+    if (this.bootstrappedFor !== this.userId) {
+      const [ms, cs, ps] = await Promise.all([DB.all('meetings'), DB.all('contacts'), DB.all('photos')]);
+      const now = Date.now();
+      for (const m of ms) this.outbox['meeting:' + m.id] = { ts: now, del: false };
+      for (const c of cs) this.outbox['contact:' + c.id] = { ts: now, del: false };
+      for (const ph of ps) if (ph.data) this.outbox['photo:' + ph.id] = { ts: now, del: false };
+      if (S.settings.sharedUpdatedAt) this.outbox['settings:shared'] = { ts: now, del: false };
+      this.bootstrappedFor = this.userId; await this.save();
+    }
+    window.addEventListener('online', () => this.schedule(300));
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.schedule(300); });
+    setInterval(() => this.schedule(0), 60000);
+    try {
+      this.channel = this.client().channel('crm-registos').on('postgres_changes', { event: '*', schema: 'public', table: CLOUD.table }, () => this.schedule(800)).subscribe();
+    } catch (e) { console.warn('realtime', e); }
+    this.run();
+  },
+  async signOut(clearLocal) {
+    try { if (this.channel) await this.client().removeChannel(this.channel); } catch (e) {}
+    try { await this.client().auth.signOut(); } catch (e) {}
+    if (clearLocal) { for (const st of ['meetings', 'contacts', 'photos', 'kv']) await DB.clear(st); for (const k of [...urlCache.keys()]) URL.revokeObjectURL(urlCache.get(k)); urlCache.clear(); }
+    location.hash = '#/'; location.reload();
+  },
+  label() {
+    if (this.mode !== 'cloud') return { cls: 'local', text: 'Só neste dispositivo' };
+    const n = this.pending();
+    if (this.state === 'syncing') return { cls: 'busy', text: 'A sincronizar…' };
+    if (this.state === 'offline' || !navigator.onLine) return { cls: 'off', text: n ? `Sem rede · ${n} por enviar` : 'Sem rede · trabalho guardado' };
+    if (this.state === 'error') return { cls: 'err', text: this.error || 'Erro de sincronização' };
+    if (n) return { cls: 'busy', text: `${n} por enviar` };
+    return { cls: '', text: this.lastOk ? `Sincronizado ${fmtAgoShort(this.lastOk)}` : 'Sincronizado' };
+  },
+  render() { const l = this.label(); $$('.syncst').forEach((el) => { el.className = 'syncst ' + l.cls; el.textContent = l.text; }); },
+};
+function fmtAgoShort(ts) { const s = Math.round((Date.now() - ts) / 1000); if (s < 60) return 'agora'; const m = Math.round(s / 60); if (m < 60) return `há ${m} min`; const h = Math.round(m / 60); return h < 24 ? `há ${h} h` : `há ${Math.round(h / 24)} d`; }
+setInterval(() => Sync.render(), 30000);
+function mergeKeep(cur, fresh) {
+  const map = new Map(cur.map((x) => [x.id, x]));
+  return fresh.map((f) => {
+    const e = map.get(f.id); if (!e) return f;
+    if (saveQueue.has(f.id)) return e;
+    for (const k of Object.keys(e)) if (!(k in f) && !k.startsWith('_')) delete e[k];
+    Object.assign(e, f); return e;
+  });
+}
+async function onRemoteChanges() {
+  const [ms, cs] = await Promise.all([DB.all('meetings'), DB.all('contacts')]);
+  S.meetings = mergeKeep(S.meetings, ms); S.contacts = mergeKeep(S.contacts, cs);
+  const a = document.activeElement;
+  if (a && view.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; // não interromper quem está a escrever
+  if ($('.sheet-back') || $('.viewer')) return;
+  const h = location.hash;
+  if (h.startsWith('#/r/') && !getM(h.slice(4))) { toast('Esta reunião foi apagada pelo teu colega'); return go('#/'); }
+  rerenderKeep();
+}
 
 /* ---------- companhias */
 const AIRLINES_BASE = [
@@ -472,8 +684,14 @@ async function loadAll() {
   const [m, c, st] = await Promise.all([DB.all('meetings'), DB.all('contacts'), DB.get('kv', 'settings')]);
   S.meetings = m || []; S.contacts = c || [];
   S.settings = { ...DEFAULT_SETTINGS, ...(st || {}) };
+  S._sharedHash = JSON.stringify(sharedSettings());
 }
-const saveSettings = () => DB.put('kv', S.settings, 'settings');
+async function saveSettings() {
+  const h = JSON.stringify(sharedSettings());
+  if (S._sharedHash !== undefined && h !== S._sharedHash) { S.settings.sharedUpdatedAt = Date.now(); Sync.mark('settings', 'shared'); }
+  S._sharedHash = h;
+  return DB.rawPut('kv', S.settings, 'settings');
+}
 const getM = (id) => S.meetings.find((x) => x.id === id);
 const getC = (id) => S.contacts.find((x) => x.id === id);
 const contactName = (c) => [c?.firstName, c?.lastName].filter(Boolean).join(' ') || c?.email || 'Sem nome';
@@ -512,7 +730,7 @@ const saveQueue = new Map();
 const flushSaves = async () => { const items = [...saveQueue.values()]; saveQueue.clear(); for (const m of items) await DB.put('meetings', m); setSaved(false); };
 const flushDebounced = debounce(flushSaves, 450);
 function touchMeeting(m) {
-  m.updatedAt = Date.now(); saveQueue.set(m.id, m); setSaved(true); flushDebounced(); askPersist();
+  m.updatedAt = Date.now(); if (Sync.on() && Sync.userName) m.updatedByName = Sync.userName; saveQueue.set(m.id, m); setSaved(true); flushDebounced(); askPersist();
 }
 function setSaved(busy) { $$('.saved').forEach((el) => { el.classList.toggle('busy', busy); el.textContent = busy ? 'A guardar…' : 'Guardado'; }); }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSaves(); });
@@ -528,11 +746,30 @@ const urlCache = new Map();
 function dropURL(id) { for (const k of [id + ':t', id + ':f']) { if (urlCache.has(k)) { URL.revokeObjectURL(urlCache.get(k)); urlCache.delete(k); } } }
 async function photoURL(id, full) {
   const k = id + (full ? ':f' : ':t'); if (urlCache.has(k)) return urlCache.get(k);
-  const p = await DB.get('photos', id); if (!p) return '';
-  const u = URL.createObjectURL(new Blob([full ? p.data : p.thumb], { type: p.mime || 'image/jpeg' }));
+  const p = await ensurePhoto(id, full); if (!p) return '';
+  const buf = full ? (p.data || p.thumb) : (p.thumb || p.data); if (!buf) return '';
+  const u = URL.createObjectURL(new Blob([buf], { type: p.mime || 'image/jpeg' }));
   urlCache.set(k, u); return u;
 }
-async function ensurePhoto(id) { return DB.get('photos', id); }
+const photoFetches = new Map();
+async function ensurePhoto(id, full = false) {
+  let p = await DB.get('photos', id);
+  if (!Sync.on()) return p || null;
+  if (!p) p = { id, kind: 'note', mime: 'image/jpeg', data: null, thumb: null, updatedAt: 0 };
+  if ((full ? p.data : p.thumb) || !navigator.onLine) return p;
+  const key = id + (full ? ':f' : ':t');
+  if (!photoFetches.has(key)) photoFetches.set(key, (async () => {
+    try {
+      const { data, error } = await Sync.client().storage.from(CLOUD.bucket).download(full ? `${id}.jpg` : `${id}_t.jpg`);
+      if (error || !data) return;
+      const cur = (await DB.get('photos', id)) || p; const buf = await data.arrayBuffer();
+      if (full) cur.data = buf; else cur.thumb = buf;
+      await DB.rawPut('photos', cur);
+    } finally { photoFetches.delete(key); }
+  })());
+  await photoFetches.get(key);
+  return (await DB.get('photos', id)) || p;
+}
 async function hydrateImgs(root) {
   for (const img of $$('img[data-pid]', root)) { if (!img.src) img.src = await photoURL(img.dataset.pid, img.dataset.full === '1'); }
 }
@@ -851,7 +1088,7 @@ function renderChrome(active) {
     <a class="nav ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users')} Contactos <span class="count">${S.contacts.length || ''}</span></a>
     <a class="nav ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send')} Exportar</a>
     <a class="nav ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders')} Definições</a>
-    <div class="side-foot"><span class="lock">${ico('shield', 'sm')} Dados só neste dispositivo</span><span>Última cópia de segurança: ${ago(S.settings.lastBackupAt)}</span><span>v${APP_VERSION}</span></div>`;
+    <div class="side-foot"><span class="syncst"></span>${Sync.on() ? `<span>${esc(Sync.userName || Sync.email)}</span>` : `<span>Última cópia de segurança: ${ago(S.settings.lastBackupAt)}</span>`}<span>v${APP_VERSION}</span></div>`;
   $('#tabbar').innerHTML = `
     <a class="tab ${active === 'm' ? 'on' : ''}" href="#/">${ico('list', 'lg')}Reuniões</a>
     <a class="tab ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users', 'lg')}Contactos</a>
@@ -859,9 +1096,10 @@ function renderChrome(active) {
     <a class="tab ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send', 'lg')}Exportar</a>
     <a class="tab ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders', 'lg')}Definições</a>`;
   $$('[data-new]').forEach((b) => (b.onclick = createMeeting));
+  setTimeout(() => Sync.render(), 0);
 }
 async function createMeeting() {
-  const m = newMeeting(); S.meetings.push(m); await DB.put('meetings', m); askPersist(); go('#/r/' + m.id);
+  const m = newMeeting(); if (Sync.on()) { m.createdByName = Sync.userName || Sync.email; m.updatedByName = m.createdByName; } S.meetings.push(m); await DB.put('meetings', m); askPersist(); go('#/r/' + m.id);
 }
 
 const navStack = [];
@@ -913,7 +1151,7 @@ function topBanners() {
   if (ios && !S.settings.iosHintDismissed) h += `<div class="banner">${ico('share')}<div class="grow"><b>Instala no ecrã principal</b>No Safari: Partilhar → «Adicionar ao ecrã principal». Assim a app abre sem rede e o iPhone não apaga os dados por falta de uso.<div class="acts"><button class="btn sm" data-dismiss-ios>Já está</button></div></div></div>`;
   const n = S.meetings.length;
   const stale = !S.settings.lastBackupAt || Date.now() - S.settings.lastBackupAt > 7 * 86400000;
-  if (n >= 3 && stale) h += `<div class="banner warn">${ico('db')}<div class="grow"><b>Faz uma cópia de segurança</b>Os dados existem só neste dispositivo. Última cópia: ${ago(S.settings.lastBackupAt)}.<div class="acts"><button class="btn sm" data-backup>Fazer cópia agora</button></div></div></div>`;
+  if (Sync.mode !== 'cloud' && n >= 3 && stale) h += `<div class="banner warn">${ico('db')}<div class="grow"><b>Faz uma cópia de segurança</b>Os dados existem só neste dispositivo. Última cópia: ${ago(S.settings.lastBackupAt)}.<div class="acts"><button class="btn sm" data-backup>Fazer cópia agora</button></div></div></div>`;
   return h;
 }
 function viewMeetings() {
@@ -951,7 +1189,7 @@ function viewMeetings() {
         <div class="meta">${statusPill(m)}</div></a>`).join('')}</div>`).join('') : `<div class="empty"><p>Nada para mostrar.</p></div>`}`;
   }
 
-  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.pending} por exportar</small>` : ''}</h1>${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
+  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.pending} por exportar</small>` : ''}${!desk && Sync.mode === 'cloud' ? '<small><span class="syncst"></span></small>' : ''}</h1>${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
 
   const st = $('#f-status'); if (st) st.value = f.status;
   const fa = $('#f-air'); if (fa) fa.value = f.airline;
@@ -1058,7 +1296,8 @@ function viewMeeting(id) {
 
   const refreshHeader = () => {
     $('#ed-title').firstChild.textContent = m.airlineName || 'Nova reunião';
-    $('#ed-sub').textContent = `${fmtDay(m.start)} · ${fmtTime(m.start)}${m.status === 'exported' ? ' · exportada ' + fmtTs(m.exportedAt).slice(0, 10) : ''}`;
+    const by = m.createdByName && m.createdByName !== Sync.userName ? ` · criada por ${m.createdByName.split(' ')[0]}` : (m.updatedByName && m.updatedByName !== Sync.userName ? ` · editada por ${m.updatedByName.split(' ')[0]}` : '');
+    $('#ed-sub').textContent = `${fmtDay(m.start)} · ${fmtTime(m.start)}${m.status === 'exported' ? ' · exportada ' + fmtTs(m.exportedAt).slice(0, 10) : ''}${by}`;
     $('#airpick').innerHTML = m.airlineName ? `${badge(m.airlineCode)}<div class="grow"><div class="n">${esc(m.airlineName)}</div><div class="c">${esc(m.airlineCode || 'Sem código IATA')} · tocar para mudar</div></div>${ico('chev')}` : `${badge('')}<div class="grow"><div class="n">Escolher companhia</div><div class="c">Obrigatório para exportar</div></div>${ico('chev')}`;
     $('#scope').innerHTML = scopeOf(m).length ? scopeOf(m).map((c) => `<span class="chip" style="font-family:var(--mono)">${c}<button class="x ibtn sm" data-rmscope="${c}" aria-label="Retirar ${c}" style="border:0;background:none">${ico('x', 'sm')}</button></span>`).join('') : '<span class="faint" style="font-size:14px">Nenhum</span>';
     const lbl = m.status === 'draft' ? `${ico('check', 'sm')} Marcar como pronta` : m.status === 'ready' ? `${ico('check', 'sm')} Pronta` : `${ico('check', 'sm')} Exportada`;
@@ -1263,7 +1502,7 @@ async function toggleStatus(m, after) {
   after && after();
 }
 async function delMeetingFlow(m) {
-  if (!(await confirmSheet('Apagar reunião?', 'A reunião e as fotos das notas são apagadas deste dispositivo. Os contactos ficam guardados.'))) return;
+  if (!(await confirmSheet('Apagar reunião?', Sync.on() ? 'A reunião e as fotos das notas são apagadas para ti e para quem partilha as reuniões. Os contactos ficam guardados.' : 'A reunião e as fotos das notas são apagadas deste dispositivo. Os contactos ficam guardados.'))) return;
   await deleteMeeting(m); toast('Reunião apagada'); go('#/');
 }
 function meetingMenu(m) {
@@ -1402,7 +1641,7 @@ function contactSheet(c, { isNew = false, runOcr = false, meeting = null, onSave
   sh.el.querySelector('[data-save]').onclick = async () => {
     if (!work.firstName && !work.lastName && !work.email) return toast('Escreve pelo menos o nome ou o email');
     work.updatedAt = Date.now();
-    if (work.cardPhotoId) { const p = await DB.get('photos', work.cardPhotoId); if (p && p.owner !== work.id) { p.owner = work.id; await DB.put('photos', p); } }
+    if (work.cardPhotoId) { const p = await DB.get('photos', work.cardPhotoId); if (p && p.owner !== work.id) { p.owner = work.id; p.updatedAt = Date.now(); await DB.put('photos', p); } }
     const i = S.contacts.findIndex((x) => x.id === work.id); if (i >= 0) S.contacts[i] = work; else S.contacts.push(work);
     await DB.put('contacts', work); saved = true;
     if (meeting) {
@@ -1603,7 +1842,7 @@ async function exportNotes(ms, { mark = true } = {}) {
 async function exportContacts(cs, { mark = true } = {}) {
   if (!cs.length) return;
   const ok = await saveFile(`salesforce_contactos_${stamp()}.csv`, contactsCSV(cs), 'text/csv;charset=utf-8'); if (!ok) return;
-  if (mark) { const now = Date.now(); for (const c of cs) { c.exportedAt = now; await DB.put('contacts', c); } }
+  if (mark) { const now = Date.now(); for (const c of cs) { c.exportedAt = now; c.updatedAt = now; await DB.put('contacts', c); } }
   toast('Ficheiro de contactos criado'); rerenderKeep();
 }
 
@@ -1613,9 +1852,11 @@ function b64ToAb(b64) { const s = atob(b64); const u8 = new Uint8Array(s.length)
 async function exportBackup() {
   await flushSaves();
   toast('A preparar a cópia…');
-  const photos = await DB.all('photos');
+  let photos = await DB.all('photos');
+  if (Sync.on()) for (const ph of photos) if (!ph.data) { const got = await ensurePhoto(ph.id, true); if (got?.data) ph.data = got.data; }
+  photos = photos.filter((ph) => ph.data);
   const payload = { app: 'debrief', format: 1, version: APP_VERSION, exportedAt: new Date().toISOString(), settings: { ...S.settings, lastBackupAt: undefined, iosHintDismissed: undefined },
-    meetings: S.meetings, contacts: S.contacts, photos: photos.map((p) => ({ ...p, data: abToB64(p.data), thumb: abToB64(p.thumb) })) };
+    meetings: S.meetings, contacts: S.contacts, photos: photos.map((p) => ({ ...p, data: abToB64(p.data), thumb: p.thumb ? abToB64(p.thumb) : null })) };
   const ok = await saveFile(`debrief_copia_${stamp()}.json`, JSON.stringify(payload), 'application/json');
   if (ok) { S.settings.lastBackupAt = Date.now(); await saveSettings(); toast(`Cópia criada · ${plural(S.meetings.length, 'reunião', 'reuniões')}, ${plural(photos.length, 'foto', 'fotos')}`); route(); }
 }
@@ -1627,7 +1868,7 @@ async function importBackup() {
     if (data.app !== 'debrief') return toast('Este ficheiro não é uma cópia do Debrief');
     const n = { m: 0, c: 0, p: 0 };
     const newer = (inc, cur) => !cur || (inc.updatedAt || 0) > (cur.updatedAt || 0);
-    for (const p of data.photos || []) { const cur = await DB.get('photos', p.id); if (!cur) { await DB.put('photos', { ...p, data: b64ToAb(p.data), thumb: b64ToAb(p.thumb) }); n.p++; } }
+    for (const p of data.photos || []) { const cur = await DB.get('photos', p.id); if (!cur) { await DB.put('photos', { ...p, data: b64ToAb(p.data), thumb: p.thumb ? b64ToAb(p.thumb) : null }); n.p++; } }
     for (const c of data.contacts || []) { if (newer(c, getC(c.id))) { await DB.put('contacts', c); n.c++; } }
     for (const m of data.meetings || []) { if (newer(m, getM(m.id))) { await DB.put('meetings', m); n.m++; } }
     if (data.settings) {
@@ -1681,12 +1922,19 @@ async function viewSettings() {
       <div id="air-set">${shown.length ? shown.map((a) => { const sf = st.airlineSf?.[airlineKey(a)] || {}; return `<button class="pickrow" data-airset="${esc(airlineKey(a))}">${badge(a.code, true)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${sf.id ? 'ID ' + esc(sf.id) : 'Sem ID de conta'}${sf.name ? ' · ' + esc(sf.name) : ''}</div></div>${ico('chev', 'sm')}</button>`; }).join('') : '<p class="faint" style="font-size:14px;margin:0">As companhias das tuas reuniões aparecem aqui.</p>'}</div>
       <button class="btn sm" data-airfind style="margin-top:10px">${ico('search', 'sm')} Configurar outra companhia</button>
     </div>
+    <div class="sec"><h3>${ico('users', 'sm')} Conta e partilha</h3>
+      ${Sync.mode === 'cloud' ? `
+      <div class="setrow"><div class="grow"><b>${esc(Sync.userName || 'Conta')}</b><div class="faint" style="font-size:13px">${esc(Sync.email)}</div></div></div>
+      <div class="setrow"><div class="grow"><b>Sincronização</b><div><span class="syncst"></span></div></div><button class="btn sm" data-syncnow>${ico('refresh', 'sm')} Agora</button></div>
+      <div class="setrow"><div class="grow"><b>Terminar sessão</b><div class="faint" style="font-size:13px">Apaga a cópia deste dispositivo; os dados continuam no servidor.</div></div><button class="btn sm" data-signout>Sair</button></div>`
+      : `<div class="setrow"><div class="grow"><b>Só neste dispositivo</b><div class="faint" style="font-size:13px">Entra com a conta do Portal do Lounge para partilhares as reuniões com o teu colega.</div></div><button class="btn sm pri" data-gologin>Entrar</button></div>`}
+    </div>
     <div class="sec"><h3>${ico('shield', 'sm')} Dados e privacidade</h3>
-      <div class="setrow"><div class="grow"><b>Onde ficam os dados</b><div class="faint" style="font-size:13px">Só neste dispositivo e neste browser. Nada é enviado para servidores — nem as fotos, nem a leitura dos cartões.</div></div></div>
+      <div class="setrow"><div class="grow"><b>Onde ficam os dados</b><div class="faint" style="font-size:13px">${Sync.mode === 'cloud' ? 'No Supabase do Portal (UE, Irlanda), visíveis só para quem tiver a permissão «Reuniões companhias». Há uma cópia neste dispositivo para trabalhares sem rede. A leitura dos cartões e das fotos é feita no dispositivo.' : 'Só neste dispositivo e neste browser. Nada é enviado para servidores — nem as fotos, nem a leitura dos cartões.'}</div></div></div>
       <div class="setrow"><div class="grow"><b>Armazenamento</b><div class="faint" style="font-size:13px" id="stor">A calcular…</div></div></div>
       <div class="setrow"><div class="grow"><b>Leitor de cartões offline</b><div class="faint" style="font-size:13px" id="ocrst">A verificar…</div></div></div>
       <div class="setrow"><div class="grow"><b>Cópia de segurança</b><div class="faint" style="font-size:13px">Última: ${ago(st.lastBackupAt)}</div></div><button class="btn sm" data-goexp>Abrir</button></div>
-      <div class="setrow"><div class="grow"><b style="color:var(--danger)">Apagar tudo</b><div class="faint" style="font-size:13px">Remove reuniões, contactos, fotos e definições deste dispositivo.</div></div><button class="btn sm danger" data-wipe>Apagar</button></div>
+      ${Sync.mode === 'cloud' ? '' : '<div class="setrow"><div class="grow"><b style="color:var(--danger)">Apagar tudo</b><div class="faint" style="font-size:13px">Remove reuniões, contactos, fotos e definições deste dispositivo.</div></div><button class="btn sm danger" data-wipe>Apagar</button></div>'}
     </div>
   </div></div></div>`;
   renderTopicSettings();
@@ -1706,6 +1954,13 @@ async function viewSettings() {
     if (t.closest('[data-airfind]')) return pickAirline((a) => airSfSheet(airlineKey(a)));
     if (t.closest('[data-goexp]')) return go('#/exportar');
     if (t.closest('[data-wipe]')) return wipeAll();
+    if (t.closest('[data-syncnow]')) { Sync.run(); return; }
+    if (t.closest('[data-gologin]')) return showLogin();
+    if (t.closest('[data-signout]')) {
+      const n = Sync.pending();
+      if (!(await confirmSheet('Terminar sessão?', n ? `Ainda há ${plural(n, 'alteração', 'alterações')} por enviar — se saíres agora, perdem-se. Liga-te à rede e espera que sincronize.` : 'A cópia deste dispositivo é apagada. Os dados continuam no servidor e voltam quando entrares.', 'Sair', !!n))) return;
+      return Sync.signOut(true);
+    }
   };
   $('#new-topic').onkeydown = (e) => { if (e.key === 'Enter') $('[data-addtopic]').click(); };
   try {
@@ -1751,15 +2006,57 @@ async function wipeAll() {
   };
 }
 
+/* ---------- entrada (login) */
+function gate(html) { document.body.classList.add('gate'); $('#side').innerHTML = ''; $('#tabbar').innerHTML = ''; view.innerHTML = `<div class="gatebox"><img src="icons/icon-192.png" alt="">${html}</div>`; }
+function showLogin(msg = '') {
+  gate(`<h1>Debrief</h1><p>Entra com a tua conta do <b>Portal do Lounge</b>. As reuniões ficam partilhadas com quem tiver acesso e continuam disponíveis sem rede.</p>
+    <form id="lf"><div class="field"><label class="lbl" for="l-e">Email</label><input class="inp" id="l-e" type="email" autocomplete="username" autocapitalize="off" required></div>
+    <div class="field"><label class="lbl" for="l-p">Palavra-passe</label><input class="inp" id="l-p" type="password" autocomplete="current-password" required></div>
+    <div class="err" id="l-err">${esc(msg)}</div><button class="btn pri block" id="l-go" type="submit">Entrar</button></form>
+    <button class="btn ghost block" data-local style="margin-top:12px">Usar só neste dispositivo</button>`);
+  $('#lf').onsubmit = async (e) => {
+    e.preventDefault(); const btn = $('#l-go'); btn.disabled = true; btn.textContent = 'A entrar…'; $('#l-err').textContent = '';
+    if (!navigator.onLine) { $('#l-err').textContent = 'Precisas de rede para entrar pela primeira vez.'; btn.disabled = false; btn.textContent = 'Entrar'; return; }
+    const sb = Sync.client(); if (!sb) { $('#l-err').textContent = 'Não foi possível carregar o módulo de login.'; return; }
+    const { error } = await sb.auth.signInWithPassword({ email: $('#l-e').value.trim(), password: $('#l-p').value });
+    if (error) { $('#l-err').textContent = /invalid/i.test(error.message) ? 'Email ou palavra-passe errados.' : error.message; btn.disabled = false; btn.textContent = 'Entrar'; return; }
+    const prevUser = Sync.userId; Sync.mode = 'cloud';
+    const r = await Sync.verify();
+    if (r !== 'ok') { Sync.mode = null; await Sync.save(); return showNoAccess(); }
+    if (prevUser && prevUser !== Sync.userId) { for (const st of ['meetings', 'contacts', 'photos']) await DB.clear(st); Sync.outbox = {}; Sync.cursor = '1970-01-01T00:00:00.000Z'; Sync.bootstrappedFor = null; }
+    await Sync.save(); enterApp(true);
+  };
+  view.querySelector('[data-local]').onclick = async () => { Sync.mode = 'local'; await Sync.save(); enterApp(false); };
+}
+function showNoAccess() {
+  gate(`<h1>Sem acesso às reuniões</h1><p>A tua conta (${esc(Sync.email)}) ainda não tem a permissão <b>«Reuniões companhias»</b>. Pede a um administrador do Portal para a ativar e volta a entrar.</p>
+    <button class="btn pri block" data-retry>Tentar outra vez</button><button class="btn block" data-out style="margin-top:10px">Usar outra conta</button><button class="btn ghost block" data-local style="margin-top:10px">Usar só neste dispositivo</button>`);
+  view.querySelector('[data-retry]').onclick = async () => { Sync.mode = 'cloud'; const r = await Sync.verify(); if (r === 'ok') { await Sync.save(); enterApp(true); } else { Sync.mode = null; await Sync.save(); toast('Ainda sem permissão'); } };
+  view.querySelector('[data-out]').onclick = async () => { try { await Sync.client().auth.signOut(); } catch (e) {} Sync.mode = null; Sync.userId = null; await Sync.save(); showLogin(); };
+  view.querySelector('[data-local]').onclick = async () => { try { await Sync.client().auth.signOut(); } catch (e) {} Sync.mode = 'local'; Sync.userId = null; await Sync.save(); enterApp(false); };
+}
+async function enterApp(cloud) {
+  document.body.classList.remove('gate');
+  if (location.hash.startsWith('#/login')) location.hash = '#/';
+  route();
+  if (cloud) Sync.start();
+}
+
 /* ---------- arranque */
 (async function init() {
-  try { await DB.open(); await loadAll(); }
+  try { await DB.open(); await loadAll(); await Sync.load(); }
   catch (e) { view.innerHTML = `<div class="page"><div class="empty"><h2>Não foi possível abrir a base de dados</h2><p>Este browser está a bloquear o armazenamento local (por exemplo, em navegação privada). Abre o Debrief numa janela normal.</p></div></div>`; return; }
-  route();
+  if (Sync.mode === 'local') enterApp(false);
+  else if (Sync.mode === 'cloud' && Sync.userId) {
+    // entra logo com os dados locais (funciona sem rede) e confirma a sessão em segundo plano
+    enterApp(false);
+    Sync.verify().then((r) => { if (r === 'ok') Sync.start(); else if (r === 'nosession') showLogin('A sessão terminou. Volta a entrar.'); else showNoAccess(); }).catch(() => Sync.start());
+  } else showLogin();
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
     try {
+      const hadController = !!navigator.serviceWorker.controller;
       const reg = await navigator.serviceWorker.register('sw.js');
-      reg.addEventListener('updatefound', () => { const w = reg.installing; w && w.addEventListener('statechange', () => { if (w.state === 'activated' && navigator.serviceWorker.controller) toast('Nova versão instalada', { label: 'Recarregar', fn: async () => { await flushSaves(); location.reload(); } }); }); });
+      reg.addEventListener('updatefound', () => { const w = reg.installing; w && w.addEventListener('statechange', () => { if (w.state === 'activated' && hadController) toast('Nova versão instalada', { label: 'Recarregar', fn: async () => { await flushSaves(); location.reload(); } }); }); });
     } catch (e) {}
   }
 })();
