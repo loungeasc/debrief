@@ -85,7 +85,9 @@ body.editing .tabbar{display:none}
 .side-foot .userrow{display:flex;align-items:center;justify-content:space-between;gap:6px;color:var(--ink-2);font-size:13px}
 .side-foot .userrow .ibtn{width:30px;height:30px;color:var(--ink-3)}
 .side-foot .userrow .ibtn:hover{color:var(--danger);background:var(--danger-soft)}
-.pill.planned{background:var(--accent-soft);color:var(--accent)}
+.pill.planned{background:#e4f5e9;color:#1f7a43}
+.pill.tentative{background:#fdecdc;color:#b4540a}
+@media (prefers-color-scheme:dark){.pill.planned{background:#143322;color:#6fd69a}.pill.tentative{background:#3d2410;color:#f5a35c}}
 .plan-chips{display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 12px}
 .plan-chips .chip small{color:var(--ink-3);font-weight:500}
 .locline{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink-2);margin-top:10px}
@@ -388,7 +390,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -1151,11 +1153,7 @@ function route() {
 function filteredMeetings() {
   const f = S.list; const q = norm(f.q);
   return S.meetings.filter((m) => {
-    if (f.status === 'pending' && (m.status === 'exported' || m.status === 'planned')) return false;
-    if (f.status === 'planned' && m.status !== 'planned') return false;
-    if (f.status === 'draft' && m.status !== 'draft') return false;
-    if (f.status === 'ready' && m.status !== 'ready') return false;
-    if (f.status === 'exported' && m.status !== 'exported') return false;
+    if (!inState(m, f.status)) return false;
     if (f.airline && airlineKey({ code: m.airlineCode, name: m.airlineName }) !== f.airline) return false;
     const day = (m.start || '').slice(0, 10);
     if (f.from && day < f.from) return false;
@@ -1165,13 +1163,33 @@ function filteredMeetings() {
       if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
     }
     return true;
-  }).sort((x, y) => (y.start || '').localeCompare(x.start || '') || y.createdAt - x.createdAt);
+  }).sort((x, y) => (['agenda', 'tentative', 'planned'].includes(f.status) ? (x.start || '').localeCompare(y.start || '') : (y.start || '').localeCompare(x.start || '')) || y.createdAt - x.createdAt);
 }
+/* Estados: agenda (agendada/por confirmar) → por registar (já passou, sem notas) → rascunho → pronta → exportada; mais alterada após exportar e cancelada na agenda */
+function stateOf(m) {
+  if (m.icsStatus === 'CANCELLED' && m.status !== 'exported') return 'cancelled';
+  if (m.status === 'planned') { if (m.icsStatus === 'TENTATIVE') return 'tentative'; return (m.start || '') < toLocalInput(new Date()) ? 'torecord' : 'planned'; }
+  if (changedAfterExport(m)) return 'changed';
+  return m.status || 'draft';
+}
+function inState(m, f) {
+  if (!f || f === 'all') return true;
+  const st = stateOf(m);
+  if (f === 'agenda') return st === 'planned' || st === 'tentative';
+  if (f === 'exported') return m.status === 'exported';
+  return st === f;
+}
+// [chave, nome, mostrar mesmo sem reuniões]
+const STATE_FILTERS = [['agenda', 'Agenda', false], ['tentative', 'Por confirmar', false], ['torecord', 'Por registar', false], ['draft', 'Rascunhos', true], ['ready', 'Prontas', true], ['exported', 'Exportadas', true], ['changed', 'Alteradas após exportar', false], ['cancelled', 'Canceladas na agenda', false]];
 function statusPill(m) {
-  if (m.icsStatus === 'CANCELLED' && m.status !== 'exported') return '<span class="pill changed">Cancelada na agenda</span>';
-  if (m.status === 'planned') return m.icsStatus === 'TENTATIVE' ? '<span class="pill planned">Por confirmar</span>' : '<span class="pill planned">Agendada</span>';
-  if (changedAfterExport(m)) return '<span class="pill changed">Alterada após exportar</span>';
-  return { draft: '<span class="pill">Rascunho</span>', ready: '<span class="pill ready">Pronta</span>', exported: '<span class="pill exported">Exportada</span>' }[m.status] || '';
+  return {
+    cancelled: '<span class="pill">Cancelada na agenda</span>',
+    tentative: '<span class="pill tentative">Por confirmar</span>',
+    planned: '<span class="pill planned">Agendada</span>',
+    torecord: '<span class="pill changed">Por registar</span>',
+    changed: '<span class="pill changed">Alterada após exportar</span>',
+    draft: '<span class="pill">Rascunho</span>', ready: '<span class="pill ready">Pronta</span>', exported: '<span class="pill exported">Exportada</span>',
+  }[stateOf(m)] || '';
 }
 function topBanners() {
   let h = '';
@@ -1186,7 +1204,10 @@ function viewMeetings() {
   renderChrome('m');
   const f = S.list; const desk = isDesk();
   const list = filteredMeetings();
-  const counts = { all: S.meetings.length, planned: S.meetings.filter((m) => m.status === 'planned').length, pending: S.meetings.filter((m) => m.status !== 'exported' && m.status !== 'planned').length, ready: S.meetings.filter((m) => m.status === 'ready').length, exported: S.meetings.filter((m) => m.status === 'exported').length };
+  const counts = { all: S.meetings.length, pending: S.meetings.filter((m) => m.status === 'draft' || m.status === 'ready').length };
+  for (const [k] of STATE_FILTERS) counts[k] = S.meetings.filter((m) => inState(m, k)).length;
+  if (f.status !== 'all' && !STATE_FILTERS.some(([k]) => k === f.status)) f.status = 'all';
+  const shownFilters = STATE_FILTERS.filter(([k, , always]) => always || counts[k] || f.status === k);
   const usedAir = [...new Map(S.meetings.filter((m) => m.airlineName).map((m) => [airlineKey({ code: m.airlineCode, name: m.airlineName }), m.airlineName])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
 
   let body = '';
@@ -1197,7 +1218,7 @@ function viewMeetings() {
     body = `
       <div class="toolbar">
         <div class="search">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar companhia, tema, contacto…" value="${esc(f.q)}"></div>
-        <select class="inp" id="f-status"><option value="all">Todos os estados</option><option value="planned">Agendadas</option><option value="pending">Por exportar</option><option value="draft">Rascunhos</option><option value="ready">Prontas</option><option value="exported">Exportadas</option></select>
+        <select class="inp" id="f-status"><option value="all">Todos os estados · ${counts.all}</option>${shownFilters.map(([k, l]) => `<option value="${k}">${l} · ${counts[k]}</option>`).join('')}</select>
         <select class="inp" id="f-air"><option value="">Todas as companhias</option>${usedAir.map(([k, n]) => `<option value="${esc(k)}">${esc(n)}</option>`).join('')}</select>
         <input class="inp" type="date" id="f-from" value="${esc(f.from)}" title="Desde"><input class="inp" type="date" id="f-to" value="${esc(f.to)}" title="Até">
       </div>
@@ -1207,14 +1228,14 @@ function viewMeetings() {
       ${sel.size ? `<div class="bulk"><span>${plural(sel.size, 'selecionada', 'selecionadas')}</span><button class="btn sm" data-bulk="export">${ico('download', 'sm')} Exportar CSV</button><button class="btn sm" data-bulk="ready">Marcar prontas</button><button class="btn sm" data-bulk="exported">${ico('check', 'sm')} Marcar exportadas</button><button class="btn sm" data-bulk="delete">${ico('trash', 'sm')}</button><button class="btn sm" data-bulk="clear">${ico('x', 'sm')}</button></div>` : ''}`;
   } else {
     const today = ymd(new Date());
-    const agenda = f.status === 'all' && !f.q ? list.filter((m) => m.status === 'planned' && (m.start || '').slice(0, 10) >= today).sort((a, b) => (a.start || '').localeCompare(b.start || '')) : [];
+    const agenda = f.status === 'all' && !f.q ? list.filter((m) => inState(m, 'agenda') && (m.start || '').slice(0, 10) >= today).sort((a, b) => (a.start || '').localeCompare(b.start || '')) : [];
     const agSet = new Set(agenda.map((m) => m.id));
     const groups = new Map();
     for (const m of agenda) { const k = 'Agenda · ' + (fmtDay(m.start) || 'Sem data'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
     for (const m of list) { if (agSet.has(m.id)) continue; const k = fmtDay(m.start) || 'Sem data'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
     body = `
       <div class="search" style="margin-bottom:10px">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar" value="${esc(f.q)}"></div>
-      <div class="filters">${[['all', 'Todas', counts.all], ...(counts.planned ? [['planned', 'Agenda', counts.planned]] : []), ['pending', 'Por exportar', counts.pending], ['ready', 'Prontas', counts.ready], ['exported', 'Exportadas', counts.exported]].map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
+      <div class="filters">${[['all', 'Todas'], ...shownFilters].map(([k, l]) => [k, l, counts[k]]).map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
       ${list.length ? [...groups.entries()].map(([g, ms]) => `<div class="group-h">${esc(g)}</div><div class="list">${ms.map((m) => `
         <a class="row" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="t">${esc(m.airlineName || 'Companhia por escolher')}</div><div class="when">${esc(fmtDay(m.start))} · ${fmtTime(m.start)}</div>
         ${m.location ? `<div class="metaline">${ico('pin', 'sm')}<span class="loc">${esc(m.location)}</span></div>` : ''}</div>

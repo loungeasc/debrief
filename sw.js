@@ -1,5 +1,5 @@
 /* Debrief — service worker: funciona sem rede. Nenhum dado do utilizador passa por aqui. */
-const VERSION = 'debrief-v1.4.0';
+const VERSION = 'debrief-v1.5.0';
 const SHELL = VERSION + '-shell';
 const OCR = 'debrief-ocr-v6';
 
