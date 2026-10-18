@@ -21,7 +21,9 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
 
 ## Fluxo
 
-1. **+** → companhia → **Cartão de visita** (fotografa; os dados são lidos automaticamente) → temas (um parágrafo por tema) → fotos das notas → **Marcar como pronta**.
+1. **+** → companhia → **Cartão de visita** (fotografa; os dados são lidos automaticamente) → escreve tudo em **Notas da reunião**, uma ideia por linha, sem ordem → **Organizar por temas** (as sugestões vêm pré-marcadas; confirma ou muda) → **Marcar como pronta**.
+   - Fotos de notas em papel: abre a foto → **Texto** para extrair o texto (no dispositivo), rever e juntar às notas. No iPhone/iPad também podes tocar e manter sobre o texto da foto (Texto ao Vivo).
+   - O que ficar por organizar vai para os Comments como «Notas».
 2. No Salesforce: conta da companhia → **New Meeting Note**. No Debrief, toca em **Salesforce** e copia cada campo pela ordem do formulário (Subject, Name, Related To, Due Date, Flag, Type of Tradeshow, Geographical Scope, Comments).
 3. **Já gravei — marcar exportada.**
 

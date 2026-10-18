@@ -221,6 +221,18 @@ textarea.inp{resize:vertical;line-height:1.5}
   .ed-aside{display:block;position:sticky;top:96px;max-height:calc(100vh - 116px);overflow:auto;padding-bottom:6px}
   .ed-cols .sec-photos-mobile{display:none}
 }
+#f-raw{min-height:170px;font-size:16px;line-height:1.55}
+.blk{border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:10px;overflow:hidden}
+.blk.done{border-color:var(--line-2)}
+.blk textarea{display:block;border:0;width:100%;padding:10px 12px 2px;font-size:15.5px;line-height:1.45;resize:none;background:transparent;outline:none;min-height:40px}
+.blk-chips{display:flex;gap:6px;overflow-x:auto;padding:6px 10px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.blk-chips::-webkit-scrollbar{display:none}
+.blk-chips .chip{flex:none;height:30px;font-size:13px;padding:0 10px}
+.chip.sugg{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.chip.keep{color:var(--ink-3)}
+.chip.keep.on{background:var(--surface-3);border-color:var(--surface-3);color:var(--ink)}
+@media (min-width:700px){.blk-chips{flex-wrap:wrap}}
+.hint{font-size:13px;color:var(--ink-3);margin:0 0 10px}
 .viewer-inline{border-radius:12px;overflow:hidden;background:var(--surface-2);margin-bottom:10px;cursor:zoom-in}
 .viewer-inline img{width:100%;display:block}
 .sfprev{white-space:pre-wrap;font-size:13.5px;line-height:1.5;background:var(--surface-2);border-radius:10px;padding:12px;max-height:340px;overflow:auto;margin:0;font-family:inherit}
@@ -270,6 +282,8 @@ details.raw pre{white-space:pre-wrap;font-size:12.5px;background:var(--surface-2
 .viewer-h .ibtn{color:#fff}
 .viewer-h .ibtn:hover{background:rgba(255,255,255,.12)}
 .viewer-h span{flex:1;text-align:center;font-size:14px;opacity:.8}
+.viewer-h .btn{background:rgba(255,255,255,.12);border-color:transparent;color:#fff}
+.viewer-tip{color:rgba(255,255,255,.7);font-size:12.5px;text-align:center;padding:8px 16px calc(10px + env(safe-area-inset-bottom))}
 .viewer-b{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;touch-action:pinch-zoom pan-x pan-y}
 .viewer-b img{max-width:100%;max-height:100%;object-fit:contain}
 .viewer-b.zoom{display:block}
@@ -345,7 +359,7 @@ details.raw pre{white-space:pre-wrap;font-size:12.5px;background:var(--surface-2
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -478,7 +492,7 @@ function newMeeting() {
   const now = Date.now();
   return {
     id: uid(), airlineCode: '', airlineName: '', start: toLocalInput(d), contactIds: [], internal: st.ownerName || '', topics: [], nextSteps: '', photoIds: [],
-    flag: '', tradeshow: '', scope: parseCodes(st.defaultScope),
+    raw: '', flag: '', tradeshow: '', scope: parseCodes(st.defaultScope),
     subject: '', subjectAuto: true, status: 'draft', exportedAt: 0, createdAt: now, updatedAt: now,
   };
 }
@@ -518,6 +532,7 @@ async function photoURL(id, full) {
   const u = URL.createObjectURL(new Blob([full ? p.data : p.thumb], { type: p.mime || 'image/jpeg' }));
   urlCache.set(k, u); return u;
 }
+async function ensurePhoto(id) { return DB.get('photos', id); }
 async function hydrateImgs(root) {
   for (const img of $$('img[data-pid]', root)) { if (!img.src) img.src = await photoURL(img.dataset.pid, img.dataset.full === '1'); }
 }
@@ -652,12 +667,65 @@ function participantsLine(m) {
   if (!cs.length) return '';
   return cs.map((c) => contactName(c) + (c.title ? ` (${c.title})` : '')).join('; ');
 }
+function splitBlocks(raw) {
+  return String(raw || '').split(/\n+/).map((l) => l.replace(/^\s*(?:[-–—•*·▪►>]+|\d+[.)])\s*/, '').trim()).filter(Boolean);
+}
+function sentence(x) { x = String(x || '').trim(); if (!x) return x; x = x[0].toUpperCase() + x.slice(1); return /[.!?…:;)]$/.test(x) ? x : x + '.'; }
+const TOPIC_KEYWORDS = {
+  'operacoes e pontualidade': 'otp pontualidade atraso delay turnaround taxi operac irregular cancel desvio desvios ontime on-time',
+  'slots e planeamento': 'slot horario horarios schedule iata inverno winter verao summer s25 s26 s27 w25 w26 w27 planeamento frequencia rotac',
+  'rotas e desenvolvimento': 'rota rotas destino destinos abertura capacidade mercado procura network base aeronave lugares load factor',
+  'taxas e incentivos': 'taxa taxas tarifa tarifas incentivo incentivos desconto preco precos custo custos fatura faturas pagamento',
+  'handling': 'handling handler groundforce menzies portway swissport rampa bagagem bagagens check balcao balcoes',
+  'lounge': 'lounge vip gold premium business frequent miles sala',
+  'passageiros e pmr': 'pmr mobilidade passageiro passageiros cadeira assistencia reclama reclamacoes queixa',
+  'infraestruturas': 'stand stands gate gates porta portas manga mangas pbb terminal obras infraestrutura placa',
+  'seguranca': 'seguranca rastreio security controlo fronteira policia psp',
+  'comercial e retalho': 'retalho loja lojas duty free restauracao comercial publicidade marketing campanha',
+  'sustentabilidade': 'sustentab co2 saf emissoes ambiente ruido energia carbono',
+};
+const kwCache = new Map();
+function topicKeywords(name) {
+  const k = norm(name); if (kwCache.has(k)) return kwCache.get(k);
+  const own = k.split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+  const list = [...new Set([...(TOPIC_KEYWORDS[k] || '').split(' ').filter(Boolean), ...own])].map((w) => new RegExp('(^|[^a-z0-9])' + w.replace(/[-]/g, '\\-')));
+  kwCache.set(k, list); return list;
+}
+function suggestTopic(text, options) {
+  const t = norm(text); let best = null, score = 0;
+  for (const o of options) { const sc = topicKeywords(o).reduce((n, re) => n + (re.test(t) ? 1 : 0), 0); if (sc > score) { score = sc; best = o; } }
+  return best;
+}
+async function prepForOcr(pid) {
+  const p = await ensurePhoto(pid, true); if (!p) throw new Error('Foto indisponível');
+  const img = await loadImage(new Blob([p.data], { type: 'image/jpeg' }));
+  const max = 2200, sc = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * sc), h = Math.round(img.naturalHeight * sc);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const cx = cv.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(img, 0, 0, w, h);
+  // fundo aproximado (iluminação) para tirar sombras do papel
+  const bw = Math.max(8, Math.round(w / 28)), bh = Math.max(8, Math.round(h / 28));
+  const bg = document.createElement('canvas'); bg.width = bw; bg.height = bh; const bx = bg.getContext('2d', { willReadFrequently: true });
+  bx.imageSmoothingQuality = 'high'; bx.drawImage(cv, 0, 0, bw, bh);
+  const big = document.createElement('canvas'); big.width = w; big.height = h; const gx = big.getContext('2d', { willReadFrequently: true });
+  gx.imageSmoothingQuality = 'high'; gx.drawImage(bg, 0, 0, w, h);
+  const a = cx.getImageData(0, 0, w, h), b = gx.getImageData(0, 0, w, h); const d = a.data, e = b.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const bgl = Math.max(40, 0.299 * e[i] + 0.587 * e[i + 1] + 0.114 * e[i + 2]);
+    let v = Math.min(255, (g / bgl) * 255); v = v > 235 ? 255 : Math.max(0, (v - 60) * 1.45);
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  cx.putImageData(a, 0, 0);
+  return cv;
+}
 function buildDescription(m) {
   const st = S.settings; const out = [];
   for (const t of m.topics) {
     const txt = (t.text || '').trim(); if (!txt) continue;
     out.push((t.name || 'Tema').toUpperCase(), txt, '');
   }
+  if ((m.raw || '').trim()) out.push('NOTAS', splitBlocks(m.raw).map(sentence).join(' '), '');
   if ((m.nextSteps || '').trim()) out.push('PRÓXIMOS PASSOS', m.nextSteps.trim(), '');
   if (st.sfIncludeParticipants) { const p = participantsLine(m); if (p) out.push(`Participantes ${m.airlineName || 'companhia'}: ${p}`); }
   if (st.sfIncludeInternal && (m.internal || '').trim()) out.push(`Participantes ANA: ${m.internal.trim()}`);
@@ -667,7 +735,8 @@ function meetingWarnings(m) {
   const w = [];
   if (!m.airlineName) w.push('Falta escolher a companhia');
   if (!m.contactIds.length) w.push('Falta o contacto (o campo Name é obrigatório)');
-  if (!m.topics.some((t) => (t.text || '').trim())) w.push('Ainda não há texto em nenhum tema');
+  if (!m.topics.some((t) => (t.text || '').trim()) && !(m.raw || '').trim()) w.push('Ainda não há notas nem temas');
+  if ((m.raw || '').trim()) w.push('Há notas por organizar (vão para os Comments como «Notas»)');
   if (m.topics.some((t) => !(t.text || '').trim())) w.push('Há temas sem texto (ficam de fora)');
   return w;
 }
@@ -746,10 +815,10 @@ function promptSheet(title, label, value = '', okLabel = 'Guardar') {
     sh.el.querySelector('[data-ok]').onclick = ok; inp.onkeydown = (e) => { if (e.key === 'Enter') ok(); };
   });
 }
-async function openViewer(ids, index, { onDelete } = {}) {
+async function openViewer(ids, index, { onDelete, onOcr } = {}) {
   let i = index;
   const v = document.createElement('div'); v.className = 'viewer';
-  v.innerHTML = `<div class="viewer-h"><button class="ibtn" data-x aria-label="Fechar">${ico('x')}</button><span></span>${onDelete ? `<button class="ibtn" data-del aria-label="Apagar foto">${ico('trash')}</button>` : ''}<button class="ibtn" data-prev aria-label="Anterior">${ico('back')}</button><button class="ibtn" data-next aria-label="Seguinte">${ico('chev')}</button></div><div class="viewer-b"><img alt="Foto"></div>`;
+  v.innerHTML = `<div class="viewer-h"><button class="ibtn" data-x aria-label="Fechar">${ico('x')}</button><span></span>${onOcr ? `<button class="btn sm" data-ocr>${ico('scan', 'sm')} Texto</button>` : ''}${onDelete ? `<button class="ibtn" data-del aria-label="Apagar foto">${ico('trash')}</button>` : ''}<button class="ibtn" data-prev aria-label="Anterior">${ico('back')}</button><button class="ibtn" data-next aria-label="Seguinte">${ico('chev')}</button></div><div class="viewer-b"><img alt="Foto"></div>${onOcr && isTouch() ? '<div class="viewer-tip">Dica: toca e mantém sobre o texto da foto para o selecionar e copiar (Texto ao Vivo do iPhone/iPad).</div>' : ''}`;
   layer.appendChild(v);
   const img = v.querySelector('img'), lab = v.querySelector('span'), body = v.querySelector('.viewer-b');
   const show = async () => { lab.textContent = `${i + 1} / ${ids.length}`; img.src = await photoURL(ids[i], true); body.classList.remove('zoom'); v.querySelector('[data-prev]').style.visibility = ids.length > 1 ? '' : 'hidden'; v.querySelector('[data-next]').style.visibility = ids.length > 1 ? '' : 'hidden'; };
@@ -760,6 +829,7 @@ async function openViewer(ids, index, { onDelete } = {}) {
   v.querySelector('[data-prev]').onclick = () => { i = (i - 1 + ids.length) % ids.length; show(); };
   v.querySelector('[data-next]').onclick = () => { i = (i + 1) % ids.length; show(); };
   img.onclick = () => { if (!isTouch()) body.classList.toggle('zoom'); };
+  if (onOcr) v.querySelector('[data-ocr]').onclick = () => { const id = ids[i]; close(); onOcr(id); };
   if (onDelete) v.querySelector('[data-del]').onclick = async () => { if (!(await confirmSheet('Apagar foto?', 'A foto é removida deste dispositivo.'))) return; await onDelete(ids[i]); ids.splice(i, 1); if (!ids.length) return close(); i = Math.min(i, ids.length - 1); show(); };
   show();
 }
@@ -827,7 +897,7 @@ function filteredMeetings() {
     if (f.from && day < f.from) return false;
     if (f.to && day > f.to) return false;
     if (q) {
-      const hay = norm([m.airlineName, m.airlineCode, subjectOf(m), m.location, m.nextSteps, m.internal, ...m.topics.map((t) => t.name + ' ' + t.text), ...m.contactIds.map((id) => contactName(getC(id)))].join(' '));
+      const hay = norm([m.airlineName, m.airlineCode, subjectOf(m), m.raw, m.nextSteps, m.internal, ...m.topics.map((t) => t.name + ' ' + t.text), ...m.contactIds.map((id) => contactName(getC(id)))].join(' '));
       if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
     }
     return true;
@@ -951,9 +1021,14 @@ function viewMeeting(id) {
         <div class="acts-row"><button class="btn" data-card>${ico('scan', 'sm')} Cartão de visita</button><button class="btn" data-pickc>${ico('user', 'sm')} Contacto</button></div>
       </div>
 
-      <div class="sec"><h3>${ico('pen', 'sm')} Temas abordados <span class="r faint" id="t-count"></span></h3>
+      <div class="sec"><h3>${ico('pen', 'sm')} Notas da reunião <span class="r faint" id="raw-count"></span></h3>
+        <textarea class="inp" data-f="raw" id="f-raw" placeholder="Escreve tudo à medida que a reunião decorre — uma ideia por linha, sem te preocupares com a ordem. No fim, organizas por temas.">${esc(m.raw || '')}</textarea>
+        <div class="acts-row" style="margin-top:10px"><button class="btn dark" data-organize id="b-org">${ico('list', 'sm')} Organizar por temas</button><button class="btn" data-ocrall>${ico('scan', 'sm')} Texto das fotos</button></div>
+      </div>
+
+      <div class="sec"><h3>${ico('list', 'sm')} Temas <span class="r faint" id="t-count"></span></h3>
         <div id="topics"></div>
-        <div class="chips" id="topic-add"></div>
+        <button class="btn sm" data-addtopicmenu>${ico('plus', 'sm')} Tema</button>
       </div>
 
       <div class="sec sec-photos-mobile"><h3>${ico('image', 'sm')} Fotos das notas <span class="r faint" id="p-count"></span></h3>
@@ -994,7 +1069,9 @@ function viewMeeting(id) {
   const refreshAside = debounce(() => renderAside(m), 300);
   const changed = () => { touchMeeting(m); refreshSubject(); refreshHeader(); if (desk) refreshAside(); };
 
-  renderPeople(m); renderTopics(m); renderPhotos(m); refreshHeader();
+  const refreshRaw = () => { const n = splitBlocks(m.raw).length; $('#raw-count').textContent = n ? plural(n, 'linha', 'linhas') : ''; const b = $('#b-org'); b.disabled = !n; b.innerHTML = `${ico('list', 'sm')} Organizar por temas${n ? ` (${n})` : ''}`; };
+  renderPeople(m); renderTopics(m); renderPhotos(m); refreshHeader(); refreshRaw();
+  const afterNotes = () => { $('#f-raw').value = m.raw || ''; grow($('#f-raw')); refreshRaw(); renderTopics(m); changed(); };
   if (desk) renderAside(m);
 
   view.oninput = (e) => {
@@ -1003,7 +1080,8 @@ function viewMeeting(id) {
     if (el.id === 'f-subj') { m.subject = el.value; m.subjectAuto = false; changed(); }
     if (el.dataset.tname != null) { const t = m.topics.find((x) => x.id === el.dataset.tname); t.name = el.value; changed(); }
     if (el.dataset.ttext != null) { const t = m.topics.find((x) => x.id === el.dataset.ttext); t.text = el.value; grow(el); changed(); }
-    if (el.id === 'f-next') grow(el);
+    if (el.id === 'f-next' || el.id === 'f-raw') grow(el);
+    if (el.id === 'f-raw') refreshRaw();
   };
   const addScope = () => { const el = $('#f-scope'); const add = parseCodes(el.value); if (!add.length) return toast('Usa códigos de 3 letras (ex.: LIS)'); m.scope = [...new Set([...scopeOf(m), ...add])]; el.value = ''; changed(); };
   $('#f-scope').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addScope(); } };
@@ -1019,8 +1097,10 @@ function viewMeeting(id) {
     if (t.closest('[data-pickc]')) return pickContact(m, () => { renderPeople(m); changed(); });
     const rm = t.closest('[data-rmc]'); if (rm) { m.contactIds = m.contactIds.filter((x) => x !== rm.dataset.rmc); renderPeople(m); return changed(); }
     const oc = t.closest('[data-openc]'); if (oc) return contactSheet(getC(oc.dataset.openc), { onSaved: () => { renderPeople(m); changed(); } });
-    const ta = t.closest('[data-addt]'); if (ta) return addTopic(m, ta.dataset.addt);
-    if (t.closest('[data-addcustom]')) { const n = await promptSheet('Outro tema', 'Nome do tema'); if (n) addTopic(m, n); return; }
+    if (t.closest('[data-organize]')) { await flushSaves(); return organizeSheet(m, afterNotes); }
+    if (t.closest('[data-ocrall]')) { if (!m.photoIds.length) return toast('Ainda não há fotos das notas'); return ocrSheet(m, [...m.photoIds], afterNotes); }
+    if (t.closest('[data-ocrsel]')) return ocrSheet(m, [m._sel], afterNotes);
+    if (t.closest('[data-addtopicmenu]')) return topicMenu(m);
     const tu = t.closest('[data-tup]'); if (tu) return moveTopic(m, tu.dataset.tup, -1);
     const td = t.closest('[data-tdown]'); if (td) return moveTopic(m, td.dataset.tdown, 1);
     const tr = t.closest('[data-trm]'); if (tr) {
@@ -1031,9 +1111,9 @@ function viewMeeting(id) {
     const addp = t.closest('[data-addphoto]'); if (addp) return addPhotos(m, addp.dataset.addphoto === 'cam');
     const ph = t.closest('[data-ph]'); if (ph) {
       if (desk && t.closest('#aside')) { m._sel = ph.dataset.ph; return renderAside(m); }
-      return openViewer([...m.photoIds], m.photoIds.indexOf(ph.dataset.ph), { onDelete: (pid) => removePhoto(m, pid) });
+      return openViewer([...m.photoIds], m.photoIds.indexOf(ph.dataset.ph), { onDelete: (pid) => removePhoto(m, pid), onOcr: (pid) => ocrSheet(m, [pid], afterNotes) });
     }
-    if (t.closest('[data-bigview]')) return openViewer([...m.photoIds], Math.max(0, m.photoIds.indexOf(m._sel)), { onDelete: (pid) => removePhoto(m, pid) });
+    if (t.closest('[data-bigview]')) return openViewer([...m.photoIds], Math.max(0, m.photoIds.indexOf(m._sel)), { onDelete: (pid) => removePhoto(m, pid), onOcr: (pid) => ocrSheet(m, [pid], afterNotes) });
     if (t.closest('[data-subjauto]')) { m.subjectAuto = true; m.subject = ''; $('#f-subj').value = autoSubject(m); return changed(); }
     if (t.closest('[data-sf]')) { await flushSaves(); return sfSheet(m, () => { refreshHeader(); if (desk) renderAside(m); }); }
     if (t.closest('[data-status]')) return toggleStatus(m, () => { refreshHeader(); if (desk) renderAside(m); });
@@ -1056,7 +1136,8 @@ function renderTopics(m) {
   const box = $('#topics'); if (!box) return;
   box.innerHTML = m.topics.map((t, i) => `<div class="topic" data-tid="${t.id}"><div class="topic-h"><input data-tname="${t.id}" value="${esc(t.name)}" aria-label="Nome do tema"><button class="ibtn sm" data-tup="${t.id}" ${i === 0 ? 'disabled style="opacity:.3"' : ''} aria-label="Subir">${ico('up', 'sm')}</button><button class="ibtn sm" data-tdown="${t.id}" ${i === m.topics.length - 1 ? 'disabled style="opacity:.3"' : ''} aria-label="Descer">${ico('down', 'sm')}</button><button class="ibtn sm" data-trm="${t.id}" aria-label="Remover tema">${ico('x', 'sm')}</button></div><textarea data-ttext="${t.id}" placeholder="O que foi dito sobre este tema… (dica: usa o microfone do teclado para ditar)">${esc(t.text)}</textarea></div>`).join('');
   const used = new Set(m.topics.map((t) => norm(t.name)));
-  $('#topic-add').innerHTML = S.settings.topics.filter((n) => !used.has(norm(n))).map((n) => `<button class="chip add" data-addt="${esc(n)}">${ico('plus', 'sm')}${esc(n)}</button>`).join('') + `<button class="chip add" data-addcustom>${ico('plus', 'sm')}Outro…</button>`;
+  if (!m.topics.length) box.innerHTML = '<p class="hint">Os temas aparecem aqui quando organizares as notas. Também podes criar um tema diretamente.</p>';
+  void used;
   $('#t-count').textContent = m.topics.length ? plural(m.topics.length, 'tema', 'temas') : '';
   $$('textarea', box).forEach(grow);
 }
@@ -1093,17 +1174,85 @@ function renderAside(m) {
   if (!m._sel && m.photoIds.length) m._sel = m.photoIds[0];
   const desc = buildDescription(m);
   box.innerHTML = `
-    <div class="sec"><h3>${ico('image', 'sm')} Fotos das notas <span class="r faint">${m.photoIds.length ? plural(m.photoIds.length, 'foto', 'fotos') : ''}</span></h3>
+    <div class="sec"><h3>${ico('image', 'sm')} Fotos das notas <span class="r">${m._sel ? `<button class="btn sm" data-ocrsel>${ico('scan', 'sm')} Extrair texto</button>` : ''}</span></h3>
       ${m._sel ? `<div class="viewer-inline" data-bigview title="Abrir em ecrã inteiro"><img data-pid="${m._sel}" data-full="1" alt="Nota manuscrita"></div>` : '<p class="faint" style="margin:0 0 10px;font-size:14px">Sem fotos. No telemóvel, fotografa as notas logo a seguir à reunião — aqui ficam ao lado do texto para transcreveres.</p>'}
       <div class="photos">${photoTiles(m)}</div></div>
     <div class="sec"><h3>${ico('send', 'sm')} Pré-visualização Salesforce <span class="r"><button class="btn sm" data-copydesc>${ico('copy', 'sm')} Copiar</button></span></h3>
       <div style="font-weight:650;margin-bottom:8px">${esc(subjectOf(m))}</div>
-      <pre class="sfprev">${esc(desc) || '<span class="faint">A descrição aparece aqui à medida que escreves os temas.</span>'}</pre></div>`;
+      <pre class="sfprev">${esc(desc) || '<span class="faint">Os Comments aparecem aqui à medida que escreves.</span>'}</pre></div>`;
   hydrateImgs(box);
+}
+function topicMenu(m) {
+  const used = new Set(m.topics.map((t) => norm(t.name)));
+  const opts = S.settings.topics.filter((n) => !used.has(norm(n)));
+  const sh = sheet({ title: 'Novo tema', body: `<div class="chips">${opts.map((n) => `<button class="chip add" data-n="${esc(n)}">${ico('plus', 'sm')}${esc(n)}</button>`).join('')}<button class="chip add" data-other>${ico('plus', 'sm')}Outro…</button></div>` });
+  sh.el.onclick = async (e) => {
+    const b = e.target.closest('[data-n]'); if (b) { sh.close(); return addTopic(m, b.dataset.n); }
+    if (e.target.closest('[data-other]')) { sh.close(); const n = await promptSheet('Outro tema', 'Nome do tema'); if (n) addTopic(m, n); }
+  };
+}
+function organizeSheet(m, after) {
+  const blocks = splitBlocks(m.raw).map((text) => ({ text, topic: null, sugg: null }));
+  if (!blocks.length) return toast('Ainda não há notas para organizar');
+  const options = [...new Set([...m.topics.map((t) => t.name), ...S.settings.topics])];
+  for (const b of blocks) { b.sugg = suggestTopic(b.text, options); b.topic = b.sugg; }
+  const sh = sheet({ title: 'Organizar por temas', wide: true, body: `<p class="hint">Escolhe o tema de cada nota. As sugestões vêm pré-marcadas a azul — confirma ou muda. O que deixares em «Fica nas notas» não sai das notas.</p><div id="blks"></div>`,
+    foot: `<button class="btn" data-close>Cancelar</button><button class="btn pri" data-apply id="org-apply"></button>` });
+  const box = sh.el.querySelector('#blks');
+  const chip = (i, name, b) => `<button class="chip ${b.topic === name ? (b.sugg === name && !b.manual ? 'sugg' : 'on') : ''}" data-i="${i}" data-t="${esc(name)}">${esc(name)}</button>`;
+  const render = () => {
+    box.innerHTML = blocks.map((b, i) => `<div class="blk ${b.topic ? 'done' : ''}"><textarea data-bt="${i}" rows="1" aria-label="Nota">${esc(b.text)}</textarea><div class="blk-chips">${[...options].sort((x, y) => (y === b.topic) - (x === b.topic)).map((o) => chip(i, o, b)).join('')}<button class="chip add" data-i="${i}" data-new>${ico('plus', 'sm')}Novo</button><button class="chip keep ${!b.topic ? 'on' : ''}" data-i="${i}" data-keep>Fica nas notas</button></div></div>`).join('');
+    $$('textarea', box).forEach((t) => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; });
+    const n = blocks.filter((b) => b.topic).length;
+    const ap = sh.el.querySelector('#org-apply'); ap.disabled = !n; ap.innerHTML = `${ico('check', 'sm')} Passar ${n} para os temas`;
+  };
+  render();
+  box.addEventListener('input', (e) => { const i = e.target.dataset.bt; if (i != null) { blocks[i].text = e.target.value; e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; } });
+  box.addEventListener('click', async (e) => {
+    const c = e.target.closest('[data-i]'); if (!c) return; const b = blocks[c.dataset.i];
+    if (c.dataset.keep != null) { b.topic = null; b.manual = true; return render(); }
+    if (c.dataset.new != null) { const n = await promptSheet('Novo tema', 'Nome do tema'); if (!n) return; if (!options.some((o) => norm(o) === norm(n))) options.push(n); b.topic = options.find((o) => norm(o) === norm(n)); b.manual = true; return render(); }
+    b.topic = b.topic === c.dataset.t && b.manual ? null : c.dataset.t; b.manual = true; render();
+  });
+  sh.el.querySelector('[data-apply]').onclick = () => {
+    const keep = [];
+    for (const b of blocks) {
+      const txt = b.text.trim(); if (!txt) continue;
+      if (!b.topic) { keep.push(txt); continue; }
+      let t = m.topics.find((x) => norm(x.name) === norm(b.topic));
+      if (!t) { t = { id: uid(), name: b.topic, text: '' }; m.topics.push(t); }
+      t.text = [(t.text || '').trim(), sentence(txt)].filter(Boolean).join(' ');
+    }
+    const moved = blocks.filter((b) => b.topic && b.text.trim()).length;
+    m.raw = keep.join('\n'); sh.close(); toast(`${plural(moved, 'nota passada', 'notas passadas')} para os temas`); after();
+  };
+}
+async function ocrSheet(m, ids, after) {
+  ids = ids.filter(Boolean); if (!ids.length) return;
+  const sh = sheet({ title: 'Texto das fotos', wide: true, body: `<div class="ocrbox">${ico('scan')}<div style="flex:1"><b id="oc-msg">A ler ${plural(ids.length, 'foto', 'fotos')}…</b><div class="faint" style="font-size:12.5px">Tudo no dispositivo, sem enviar as imagens.</div><div class="bar"><i id="oc-bar"></i></div></div></div><div id="oc-out"></div>`,
+    foot: `<button class="btn" data-close>Cancelar</button><button class="btn pri" data-join disabled>${ico('plus', 'sm')} Juntar às notas</button>` });
+  const bar = sh.el.querySelector('#oc-bar'), msg = sh.el.querySelector('#oc-msg');
+  const parts = [];
+  try {
+    for (let k = 0; k < ids.length; k++) {
+      msg.textContent = ids.length > 1 ? `A ler foto ${k + 1} de ${ids.length}…` : 'A ler a foto…';
+      const cv = await prepForOcr(ids[k]);
+      const txt = await OCR.read(cv, (p) => { if (p.status === 'recognizing text') bar.style.width = Math.round(((k + p.progress) / ids.length) * 100) + '%'; });
+      parts.push(txt.split('\n').map((l) => l.trim()).filter(Boolean).join('\n'));
+      if (!sh.el.isConnected) return;
+    }
+  } catch (e) { console.error(e); if (!sh.el.isConnected) return; sh.el.querySelector('.ocrbox').innerHTML = `${ico('x')}<div><b>Não foi possível ler as fotos</b><div class="faint" style="font-size:12.5px">${esc(e.message || '')}</div></div>`; return; }
+  if (!sh.el.isConnected) return;
+  const text = parts.filter(Boolean).join('\n');
+  sh.el.querySelector('.ocrbox').innerHTML = `${ico('check')}<div style="flex:1"><b>${text ? 'Revê o texto antes de juntar' : 'Não foi encontrado texto legível'}</b><div class="faint" style="font-size:12.5px">A letra à mão nem sempre é bem lida. Corrige aqui; depois organizas por temas como o resto das notas.${isTouch() ? ' Alternativa: abre a foto, toca e mantém sobre o texto e copia (Texto ao Vivo).' : ''}</div></div>`;
+  sh.el.querySelector('#oc-out').innerHTML = `<textarea class="inp" id="oc-text" rows="10" style="min-height:220px">${esc(text)}</textarea>`;
+  const ta = sh.el.querySelector('#oc-text'); grow(ta); ta.addEventListener('input', () => grow(ta));
+  const jb = sh.el.querySelector('[data-join]'); jb.disabled = false;
+  jb.onclick = () => { const v = ta.value.trim(); if (v) m.raw = [(m.raw || '').trim(), v].filter(Boolean).join('\n'); sh.close(); toast('Texto juntado às notas'); after(); };
 }
 async function toggleStatus(m, after) {
   if (m.status === 'draft') {
-    const w = meetingWarnings(m).filter((x) => !x.startsWith('Há temas'));
+    const w = meetingWarnings(m).filter((x) => !x.startsWith('Há '));
     if (w.length) { toast(w[0]); return; }
     m.status = 'ready'; touchMeeting(m); toast('Pronta para exportar');
   } else if (m.status === 'ready') { m.status = 'draft'; touchMeeting(m); }
