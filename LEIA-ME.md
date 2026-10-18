@@ -29,6 +29,11 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
 
 Subject automático: `Meeting_OPO_<código IATA>_<temas>` (prefixo e aeroporto em Definições).
 
+## Agenda do evento (Grip, Google, Outlook…)
+
+Definições → **Agenda do evento** → cola o endereço do calendário (`webcal://…`) → **Guardar e sincronizar**.
+As reuniões confirmadas e pendentes entram como «Agendadas», com companhia, hora (do local do evento), stand e participantes. Os colegas da ANA vão para «Participantes ANA»; as pessoas da companhia aparecem como atalho para criar o contacto. As canceladas ficam de fora (ou são marcadas, se já tiverem notas). A agenda volta a ser lida sozinha ao abrir a app (no máximo de 15 em 15 minutos) e há um botão ↻ no ecrã principal para a ler na hora; uma reunião apagada no Debrief não volta a aparecer. Reuniões em comum com o colega não se duplicam.
+
 ## Partilhar com o colega (Supabase do Portal)
 
 As reuniões, contactos e fotos ficam numa base partilhada no Supabase do Portal do Lounge (UE). Cada dispositivo guarda uma cópia para trabalhar sem rede e sincroniza sozinho quando volta a ter rede (e em tempo real enquanto a app está aberta).

@@ -82,6 +82,14 @@ body.editing .tabbar{display:none}
 .side .btn.pri{margin:0 4px 14px;justify-content:center}
 .side-foot{margin-top:auto;padding:12px 10px 0;border-top:1px solid var(--line);font-size:12px;color:var(--ink-3);display:flex;flex-direction:column;gap:6px}
 .side-foot .lock{display:flex;gap:6px;align-items:center}
+.side-foot .userrow{display:flex;align-items:center;justify-content:space-between;gap:6px;color:var(--ink-2);font-size:13px}
+.side-foot .userrow .ibtn{width:30px;height:30px;color:var(--ink-3)}
+.side-foot .userrow .ibtn:hover{color:var(--danger);background:var(--danger-soft)}
+.pill.planned{background:var(--accent-soft);color:var(--accent)}
+.plan-chips{display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 12px}
+.plan-chips .chip small{color:var(--ink-3);font-weight:500}
+.locline{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink-2);margin-top:10px}
+.locline.cancel{color:var(--danger)}
 
 /* ---------- controls */
 .btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:14.5px;white-space:nowrap;text-decoration:none;color:var(--ink);transition:transform .08s,background .15s}
@@ -144,6 +152,10 @@ textarea.inp{resize:vertical;line-height:1.5}
 .row .meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none;font-size:12px;color:var(--ink-3)}
 .row .metaline{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--ink-3);margin-top:4px}
 .row .metaline span{display:inline-flex;align-items:center;gap:3px}
+.row .metaline{min-width:0}
+.row .metaline .loc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.row .when{font-size:13.5px;color:var(--ink-2);margin-top:1px;font-variant-numeric:tabular-nums}
+.tbl .loc{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
 .empty{text-align:center;padding:48px 20px;color:var(--ink-2)}
 .empty h2{font-size:18px;color:var(--ink);margin:14px 0 6px}
 .empty p{margin:0 auto 18px;max-width:340px}
@@ -358,6 +370,7 @@ body.gate main{padding-bottom:0}
   <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/></symbol>
   <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4.2h-4.2"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14.5 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3.5M10 16.5L5.5 12 10 7.5M5.5 12H16"/></symbol>
   <symbol id="i-plane" viewBox="0 0 24 24"><path d="M10.5 13.5L3.5 11l1.2-1.6 7.6.6 4.4-5a1.9 1.9 0 0 1 2.8 2.7l-5 4.4.6 7.6-1.6 1.2-2.5-7z"/></symbol>
 </svg>
 
@@ -375,7 +388,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.4.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -448,7 +461,7 @@ const TIPO_STORE = { meeting: 'meetings', contact: 'contacts', photo: 'photos' }
 
 /* ---------- sincronização com o Supabase do Portal (offline-first) */
 const CLOUD = { url: 'https://uogrldgopqzdicrwcwir.supabase.co', key: 'sb_publishable_wjWRDRsB9LNA7XIn4fsXBw_-_b2yVnV', bucket: 'crm-fotos', table: 'crm_registos' };
-const SHARED_KEYS = ['topics', 'customAirlines', 'airlineSf', 'tradeshowOptions', 'subjectPrefix', 'airportCode', 'defaultScope', 'sfIncludeParticipants', 'sfIncludeInternal', 'sfRecordTypeId', 'sfFlagField', 'sfTradeshowField', 'sfScopeField'];
+const SHARED_KEYS = ['icsUrls', 'icsIgnored', 'topics', 'customAirlines', 'airlineSf', 'tradeshowOptions', 'subjectPrefix', 'airportCode', 'defaultScope', 'sfIncludeParticipants', 'sfIncludeInternal', 'sfRecordTypeId', 'sfFlagField', 'sfTradeshowField', 'sfScopeField'];
 const sharedSettings = () => Object.fromEntries(SHARED_KEYS.map((k) => [k, S.settings[k]]));
 const stripLocal = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (!k.startsWith('_')) r[k] = v; return r; };
 const Sync = {
@@ -485,6 +498,7 @@ const Sync = {
       const changed = await this.pull();
       this.state = 'idle'; this.error = ''; this.lastOk = Date.now(); this.save();
       if (changed) await onRemoteChanges();
+      syncCalendar();
     } catch (e) {
       console.error('sync', e);
       const msg = String(e?.message || e);
@@ -628,7 +642,8 @@ function mergeKeep(cur, fresh) {
 }
 async function onRemoteChanges() {
   const [ms, cs] = await Promise.all([DB.all('meetings'), DB.all('contacts')]);
-  S.meetings = mergeKeep(S.meetings, ms); S.contacts = mergeKeep(S.contacts, cs);
+  const unsaved = S.meetings.filter((m) => m._unsaved);
+  S.meetings = [...mergeKeep(S.meetings, ms), ...unsaved]; S.contacts = mergeKeep(S.contacts, cs);
   const a = document.activeElement;
   if (a && view.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; // não interromper quem está a escrever
   if ($('.sheet-back') || $('.viewer')) return;
@@ -658,7 +673,8 @@ const AIRLINES_BASE = [
   ['EY', 'Etihad Airways', 'etihad.ae etihad.com'], ['SV', 'Saudia', 'saudia.com'], ['UA', 'United Airlines', 'united.com'], ['DL', 'Delta Air Lines', 'delta.com'],
   ['AA', 'American Airlines', 'aa.com'], ['AC', 'Air Canada', 'aircanada.ca aircanada.com'], ['TS', 'Air Transat', 'transat.com airtransat.com'], ['AD', 'Azul', 'voeazul.com.br'],
   ['G3', 'GOL', 'voegol.com.br'], ['LA', 'LATAM Airlines', 'latam.com'], ['5K', 'Hi Fly', 'hifly.aero'], ['YU', 'EuroAtlantic Airways', 'euroatlantic.pt'],
-  ['WI', 'White Airways', 'whiteairways.com'], ['WT', 'Swiftair', 'swiftair.com'], ['QY', 'DHL (European Air Transport)', 'dhl.com'], ['FX', 'FedEx Express', 'fedex.com'], ['5X', 'UPS Airlines', 'ups.com'],
+  ['WI', 'White Airways', 'whiteairways.com'], ['SM', 'Air Cairo', 'aircairo.com'], ['RX', 'Riyadh Air', 'riyadhair.com'], ['JD', 'Beijing Capital Airlines', 'jdair.net'],
+  ['AS', 'Alaska Airlines', 'alaskaair.com'], ['HA', 'Hawaiian Airlines', 'hawaiianairlines.com'], ['FZ', 'flydubai', 'flydubai.com'], ['WY', 'Oman Air', 'omanair.com'], ['GF', 'Gulf Air', 'gulfair.com'], ['WT', 'Swiftair', 'swiftair.com'], ['QY', 'DHL (European Air Transport)', 'dhl.com'], ['FX', 'FedEx Express', 'fedex.com'], ['5X', 'UPS Airlines', 'ups.com'],
 ];
 const airlineKey = (a) => (a?.code || a?.name || '').toUpperCase();
 function airlines() {
@@ -673,7 +689,7 @@ const sfAcc = (a) => S.settings.airlineSf?.[airlineKey(a)] || {};
 const DEFAULT_SETTINGS = {
   ownerName: '', airportCode: 'OPO', subjectPrefix: 'Meeting', defaultScope: 'OPO', tradeshowOptions: [],
   topics: ['Operações e pontualidade', 'Slots e planeamento', 'Rotas e desenvolvimento', 'Taxas e incentivos', 'Handling', 'Lounge', 'Passageiros e PMR', 'Infraestruturas', 'Segurança', 'Comercial e retalho', 'Sustentabilidade', 'Outros'],
-  customAirlines: [], airlineSf: {},
+  customAirlines: [], airlineSf: {}, icsUrls: {}, icsIgnored: [], icsLastSync: 0, icsLastResult: null,
   sfIncludeParticipants: true, sfIncludeInternal: true,
   sfRecordTypeId: '', sfFlagField: 'Flag__c', sfTradeshowField: 'Type_of_Tradeshow__c', sfScopeField: 'Geographical_Scope__c',
   lastBackupAt: 0, iosHintDismissed: false,
@@ -730,13 +746,17 @@ const saveQueue = new Map();
 const flushSaves = async () => { const items = [...saveQueue.values()]; saveQueue.clear(); for (const m of items) await DB.put('meetings', m); setSaved(false); };
 const flushDebounced = debounce(flushSaves, 450);
 function touchMeeting(m) {
+  if (m._unsaved) delete m._unsaved;
+  if (m.status === 'planned' && hasContent(m)) m.status = 'draft';
   m.updatedAt = Date.now(); if (Sync.on() && Sync.userName) m.updatedByName = Sync.userName; saveQueue.set(m.id, m); setSaved(true); flushDebounced(); askPersist();
 }
 function setSaved(busy) { $$('.saved').forEach((el) => { el.classList.toggle('busy', busy); el.textContent = busy ? 'A guardar…' : 'Guardado'; }); }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSaves(); });
 window.addEventListener('pagehide', () => flushSaves());
 
+const hasContent = (m) => !!((m.raw || '').trim() || m.topics.some((t) => (t.text || '').trim()) || m.photoIds.length);
 async function deleteMeeting(m) {
+  if (m.icsUid) { S.settings.icsIgnored = [...new Set([...(S.settings.icsIgnored || []), m.id])].slice(-800); await saveSettings(); }
   for (const pid of m.photoIds) { await DB.del('photos', pid); dropURL(pid); }
   await DB.del('meetings', m.id); S.meetings = S.meetings.filter((x) => x.id !== m.id); saveQueue.delete(m.id);
 }
@@ -1080,7 +1100,7 @@ window.addEventListener('resize', debounce(() => { if (isDesk() !== lastWide) { 
 window.addEventListener('scroll', () => { const t = $('.top'); if (t) t.classList.toggle('scrolled', window.scrollY > 4); }, { passive: true });
 
 function renderChrome(active) {
-  const pending = S.meetings.filter((m) => m.status !== 'exported').length;
+  const pending = S.meetings.filter((m) => !m._unsaved && m.status !== 'exported' && m.status !== 'planned').length;
   $('#side').innerHTML = `
     <div class="brand"><img src="icons/icon-192.png" alt=""><div><b>Debrief</b><span>Reuniões com companhias</span></div></div>
     <button class="btn pri" data-new>${ico('plus')} Nova reunião</button>
@@ -1088,7 +1108,7 @@ function renderChrome(active) {
     <a class="nav ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users')} Contactos <span class="count">${S.contacts.length || ''}</span></a>
     <a class="nav ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send')} Exportar</a>
     <a class="nav ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders')} Definições</a>
-    <div class="side-foot"><span class="syncst"></span>${Sync.on() ? `<span>${esc(Sync.userName || Sync.email)}</span>` : `<span>Última cópia de segurança: ${ago(S.settings.lastBackupAt)}</span>`}<span>v${APP_VERSION}</span></div>`;
+    <div class="side-foot"><span class="syncst"></span>${Sync.on() ? `<span class="userrow"><span>${esc(Sync.userName || Sync.email)}</span><button class="ibtn sm" data-logout title="Terminar sessão" aria-label="Terminar sessão">${ico('logout', 'sm')}</button></span>` : `<span>Última cópia de segurança: ${ago(S.settings.lastBackupAt)}</span><span class="userrow"><span>Partilhar com o colega</span><button class="btn sm" data-gologin2>Entrar</button></span>`}<span>v${APP_VERSION}</span></div>`;
   $('#tabbar').innerHTML = `
     <a class="tab ${active === 'm' ? 'on' : ''}" href="#/">${ico('list', 'lg')}Reuniões</a>
     <a class="tab ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users', 'lg')}Contactos</a>
@@ -1096,10 +1116,14 @@ function renderChrome(active) {
     <a class="tab ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send', 'lg')}Exportar</a>
     <a class="tab ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders', 'lg')}Definições</a>`;
   $$('[data-new]').forEach((b) => (b.onclick = createMeeting));
+  $$('[data-logout]').forEach((b) => (b.onclick = confirmSignOut));
+  $$('[data-gologin2]').forEach((b) => (b.onclick = () => showLogin()));
   setTimeout(() => Sync.render(), 0);
 }
 async function createMeeting() {
-  const m = newMeeting(); if (Sync.on()) { m.createdByName = Sync.userName || Sync.email; m.updatedByName = m.createdByName; } S.meetings.push(m); await DB.put('meetings', m); askPersist(); go('#/r/' + m.id);
+  const m = newMeeting(); m._unsaved = true; // só passa a existir quando se preenche alguma coisa
+  if (Sync.on()) { m.createdByName = Sync.userName || Sync.email; m.updatedByName = m.createdByName; }
+  S.meetings.push(m); go('#/r/' + m.id);
 }
 
 const navStack = [];
@@ -1108,6 +1132,7 @@ function route() {
   flushSaves();
   const cur = location.hash || '#/';
   if (navStack.length > 1 && navStack[navStack.length - 2] === cur) navStack.pop(); else if (navStack[navStack.length - 1] !== cur) navStack.push(cur);
+  S.meetings = S.meetings.filter((m) => !m._unsaved || cur === '#/r/' + m.id); // reunião nova sem nada preenchido: descartada
   const h = location.hash.replace(/^#\/?/, '');
   const [a, b] = h.split('/');
   document.body.classList.remove('editing');
@@ -1126,7 +1151,8 @@ function route() {
 function filteredMeetings() {
   const f = S.list; const q = norm(f.q);
   return S.meetings.filter((m) => {
-    if (f.status === 'pending' && m.status === 'exported') return false;
+    if (f.status === 'pending' && (m.status === 'exported' || m.status === 'planned')) return false;
+    if (f.status === 'planned' && m.status !== 'planned') return false;
     if (f.status === 'draft' && m.status !== 'draft') return false;
     if (f.status === 'ready' && m.status !== 'ready') return false;
     if (f.status === 'exported' && m.status !== 'exported') return false;
@@ -1142,6 +1168,8 @@ function filteredMeetings() {
   }).sort((x, y) => (y.start || '').localeCompare(x.start || '') || y.createdAt - x.createdAt);
 }
 function statusPill(m) {
+  if (m.icsStatus === 'CANCELLED' && m.status !== 'exported') return '<span class="pill changed">Cancelada na agenda</span>';
+  if (m.status === 'planned') return m.icsStatus === 'TENTATIVE' ? '<span class="pill planned">Por confirmar</span>' : '<span class="pill planned">Agendada</span>';
   if (changedAfterExport(m)) return '<span class="pill changed">Alterada após exportar</span>';
   return { draft: '<span class="pill">Rascunho</span>', ready: '<span class="pill ready">Pronta</span>', exported: '<span class="pill exported">Exportada</span>' }[m.status] || '';
 }
@@ -1158,7 +1186,7 @@ function viewMeetings() {
   renderChrome('m');
   const f = S.list; const desk = isDesk();
   const list = filteredMeetings();
-  const counts = { all: S.meetings.length, pending: S.meetings.filter((m) => m.status !== 'exported').length, ready: S.meetings.filter((m) => m.status === 'ready').length, exported: S.meetings.filter((m) => m.status === 'exported').length };
+  const counts = { all: S.meetings.length, planned: S.meetings.filter((m) => m.status === 'planned').length, pending: S.meetings.filter((m) => m.status !== 'exported' && m.status !== 'planned').length, ready: S.meetings.filter((m) => m.status === 'ready').length, exported: S.meetings.filter((m) => m.status === 'exported').length };
   const usedAir = [...new Map(S.meetings.filter((m) => m.airlineName).map((m) => [airlineKey({ code: m.airlineCode, name: m.airlineName }), m.airlineName])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
 
   let body = '';
@@ -1169,27 +1197,31 @@ function viewMeetings() {
     body = `
       <div class="toolbar">
         <div class="search">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar companhia, tema, contacto…" value="${esc(f.q)}"></div>
-        <select class="inp" id="f-status"><option value="all">Todos os estados</option><option value="pending">Por exportar</option><option value="draft">Rascunhos</option><option value="ready">Prontas</option><option value="exported">Exportadas</option></select>
+        <select class="inp" id="f-status"><option value="all">Todos os estados</option><option value="planned">Agendadas</option><option value="pending">Por exportar</option><option value="draft">Rascunhos</option><option value="ready">Prontas</option><option value="exported">Exportadas</option></select>
         <select class="inp" id="f-air"><option value="">Todas as companhias</option>${usedAir.map(([k, n]) => `<option value="${esc(k)}">${esc(n)}</option>`).join('')}</select>
         <input class="inp" type="date" id="f-from" value="${esc(f.from)}" title="Desde"><input class="inp" type="date" id="f-to" value="${esc(f.to)}" title="Até">
       </div>
-      ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:34px"><input type="checkbox" id="ck-all" ${list.length && list.every((m) => sel.has(m.id)) ? 'checked' : ''} aria-label="Selecionar todas"></th><th>Data</th><th>Companhia</th><th>Assunto</th><th>Temas</th><th>Contactos</th><th>Fotos</th><th>Estado</th></tr></thead><tbody>
-      ${list.map((m) => `<tr data-id="${m.id}" class="${sel.has(m.id) ? 'sel' : ''}"><td><input type="checkbox" class="ck-row" ${sel.has(m.id) ? 'checked' : ''} aria-label="Selecionar"></td><td class="num">${fmtDateShort(m.start)} · ${fmtTime(m.start)}</td><td><div class="cellair">${badge(m.airlineCode, true)}${esc(m.airlineName || '—')}</div></td><td><div class="subj">${esc(subjectOf(m))}</div></td><td class="num">${m.topics.length}</td><td class="num">${m.contactIds.length}</td><td class="num">${m.photoIds.length}</td><td>${statusPill(m)}</td></tr>`).join('')}
+      ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:34px"><input type="checkbox" id="ck-all" ${list.length && list.every((m) => sel.has(m.id)) ? 'checked' : ''} aria-label="Selecionar todas"></th><th>Data</th><th>Hora</th><th>Companhia</th><th>Local</th><th>Assunto</th><th>Estado</th></tr></thead><tbody>
+      ${list.map((m) => `<tr data-id="${m.id}" class="${sel.has(m.id) ? 'sel' : ''}"><td><input type="checkbox" class="ck-row" ${sel.has(m.id) ? 'checked' : ''} aria-label="Selecionar"></td><td class="num">${fmtDateShort(m.start)}</td><td class="num">${fmtTime(m.start)}</td><td><div class="cellair">${badge(m.airlineCode, true)}${esc(m.airlineName || '—')}</div></td><td><div class="loc">${esc(m.location || '—')}</div></td><td><div class="subj">${esc(subjectOf(m))}</div></td><td>${statusPill(m)}</td></tr>`).join('')}
       </tbody></table></div>` : `<div class="empty"><p>Nenhuma reunião corresponde aos filtros.</p></div>`}
       ${sel.size ? `<div class="bulk"><span>${plural(sel.size, 'selecionada', 'selecionadas')}</span><button class="btn sm" data-bulk="export">${ico('download', 'sm')} Exportar CSV</button><button class="btn sm" data-bulk="ready">Marcar prontas</button><button class="btn sm" data-bulk="exported">${ico('check', 'sm')} Marcar exportadas</button><button class="btn sm" data-bulk="delete">${ico('trash', 'sm')}</button><button class="btn sm" data-bulk="clear">${ico('x', 'sm')}</button></div>` : ''}`;
   } else {
+    const today = ymd(new Date());
+    const agenda = f.status === 'all' && !f.q ? list.filter((m) => m.status === 'planned' && (m.start || '').slice(0, 10) >= today).sort((a, b) => (a.start || '').localeCompare(b.start || '')) : [];
+    const agSet = new Set(agenda.map((m) => m.id));
     const groups = new Map();
-    for (const m of list) { const k = fmtDay(m.start) || 'Sem data'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
+    for (const m of agenda) { const k = 'Agenda · ' + (fmtDay(m.start) || 'Sem data'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
+    for (const m of list) { if (agSet.has(m.id)) continue; const k = fmtDay(m.start) || 'Sem data'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
     body = `
       <div class="search" style="margin-bottom:10px">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar" value="${esc(f.q)}"></div>
-      <div class="filters">${[['all', 'Todas', counts.all], ['pending', 'Por exportar', counts.pending], ['ready', 'Prontas', counts.ready], ['exported', 'Exportadas', counts.exported]].map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
+      <div class="filters">${[['all', 'Todas', counts.all], ...(counts.planned ? [['planned', 'Agenda', counts.planned]] : []), ['pending', 'Por exportar', counts.pending], ['ready', 'Prontas', counts.ready], ['exported', 'Exportadas', counts.exported]].map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
       ${list.length ? [...groups.entries()].map(([g, ms]) => `<div class="group-h">${esc(g)}</div><div class="list">${ms.map((m) => `
-        <a class="row" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="t">${esc(m.airlineName || 'Companhia por escolher')}</div><div class="s">${esc(m.topics.map((t) => t.name).join(' · ') || 'Sem temas')}</div>
-        <div class="metaline"><span>${ico('cal', 'sm')} ${fmtTime(m.start)}</span>${m.contactIds.length ? `<span>${ico('user', 'sm')} ${m.contactIds.length}</span>` : ''}${m.photoIds.length ? `<span>${ico('image', 'sm')} ${m.photoIds.length}</span>` : ''}</div></div>
+        <a class="row" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="t">${esc(m.airlineName || 'Companhia por escolher')}</div><div class="when">${esc(fmtDay(m.start))} · ${fmtTime(m.start)}</div>
+        ${m.location ? `<div class="metaline">${ico('pin', 'sm')}<span class="loc">${esc(m.location)}</span></div>` : ''}</div>
         <div class="meta">${statusPill(m)}</div></a>`).join('')}</div>`).join('') : `<div class="empty"><p>Nada para mostrar.</p></div>`}`;
   }
 
-  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.pending} por exportar</small>` : ''}${!desk && Sync.mode === 'cloud' ? '<small><span class="syncst"></span></small>' : ''}</h1>${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
+  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.pending} por exportar</small>` : ''}${!desk && Sync.mode === 'cloud' ? '<small><span class="syncst"></span></small>' : ''}</h1>${calUrl() ? (desk ? `<button class="btn" data-calsync title="Ler outra vez o calendário">${ico('refresh', 'sm')} Agenda</button>` : `<button class="ibtn solid" data-calsync aria-label="Atualizar agenda" title="Atualizar agenda">${ico('refresh')}</button>`) : ''}${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
 
   const st = $('#f-status'); if (st) st.value = f.status;
   const fa = $('#f-air'); if (fa) fa.value = f.airline;
@@ -1205,6 +1237,7 @@ function viewMeetings() {
     const t = e.target;
     if (t.closest('[data-new2]')) return createMeeting();
     if (t.closest('[data-goexport]')) return go('#/exportar');
+    const cs = t.closest('[data-calsync]'); if (cs) { cs.disabled = true; cs.style.opacity = '.5'; await syncCalendar({ manual: true }); return rerenderKeep(); }
     if (t.closest('[data-dismiss-ios]')) { S.settings.iosHintDismissed = true; await saveSettings(); return viewMeetings(); }
     if (t.closest('[data-backup]')) return exportBackup();
     const stb = t.closest('[data-st]'); if (stb) { f.status = stb.dataset.st; return viewMeetings(); }
@@ -1251,7 +1284,9 @@ function viewMeeting(id) {
     <div class="ed-cols"><div>
       <div class="sec">
         <div class="field"><button class="airpick" data-air id="airpick"></button></div>
-        <div class="field" style="margin-bottom:0"><label class="lbl" for="f-start">Data e hora</label><input class="inp" type="datetime-local" id="f-start" data-f="start" value="${esc(m.start)}"></div>
+        <div class="field"><label class="lbl" for="f-start">Data e hora</label><input class="inp" type="datetime-local" id="f-start" data-f="start" value="${esc(m.start)}"></div>
+        <div class="field" style="margin-bottom:0"><label class="lbl" for="f-loc">Local</label><input class="inp" id="f-loc" data-f="location" list="locs" value="${esc(m.location || '')}" placeholder="Ex.: stand A12, escritório da companhia, Teams…"><datalist id="locs">${[...new Set(S.meetings.map((x) => x.location).filter(Boolean))].slice(0, 30).map((l) => `<option value="${esc(l)}">`).join('')}</datalist></div>
+        ${m.icsStatus === 'CANCELLED' || m.icsStatus === 'TENTATIVE' ? `<div class="locline ${m.icsStatus === 'CANCELLED' ? 'cancel' : ''}">${ico(m.icsStatus === 'CANCELLED' ? 'x' : 'cal', 'sm')} ${m.icsStatus === 'CANCELLED' ? 'Cancelada na agenda' : 'Por confirmar na agenda'}</div>` : ''}
       </div>
 
       <div class="sec"><h3>${ico('users', 'sm')} Participantes da companhia</h3>
@@ -1334,6 +1369,12 @@ function viewMeeting(id) {
     const rs = t.closest('[data-rmscope]'); if (rs) { m.scope = scopeOf(m).filter((c) => c !== rs.dataset.rmscope); return changed(); }
     if (t.closest('[data-card]')) return scanCard(m, () => { renderPeople(m); changed(); });
     if (t.closest('[data-pickc]')) return pickContact(m, () => { renderPeople(m); changed(); });
+    const pp = t.closest('[data-planp]'); if (pp) {
+      const x = (m.plannedPeople || [])[+pp.dataset.planp]; if (!x) return;
+      const parts = x.name.trim().split(/\s+/); const air = matchAirline([x.company]);
+      const c = newContact({ firstName: parts.shift() || '', lastName: parts.join(' '), title: x.title || '', airlineCode: air ? air.code : m.airlineCode, company: air ? air.name : (m.airlineName || x.company || '') });
+      return contactSheet(c, { isNew: true, meeting: m, onSaved: () => { renderPeople(m); changed(); } });
+    }
     const rm = t.closest('[data-rmc]'); if (rm) { m.contactIds = m.contactIds.filter((x) => x !== rm.dataset.rmc); renderPeople(m); return changed(); }
     const oc = t.closest('[data-openc]'); if (oc) return contactSheet(getC(oc.dataset.openc), { onSaved: () => { renderPeople(m); changed(); } });
     if (t.closest('[data-organize]')) { await flushSaves(); return organizeSheet(m, afterNotes); }
@@ -1368,7 +1409,10 @@ function grow(el) { if (!el) return; el.style.height = 'auto'; el.style.height =
 function renderPeople(m) {
   const box = $('#people'); if (!box) return;
   const cs = m.contactIds.map(getC).filter(Boolean);
-  box.innerHTML = cs.length ? cs.map((c) => `<div class="person"><div class="av">${c.cardPhotoId ? `<img data-pid="${c.cardPhotoId}" alt="">` : ico('user', 'sm')}</div><div class="grow" data-openc="${c.id}"><div class="t">${esc(contactName(c))}</div><div class="s">${esc([c.title, c.email].filter(Boolean).join(' · ') || 'Sem detalhes')}</div></div><button class="ibtn sm" data-rmc="${c.id}" aria-label="Retirar da reunião">${ico('x', 'sm')}</button></div>`).join('') : `<div class="faint" style="font-size:14px">Fotografa o cartão de visita e os dados são lidos automaticamente.</div>`;
+  const linked = new Set(cs.map((c) => norm(contactName(c))));
+  const planned = (m.plannedPeople || []).map((x, i) => ({ ...x, i })).filter((x) => !linked.has(norm(x.name)));
+  const planHtml = planned.length ? `<div class="hint" style="margin:${cs.length ? '4px' : '0'} 0 6px">Na agenda — toca para criar o contacto:</div><div class="plan-chips">${planned.map((x) => `<button class="chip add" data-planp="${x.i}">${ico('plus', 'sm')}${esc(x.name)}${x.company ? ` <small>${esc(x.company)}</small>` : ''}</button>`).join('')}</div>` : '';
+  box.innerHTML = planHtml + (cs.length ? '' : (planned.length ? '' : '<div class="faint" style="font-size:14px">Fotografa o cartão de visita e os dados são lidos automaticamente.</div>')) + (cs.length ? cs.map((c) => `<div class="person"><div class="av">${c.cardPhotoId ? `<img data-pid="${c.cardPhotoId}" alt="">` : ico('user', 'sm')}</div><div class="grow" data-openc="${c.id}"><div class="t">${esc(contactName(c))}</div><div class="s">${esc([c.title, c.email].filter(Boolean).join(' · ') || 'Sem detalhes')}</div></div><button class="ibtn sm" data-rmc="${c.id}" aria-label="Retirar da reunião">${ico('x', 'sm')}</button></div>`).join('') : '');
   hydrateImgs(box);
 }
 function renderTopics(m) {
@@ -1490,7 +1534,7 @@ async function ocrSheet(m, ids, after) {
   jb.onclick = () => { const v = ta.value.trim(); if (v) m.raw = [(m.raw || '').trim(), v].filter(Boolean).join('\n'); sh.close(); toast('Texto juntado às notas'); after(); };
 }
 async function toggleStatus(m, after) {
-  if (m.status === 'draft') {
+  if (m.status === 'draft' || m.status === 'planned') {
     const w = meetingWarnings(m).filter((x) => !x.startsWith('Há '));
     if (w.length) { toast(w[0]); return; }
     m.status = 'ready'; touchMeeting(m); toast('Pronta para exportar');
@@ -1766,7 +1810,7 @@ const XP = { scope: 'ready', from: '', to: '', mark: true, onlyNewContacts: true
 function exportSet() {
   return S.meetings.filter((m) => {
     if (XP.scope === 'ready' && m.status !== 'ready') return false;
-    if (XP.scope === 'pending' && m.status === 'exported') return false;
+    if (XP.scope === 'pending' && (m.status === 'exported' || m.status === 'planned')) return false;
     const d = (m.start || '').slice(0, 10);
     if (XP.from && d < XP.from) return false; if (XP.to && d > XP.to) return false;
     return true;
@@ -1922,6 +1966,12 @@ async function viewSettings() {
       <div id="air-set">${shown.length ? shown.map((a) => { const sf = st.airlineSf?.[airlineKey(a)] || {}; return `<button class="pickrow" data-airset="${esc(airlineKey(a))}">${badge(a.code, true)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${sf.id ? 'ID ' + esc(sf.id) : 'Sem ID de conta'}${sf.name ? ' · ' + esc(sf.name) : ''}</div></div>${ico('chev', 'sm')}</button>`; }).join('') : '<p class="faint" style="font-size:14px;margin:0">As companhias das tuas reuniões aparecem aqui.</p>'}</div>
       <button class="btn sm" data-airfind style="margin-top:10px">${ico('search', 'sm')} Configurar outra companhia</button>
     </div>
+    <div class="sec"><h3>${ico('cal', 'sm')} Agenda do evento</h3>
+      <p class="faint" style="font-size:13px;margin:0 0 10px">Cola o endereço do teu calendário (Grip ou outro, <code>webcal://…</code>). As reuniões aparecem como «Agendadas», com companhia, hora, stand e participantes, e atualizam-se sozinhas.${Sync.on() ? ' Cada pessoa usa o seu calendário; reuniões em comum não se duplicam.' : ''}</p>
+      <div class="field"><input class="inp" id="ics-url" value="${esc(calUrl())}" placeholder="webcal://calendar.grip.events/ics/…" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      <div class="acts-row"><button class="btn pri" data-icssave>${ico('check', 'sm')} Guardar e sincronizar</button>${calUrl() ? `<button class="btn" data-icsnow>${ico('refresh', 'sm')} Agora</button>` : ''}</div>
+      ${st.icsLastResult ? `<p class="faint" style="font-size:12.5px;margin:10px 0 0">Última leitura ${fmtAgoShort(st.icsLastResult.at)}: ${plural(st.icsLastResult.total, 'reunião', 'reuniões')} no calendário · ${st.icsLastResult.novas} novas · ${st.icsLastResult.atualizadas} atualizadas · ${st.icsLastResult.canceladas} canceladas</p>` : ''}
+    </div>
     <div class="sec"><h3>${ico('users', 'sm')} Conta e partilha</h3>
       ${Sync.mode === 'cloud' ? `
       <div class="setrow"><div class="grow"><b>${esc(Sync.userName || 'Conta')}</b><div class="faint" style="font-size:13px">${esc(Sync.email)}</div></div></div>
@@ -1956,11 +2006,14 @@ async function viewSettings() {
     if (t.closest('[data-wipe]')) return wipeAll();
     if (t.closest('[data-syncnow]')) { Sync.run(); return; }
     if (t.closest('[data-gologin]')) return showLogin();
-    if (t.closest('[data-signout]')) {
-      const n = Sync.pending();
-      if (!(await confirmSheet('Terminar sessão?', n ? `Ainda há ${plural(n, 'alteração', 'alterações')} por enviar — se saíres agora, perdem-se. Liga-te à rede e espera que sincronize.` : 'A cópia deste dispositivo é apagada. Os dados continuam no servidor e voltam quando entrares.', 'Sair', !!n))) return;
-      return Sync.signOut(true);
+    if (t.closest('[data-signout]')) return confirmSignOut();
+    if (t.closest('[data-icssave]')) {
+      const v = $('#ics-url').value.trim();
+      if (v && !/^(webcal|https?):\/\//i.test(v)) return toast('O endereço deve começar por webcal:// ou https://');
+      S.settings.icsUrls = { ...(S.settings.icsUrls || {}), [calKey()]: v }; if (!v) delete S.settings.icsUrls[calKey()];
+      await saveSettings(); if (v) await syncCalendar({ manual: true }); return viewSettings();
     }
+    if (t.closest('[data-icsnow]')) { await syncCalendar({ manual: true }); return viewSettings(); }
   };
   $('#new-topic').onkeydown = (e) => { if (e.key === 'Enter') $('[data-addtopic]').click(); };
   try {
@@ -2006,6 +2059,151 @@ async function wipeAll() {
   };
 }
 
+/* ---------- agenda: calendário ICS (Grip, Google, Outlook…) */
+const calKey = () => (Sync.on() ? Sync.userId : 'local');
+const calUrl = () => (S.settings.icsUrls || {})[calKey()] || '';
+function splitOutside(str, sep) { const out = []; let cur = '', q = false; for (const ch of str) { if (ch === '"') q = !q; if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; }
+function icsUnescape(v) { return String(v || '').replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1'); }
+function parseICS(text) {
+  const lines = String(text).replace(/\r\n?/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  const evs = []; let cur = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { cur = { attendees: [] }; continue; }
+    if (line === 'END:VEVENT') { if (cur) evs.push(cur); cur = null; continue; }
+    if (!cur) continue;
+    const [head, ...rest] = splitOutside(line, ':'); if (!rest.length) continue;
+    const val = rest.join(':'); const [name, ...params] = splitOutside(head, ';'); const P = {};
+    for (const p of params) { const j = p.indexOf('='); if (j > 0) P[p.slice(0, j).toUpperCase()] = p.slice(j + 1).replace(/^"|"$/g, ''); }
+    const N = name.toUpperCase();
+    if (N === 'ATTENDEE') cur.attendees.push(icsUnescape(P.CN || ''));
+    else if (N === 'ORGANIZER') cur.ORGANIZER = icsUnescape(P.CN || '');
+    else if (N === 'DTSTART' || N === 'DTEND') cur[N] = { val, tz: P.TZID || '' };
+    else cur[N] = icsUnescape(val);
+  }
+  return evs;
+}
+function icsTime(t) {
+  const m = t && String(t.val).match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/); if (!m) return '';
+  if (m[7]) return toLocalInput(new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5]))); // UTC → hora do dispositivo
+  return `${m[1]}-${m[2]}-${m[3]}T${m[4] || '09'}:${m[5] || '00'}`; // hora local do sítio do evento
+}
+function icsPeople(desc) {
+  const out = [];
+  for (const b of String(desc || '').split(/\n\s*\n|-{6,}/)) {
+    let cur = null;
+    for (const l0 of b.split('\n')) {
+      const l = l0.trim(); if (!l) continue;
+      const mm = l.match(/^(.+?)\s+-\s+https?:\/\//); if (mm) { cur = { name: mm[1].trim(), company: '', type: '' }; out.push(cur); continue; }
+      if (!cur) continue;
+      const t = l.match(/^Company Type:\s*(.+)$/i); if (t) { cur.type = t[1].trim(); continue; }
+      if (/^(Region|Job Title|Title):/i.test(l)) { const jt = l.match(/^(?:Job Title|Title):\s*(.+)$/i); if (jt) cur.title = jt[1].trim(); continue; }
+      if (!cur.company && !/^none$/i.test(l)) cur.company = l;
+    }
+  }
+  return out;
+}
+const reEsc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function matchAirline(cands) {
+  const all = airlines().filter((a) => a.name.length >= 3).sort((a, b) => b.name.length - a.name.length);
+  for (const c of cands) {
+    const n = norm(c); if (!n) continue;
+    for (const a of all) { const an = norm(a.name).replace(/\.$/, ''); if (new RegExp('(^|[^a-z0-9])' + reEsc(an) + '($|[^a-z0-9])').test(n)) return a; }
+  }
+  return null;
+}
+const GENERIC_LOC = /^(meetings? hub|event venue|meeting area|lounge|tbc|tba)$/i;
+const isAna = (company) => /ana aeroportos|porto airport|vinci airports/i.test(company || '');
+function cleanLoc(loc) { return String(loc || '').replace(/\(.*?\)/g, '').split(/\s*-\s*(?=[A-Z]{1,2}\d|Removed\b)/)[0].replace(/\s+stand$/i, '').trim().replace(/[.\s]+$/, ''); }
+function eventToMeeting(e, self, anaNames = new Set()) {
+  const people = icsPeople(e.DESCRIPTION);
+  const byName = new Map(people.map((x) => [norm(x.name), x]));
+  const entity = (n) => /\b(table|stand)\b/i.test(n);
+  const loc = cleanLoc(e.LOCATION);
+  const cands = [...people.filter((x) => /airline/i.test(x.type)).map((x) => x.company), ...(GENERIC_LOC.test(loc) ? [] : [loc]), ...e.attendees.filter(entity), ...people.map((x) => x.name), ...people.map((x) => x.company), e.SUMMARY || ''];
+  const air = matchAirline(cands.filter(Boolean));
+  let airlineName = air ? air.name : '', airlineCode = air ? air.code : '';
+  if (!air) { const alt = (!GENERIC_LOC.test(loc) && loc) || people.map((x) => x.company).find((c) => c && !isAna(c)) || ''; airlineName = alt.replace(/\s+(table|stand)\b.*$/i, '').trim(); }
+  const ana = []; const ext = [];
+  for (const a of [...new Set(e.attendees)]) {
+    if (!a || norm(a) === norm(self)) continue;
+    const info = byName.get(norm(a)) || {};
+    if (isAna(info.company) || anaNames.has(norm(a))) { ana.push(a); continue; }
+    if (entity(a) || (air && norm(a).includes(norm(air.name)))) continue;
+    ext.push({ name: a, company: info.company && !/^none$/i.test(info.company) ? info.company : '', title: info.title || '' });
+  }
+  const start = icsTime(e.DTSTART), end = icsTime(e.DTEND);
+  const dur = start && end ? Math.max(5, Math.round((parseLocal(end) - parseLocal(start)) / 60000)) : 30;
+  return { start, durationMin: dur, location: (e.LOCATION || '').trim(), tz: e.DTSTART?.tz || '', airlineName, airlineCode, internal: [self, ...ana].filter(Boolean).join(', '), plannedPeople: ext, icsStatus: (e.STATUS || 'CONFIRMED').toUpperCase(), icsTitle: e.SUMMARY || '' };
+}
+let calBusy = false;
+async function syncCalendar({ manual = false } = {}) {
+  const url = calUrl();
+  if (!url) { if (manual) toast('Cola primeiro o endereço do calendário'); return; }
+  if (calBusy) return;
+  if (!navigator.onLine) { if (manual) toast('Sem rede — a agenda atualiza quando voltares a ter rede'); return; }
+  if (!manual && Date.now() - (S.settings.icsLastSync || 0) < 15 * 60000) return;
+  calBusy = true;
+  try {
+    let text;
+    try { const r = await fetch(url.replace(/^webcal:/i, 'https:'), { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); text = await r.text(); }
+    catch (e) { if (manual) toast('Não foi possível ler o calendário (endereço errado ou o servidor não permite)'); return; }
+    if (!/BEGIN:VCALENDAR/.test(text)) { if (manual) toast('O endereço não devolveu um calendário'); return; }
+    const evs = parseICS(text).filter((e) => e.UID && e.DTSTART && !/^session_/i.test(e.UID));
+    const freq = new Map(); for (const e of evs) for (const a of new Set(e.attendees)) freq.set(a, (freq.get(a) || 0) + 1);
+    const mine = [Sync.userName, S.settings.ownerName].filter(Boolean).map(norm);
+    const self = [...freq.keys()].find((n) => mine.includes(norm(n))) || ([...freq.entries()].sort((a, b) => b[1] - a[1]).find(([, c]) => c >= evs.length * 0.9) || [''])[0];
+    if (self && !S.settings.ownerName) S.settings.ownerName = self;
+    const anaNames = new Set(); for (const e of evs) for (const x of icsPeople(e.DESCRIPTION)) if (isAna(x.company)) anaNames.add(norm(x.name));
+    const ignored = new Set(S.settings.icsIgnored || []); const r = { novas: 0, atualizadas: 0, canceladas: 0 };
+    for (const e of evs) {
+      const id = 'cal-' + e.UID.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+      if (ignored.has(id)) continue;
+      const d = eventToMeeting(e, self, anaNames); const ex = getM(id);
+      if (d.icsStatus === 'CANCELLED') {
+        if (!ex) continue;
+        if (ex.status === 'planned' && !hasContent(ex) && !ex.contactIds.length) { await deleteMeetingKeepCal(ex); r.canceladas++; }
+        else if (ex.icsStatus !== 'CANCELLED') { ex.icsStatus = 'CANCELLED'; ex.updatedAt = Date.now(); await DB.put('meetings', ex); r.canceladas++; }
+        continue;
+      }
+      if (!ex) {
+        const m = newMeeting();
+        Object.assign(m, { id, status: 'planned', icsUid: e.UID, source: 'calendar', start: d.start, durationMin: d.durationMin, location: d.location, tz: d.tz, airlineName: d.airlineName, airlineCode: d.airlineCode, internal: d.internal || m.internal, plannedPeople: d.plannedPeople, icsStatus: d.icsStatus, icsTitle: d.icsTitle });
+        for (const x of d.plannedPeople) { const c = S.contacts.find((cc) => norm(contactName(cc)) === norm(x.name)); if (c && !m.contactIds.includes(c.id)) m.contactIds.push(c.id); }
+        if (Sync.on()) { m.createdByName = Sync.userName || Sync.email; m.updatedByName = m.createdByName; }
+        S.meetings.push(m); await DB.put('meetings', m); r.novas++;
+      } else {
+        const keys = ['start', 'durationMin', 'location', 'icsStatus', 'tz'];
+        let ch = keys.some((k) => (ex[k] ?? '') !== (d[k] ?? ''));
+        const pj = JSON.stringify(d.plannedPeople); if (JSON.stringify(ex.plannedPeople || []) !== pj) ch = true;
+        if (!ex.airlineName && d.airlineName) ch = true;
+        if (ch) {
+          for (const k of keys) ex[k] = d[k]; ex.plannedPeople = d.plannedPeople;
+          if (!ex.airlineName && d.airlineName) { ex.airlineName = d.airlineName; ex.airlineCode = d.airlineCode; }
+          ex.updatedAt = Date.now(); await DB.put('meetings', ex); r.atualizadas++;
+        }
+      }
+    }
+    S.settings.icsLastSync = Date.now(); S.settings.icsLastResult = { at: Date.now(), total: evs.filter((e) => (e.STATUS || '').toUpperCase() !== 'CANCELLED').length, ...r };
+    await saveSettings();
+    if (manual) toast(r.novas + r.atualizadas + r.canceladas ? `Agenda: ${r.novas} novas · ${r.atualizadas} atualizadas · ${r.canceladas} canceladas` : 'Agenda em dia');
+    if (r.novas + r.atualizadas + r.canceladas && !manual) {
+      const a = document.activeElement;
+      if (!(a && view.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !$('.sheet-back')) rerenderKeep();
+    }
+  } finally { calBusy = false; }
+}
+async function deleteMeetingKeepCal(m) { // cancelada no calendário: apaga sem a pôr na lista de ignoradas
+  for (const pid of m.photoIds) { await DB.del('photos', pid); dropURL(pid); }
+  await DB.del('meetings', m.id); S.meetings = S.meetings.filter((x) => x.id !== m.id); saveQueue.delete(m.id);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !document.body.classList.contains('gate')) syncCalendar(); });
+
+async function confirmSignOut() {
+  const n = Sync.pending();
+  if (!(await confirmSheet('Terminar sessão?', n ? `Ainda há ${plural(n, 'alteração', 'alterações')} por enviar — se saíres agora, perdem-se. Liga-te à rede e espera que sincronize.` : 'A cópia deste dispositivo é apagada. Os dados continuam no servidor e voltam quando entrares.', 'Sair', !!n))) return;
+  return Sync.signOut(true);
+}
+
 /* ---------- entrada (login) */
 function gate(html) { document.body.classList.add('gate'); $('#side').innerHTML = ''; $('#tabbar').innerHTML = ''; view.innerHTML = `<div class="gatebox"><img src="icons/icon-192.png" alt="">${html}</div>`; }
 function showLogin(msg = '') {
@@ -2040,6 +2238,7 @@ async function enterApp(cloud) {
   if (location.hash.startsWith('#/login')) location.hash = '#/';
   route();
   if (cloud) Sync.start();
+  setTimeout(() => syncCalendar(), 2500);
 }
 
 /* ---------- arranque */
