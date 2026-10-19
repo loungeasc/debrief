@@ -535,7 +535,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.12.1';
+const APP_VERSION = '1.12.2';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -1515,7 +1515,7 @@ function filteredMeetings() {
     return true;
   }).sort((x, y) => (['agenda', 'tentative', 'planned'].includes(f.status) ? (x.start || '').localeCompare(y.start || '') : (y.start || '').localeCompare(x.start || '')) || y.createdAt - x.createdAt);
 }
-/* Estados: agenda (agendada/por confirmar) → por registar (já passou, sem notas) → rascunho → pronta → exportada; mais alterada após exportar e cancelada na agenda */
+/* Estados: agenda (confirmada/por confirmar) → por registar (já passou, sem notas) → rascunho → pronta → exportada; mais alterada após exportar e cancelada na agenda */
 function stateOf(m) {
   if (m.icsStatus === 'CANCELLED' && m.status !== 'exported') return 'cancelled';
   if (m.status === 'planned') { if (m.icsStatus === 'TENTATIVE') return 'tentative'; return (m.start || '') < toLocalInput(new Date()) ? 'torecord' : 'planned'; }
@@ -1535,7 +1535,7 @@ function statusPill(m) {
   return {
     cancelled: '<span class="pill">Cancelada na agenda</span>',
     tentative: '<span class="pill tentative">Por confirmar</span>',
-    planned: '<span class="pill planned">Agendada</span>',
+    planned: '<span class="pill planned">Confirmada</span>',
     torecord: '<span class="pill changed">Por registar</span>',
     changed: '<span class="pill changed">Alterada após exportar</span>',
     draft: '<span class="pill">Rascunho</span>', ready: '<span class="pill ready">Pronta</span>', exported: '<span class="pill exported">Exportada</span>',
@@ -2465,7 +2465,7 @@ async function viewSettings() {
       <button class="btn sm" data-airfind style="margin-top:10px">${ico('search', 'sm')} Configurar outra companhia</button>
     </div>
     <div class="sec"><h3>${ico('cal', 'sm')} Agenda do evento</h3>
-      <p class="faint" style="font-size:13px;margin:0 0 10px">Cola o endereço do teu calendário (Grip ou outro, <code>webcal://…</code>). As reuniões aparecem como «Agendadas», com companhia, hora, stand e participantes, e atualizam-se sozinhas.${Sync.on() ? ' Cada pessoa usa o seu calendário; reuniões em comum não se duplicam.' : ''}</p>
+      <p class="faint" style="font-size:13px;margin:0 0 10px">Cola o endereço do teu calendário (Grip ou outro, <code>webcal://…</code>). As reuniões aparecem como «Confirmadas» quando a companhia (alguém de fora da ANA) já aceitou e como «Por confirmar» até lá, com companhia, hora, stand e participantes, e atualizam-se sozinhas.${Sync.on() ? ' Cada pessoa usa o seu calendário; reuniões em comum não se duplicam.' : ''}</p>
       <div class="field"><input class="inp" id="ics-url" value="${esc(calUrl())}" placeholder="webcal://calendar.grip.events/ics/…" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
       <div class="acts-row"><button class="btn pri" data-icssave>${ico('check', 'sm')} Guardar e sincronizar</button>${calUrl() ? `<button class="btn" data-icsnow>${ico('refresh', 'sm')} Agora</button>` : ''}</div>
       ${st.icsLastResult ? `<p class="faint" style="font-size:12.5px;margin:10px 0 0">Última leitura ${fmtAgoShort(st.icsLastResult.at)}: ${plural(st.icsLastResult.total, 'reunião', 'reuniões')} no calendário · ${st.icsLastResult.novas} novas · ${st.icsLastResult.atualizadas} atualizadas · ${st.icsLastResult.canceladas} canceladas</p>` : ''}
@@ -2566,14 +2566,14 @@ function parseICS(text) {
   const lines = String(text).replace(/\r\n?/g, '\n').replace(/\n[ \t]/g, '').split('\n');
   const evs = []; let cur = null;
   for (const line of lines) {
-    if (line === 'BEGIN:VEVENT') { cur = { attendees: [] }; continue; }
+    if (line === 'BEGIN:VEVENT') { cur = { attendees: [], partstat: {} }; continue; }
     if (line === 'END:VEVENT') { if (cur) evs.push(cur); cur = null; continue; }
     if (!cur) continue;
     const [head, ...rest] = splitOutside(line, ':'); if (!rest.length) continue;
     const val = rest.join(':'); const [name, ...params] = splitOutside(head, ';'); const P = {};
     for (const p of params) { const j = p.indexOf('='); if (j > 0) P[p.slice(0, j).toUpperCase()] = p.slice(j + 1).replace(/^"|"$/g, ''); }
     const N = name.toUpperCase();
-    if (N === 'ATTENDEE') cur.attendees.push(icsUnescape(P.CN || ''));
+    if (N === 'ATTENDEE') { const cn = icsUnescape(P.CN || ''); cur.attendees.push(cn); if (cn) cur.partstat[cn] = (P.PARTSTAT || '').toUpperCase(); }
     else if (N === 'ORGANIZER') cur.ORGANIZER = icsUnescape(P.CN || '');
     else if (N === 'DTSTART' || N === 'DTEND') cur[N] = { val, tz: P.TZID || '' };
     else cur[N] = icsUnescape(val);
@@ -2621,17 +2621,26 @@ function eventToMeeting(e, self, anaNames = new Set()) {
   const air = matchAirline(cands.filter(Boolean));
   let airlineName = air ? air.name : '', airlineCode = air ? air.code : '';
   if (!air) { const alt = (!GENERIC_LOC.test(loc) && loc) || people.map((x) => x.company).find((c) => c && !isAna(c)) || ''; airlineName = alt.replace(/\s+(table|stand)\b.*$/i, '').trim(); }
-  const ana = []; const ext = [];
+  const ana = []; const ext = []; const extStat = [];
   for (const a of [...new Set(e.attendees)]) {
     if (!a || norm(a) === norm(self)) continue;
     const info = byName.get(norm(a)) || {};
     if (isAna(info.company) || anaNames.has(norm(a))) { ana.push(a); continue; }
+    extStat.push((e.partstat || {})[a] || '');
     if (entity(a) || (air && norm(a).includes(norm(air.name)))) continue;
     ext.push({ name: a, company: info.company && !/^none$/i.test(info.company) ? info.company : '', title: info.title || '' });
   }
   const start = icsTime(e.DTSTART), end = icsTime(e.DTEND);
   const dur = start && end ? Math.max(5, Math.round((parseLocal(end) - parseLocal(start)) / 60000)) : 30;
-  return { start, durationMin: dur, location: (e.LOCATION || '').trim(), tz: e.DTSTART?.tz || '', airlineName, airlineCode, internal: [self, ...ana].filter(Boolean).join(', '), plannedPeople: ext, icsStatus: (e.STATUS || 'CONFIRMED').toUpperCase(), icsTitle: e.SUMMARY || '' };
+  // Confirmada só quando alguém de fora (não ANA) aceitou; até lá fica «Por confirmar». Se todos os de fora recusaram: cancelada.
+  let icsStatus = (e.STATUS || 'CONFIRMED').toUpperCase();
+  const known = extStat.filter(Boolean);
+  if (icsStatus !== 'CANCELLED' && known.length) {
+    if (known.includes('ACCEPTED')) icsStatus = 'CONFIRMED';
+    else if (known.every((x) => x === 'DECLINED')) icsStatus = 'CANCELLED';
+    else icsStatus = 'TENTATIVE';
+  }
+  return { start, durationMin: dur, location: (e.LOCATION || '').trim(), tz: e.DTSTART?.tz || '', airlineName, airlineCode, internal: [self, ...ana].filter(Boolean).join(', '), plannedPeople: ext, icsStatus, icsTitle: e.SUMMARY || '' };
 }
 let calBusy = false;
 async function syncCalendar({ manual = false } = {}) {

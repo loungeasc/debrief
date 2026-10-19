@@ -32,7 +32,7 @@ Subject automático: `Meeting_OPO_<código IATA>_<temas>` (prefixo e aeroporto e
 ## Agenda do evento (Grip, Google, Outlook…)
 
 Definições → **Agenda do evento** → cola o endereço do calendário (`webcal://…`) → **Guardar e sincronizar**.
-As reuniões confirmadas e pendentes entram como «Agendadas», com companhia, hora (do local do evento), stand e participantes. Os colegas da ANA vão para «Participantes ANA»; as pessoas da companhia aparecem como atalho para criar o contacto. As canceladas ficam de fora (ou são marcadas, se já tiverem notas). A agenda volta a ser lida sozinha ao abrir a app (no máximo de 15 em 15 minutos) e há um botão ↻ no ecrã principal para a ler na hora; uma reunião apagada no Debrief não volta a aparecer. Reuniões em comum com o colega não se duplicam.
+As reuniões entram como «Confirmadas» só quando alguém de fora da ANA (a companhia) já aceitou; até lá ficam «Por confirmar» (e se todos os de fora recusarem, ficam canceladas), com companhia, hora (do local do evento), stand e participantes. Os colegas da ANA vão para «Participantes ANA»; as pessoas da companhia aparecem como atalho para criar o contacto. As canceladas ficam de fora (ou são marcadas, se já tiverem notas). A agenda volta a ser lida sozinha ao abrir a app (no máximo de 15 em 15 minutos) e há um botão ↻ no ecrã principal para a ler na hora; uma reunião apagada no Debrief não volta a aparecer. Reuniões em comum com o colega não se duplicam.
 
 ## Partilhar com o colega (Supabase do Portal)
 
