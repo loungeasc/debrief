@@ -25,6 +25,7 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
    - Fotos de notas em papel: abre a foto → **Texto** para extrair o texto (com IA quando há rede; ver abaixo), rever e juntar às notas. No iPhone/iPad também podes tocar e manter sobre o texto da foto (Texto ao Vivo).
    - O que ficar por organizar vai para os Comments como «Notas».
 2. No Salesforce: conta da companhia → **New Meeting Note**. No Debrief, toca em **Salesforce** e copia cada campo pela ordem do formulário (Subject, Name, Related To, Due Date, Flag, Type of Tradeshow, Geographical Scope, Comments).
+   Os **Comments** podem ir em português ou em inglês: no botão **PT | EN** (no Salesforce e na pré-visualização do portátil) escolhe EN e o Claude traduz as notas. A tradução fica guardada na reunião (o colega também a vê); se mudares as notas depois, aparece o aviso «Traduzir de novo». A escolha também vale para o CSV do Data Loader (só se a tradução estiver em dia).
 3. **Já gravei — marcar exportada.**
 
 Subject automático: `Meeting_OPO_<código IATA>_<temas>` (prefixo e aeroporto em Definições).
@@ -32,7 +33,7 @@ Subject automático: `Meeting_OPO_<código IATA>_<temas>` (prefixo e aeroporto e
 ## Agenda do evento (Grip, Google, Outlook…)
 
 Definições → **Agenda do evento** → cola o endereço do calendário (`webcal://…`) → **Guardar e sincronizar**.
-As reuniões entram como «Confirmadas» só quando alguém de fora da ANA (a companhia) já aceitou; até lá ficam «Por confirmar» (e se todos os de fora recusarem, ficam canceladas), com companhia, hora (do local do evento), stand e participantes. Os colegas da ANA vão para «Participantes ANA»; as pessoas da companhia aparecem como atalho para criar o contacto. As canceladas ficam de fora (ou são marcadas, se já tiverem notas). A agenda volta a ser lida sozinha ao abrir a app (no máximo de 15 em 15 minutos) e há um botão ↻ no ecrã principal para a ler na hora; uma reunião apagada no Debrief não volta a aparecer. Reuniões em comum com o colega não se duplicam.
+As reuniões entram como «Confirmadas» só quando alguém de fora da ANA (a companhia) já aceitou; até lá ficam «Por confirmar» (e se todos os de fora recusarem, ficam canceladas). Enquanto um de nós (tu ou o colega do Debrief) ainda não aceitou no calendário, ficam «Por aceitar», a azul claro, com companhia, hora (do local do evento), stand e participantes. Os colegas da ANA vão para «Participantes ANA»; as pessoas da companhia aparecem como atalho para criar o contacto. As canceladas ficam de fora (ou são marcadas, se já tiverem notas). A agenda volta a ser lida sozinha ao abrir a app (no máximo de 15 em 15 minutos) e há um botão ↻ no ecrã principal para a ler na hora; uma reunião apagada no Debrief não volta a aparecer. Reuniões em comum com o colega não se duplicam.
 
 ## Partilhar com o colega (Supabase do Portal)
 

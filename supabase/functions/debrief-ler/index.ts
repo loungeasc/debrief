@@ -79,6 +79,31 @@ Deno.serve(async (req) => {
 
   let body: any;
   try { body = await req.json(); } catch { return json({ error: 'pedido_invalido' }, 400); }
+
+  // Tradução das notas (Comments do Salesforce) para inglês
+  if (body?.mode === 'translate') {
+    const text = String(body?.text ?? '').slice(0, 20000);
+    if (!text.trim()) return json({ error: 'pedido_invalido' }, 400);
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 6000, messages: [{ role: 'user', content: [
+        'Translate into English the following notes of a business meeting between Porto Airport (ANA Aeroportos de Portugal / VINCI Airports) and an airline. They will be saved in Salesforce.',
+        'Rules:',
+        '- Keep exactly the same structure: same line breaks, same order, headings stay in UPPERCASE on their own line.',
+        '- Translate the headings too (e.g. NOTAS → NOTES, PRÓXIMOS PASSOS → NEXT STEPS, "Participantes ANA" → "ANA participants", "Participantes <airline>" → "<airline> participants").',
+        '- Keep names of people, companies, airport and airline codes, aircraft types, numbers, dates and amounts unchanged.',
+        '- Use clear, professional British English with aviation terminology (slots, frequencies, OTP, PRM, handling, load factor, incentives, charges).',
+        '- Do not add, remove or summarise anything. Output only the translation.',
+        '', '---', text,
+      ].join('\n') }] }),
+    });
+    if (!r.ok) { const t = await r.text(); console.error('anthropic', r.status, t.slice(0, 500)); return json({ error: 'claude', message: r.status === 429 ? 'Limite de utilização atingido.' : 'O Claude não respondeu.' }, 502); }
+    const out = await r.json();
+    const en = (out.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim();
+    return json({ mode: 'translate', text: en, model: out.model, usage: out.usage });
+  }
+
   const mode = body?.mode === 'card' ? 'card' : 'notes';
   const image = String(body?.image ?? '');
   if (!image || image.length > MAX_B64 || !/^[A-Za-z0-9+/=]+$/.test(image.slice(0, 200))) return json({ error: 'imagem_invalida' }, 400);

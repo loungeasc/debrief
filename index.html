@@ -87,7 +87,8 @@ body.editing .tabbar{display:none}
 .side-foot .userrow .ibtn:hover{color:var(--danger);background:var(--danger-soft)}
 .pill.planned{background:#e4f5e9;color:#1f7a43}
 .pill.tentative{background:#fdecdc;color:#b4540a}
-@media (prefers-color-scheme:dark){.pill.planned{background:#143322;color:#6fd69a}.pill.tentative{background:#3d2410;color:#f5a35c}}
+.pill.toaccept{background:#e3f0fd;color:#1d5fa8}
+@media (prefers-color-scheme:dark){.pill.planned{background:#143322;color:#6fd69a}.pill.tentative{background:#3d2410;color:#f5a35c}.pill.toaccept{background:#14283f;color:#7fb6f0}}
 .plan-chips{display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 12px}
 .plan-chips .chip small{color:var(--ink-3);font-weight:500}
 .locline{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink-2);margin-top:10px}
@@ -119,6 +120,12 @@ textarea.inp{resize:vertical;line-height:1.5}
 .seg{display:flex;background:var(--surface-2);border-radius:12px;padding:3px;gap:3px}
 .seg button{flex:1;height:38px;border:0;border-radius:9px;background:transparent;font-weight:600;font-size:14px;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:6px}
 .seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.seg.mini{display:inline-flex;padding:2px;border-radius:9px;gap:2px;vertical-align:middle}
+.seg.mini button{height:26px;padding:0 9px;font-size:12.5px;border-radius:7px;flex:none}
+.trnote{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink-2);background:var(--surface-2);border-radius:10px;padding:8px 10px;margin:0 0 8px}
+.trnote .btn{margin-left:auto}
+.trnote.stale{background:#fdecdc;color:#8a3f06}
+@media (prefers-color-scheme:dark){.trnote.stale{background:#3d2410;color:#f5c08f}}
 .search{position:relative}
 .search .i{position:absolute;left:12px;top:12px;color:var(--ink-3)}
 .search .inp{padding-left:40px}
@@ -535,7 +542,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.12.2';
+const APP_VERSION = '1.13.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -1325,6 +1332,57 @@ function buildDescription(m) {
   if (st.sfIncludeInternal && (m.internal || '').trim()) out.push(`Participantes ANA: ${m.internal.trim()}`);
   return out.join('\n').trim();
 }
+/* Comments em inglês: tradução feita pelo Claude e guardada na reunião (partilhada com o colega) */
+function hashStr(x) { let h = 5381; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ':' + x.length; }
+function descState(m) {
+  const pt = buildDescription(m); const en = m.sfLang === 'en';
+  const has = !!(m.descEN && m.descEN.text); const fresh = has && m.descEN.src === hashStr(pt);
+  return { pt, en, has, fresh, stale: en && has && !fresh, text: en && has ? m.descEN.text : pt };
+}
+// Para exportar (CSV): inglês só se a tradução corresponder às notas atuais
+function descFor(m) { const d = descState(m); return d.en && d.fresh ? d.text : d.pt; }
+function sfComments(m, copyAttr, copyLabel, pri) {
+  const d = descState(m);
+  const note = !d.en ? '' : TR.busy.has(m.id) ? `<div class="trnote">${ico('globe', 'sm')} A traduzir para inglês…</div>`
+    : !d.pt ? '' : !d.has ? `<div class="trnote">${ico('globe', 'sm')} Ainda sem tradução. <button class="btn sm" data-tr>Traduzir</button></div>`
+    : d.stale ? `<div class="trnote stale">${ico('globe', 'sm')} As notas mudaram depois da tradução. <button class="btn sm" data-tr>Traduzir de novo</button></div>`
+    : `<div class="trnote">${ico('globe', 'sm')} Traduzido pelo Claude · revê antes de gravar <button class="btn sm" data-tr>Traduzir de novo</button></div>`;
+  return { head: `<span class="seg mini" role="group" aria-label="Língua dos Comments"><button data-lang="pt" class="${d.en ? '' : 'on'}">PT</button><button data-lang="en" class="${d.en ? 'on' : ''}">EN</button></span> <button class="btn sm${pri ? ' pri' : ''}" ${copyAttr}>${ico('copy', 'sm')} ${copyLabel}</button>`,
+    body: `${note}<pre class="sfprev">${esc(d.en && !d.has ? d.pt : d.text) || '<span class="faint">Os Comments aparecem aqui à medida que escreves.</span>'}</pre>`, text: d.en && !d.has ? d.pt : d.text };
+}
+const TR = {
+  busy: new Set(),
+  async run(m, redraw) {
+    const pt = buildDescription(m); if (!pt) return toast('Ainda não há notas para traduzir');
+    if (!Sync.on()) return toast('A tradução precisa de sessão iniciada');
+    if (!navigator.onLine) return toast('Sem rede — a tradução precisa de internet');
+    if (this.busy.has(m.id)) return;
+    this.busy.add(m.id); redraw();
+    try {
+      const { data, error } = await Sync.client().functions.invoke('debrief-ler', { body: { mode: 'translate', text: pt } });
+      if (error) { let info = {}; try { info = await error.context?.json?.(); } catch (e) {} throw new Error(info?.message || 'Tradução indisponível'); }
+      const text = String(data?.text || '').trim(); if (!text) throw new Error('O Claude não devolveu a tradução');
+      const wasClean = m.status === 'exported' && !changedAfterExport(m);
+      m.descEN = { src: hashStr(pt), text, at: Date.now() }; touchMeeting(m);
+      if (wasClean) m.exportedAt = m.updatedAt; // traduzir não conta como «alterada após exportar»
+      toast('Comments traduzidos para inglês');
+    } catch (e) { toast(e.message || 'Tradução indisponível'); }
+    finally { this.busy.delete(m.id); redraw(); }
+  },
+  // trata os cliques PT/EN e Traduzir; devolve true se o clique era seu
+  click(m, ev, redraw) {
+    const l = ev.target.closest('[data-lang]');
+    if (l) {
+      const lang = l.dataset.lang === 'en' ? 'en' : 'pt';
+      if ((m.sfLang || 'pt') !== lang) { const wasClean = m.status === 'exported' && !changedAfterExport(m); m.sfLang = lang; touchMeeting(m); if (wasClean) m.exportedAt = m.updatedAt; }
+      redraw();
+      const d = descState(m); if (lang === 'en' && d.pt && !d.has) this.run(m, redraw);
+      return true;
+    }
+    if (ev.target.closest('[data-tr]')) { this.run(m, redraw); return true; }
+    return false;
+  },
+};
 function meetingWarnings(m) {
   const w = [];
   if (!m.airlineName) w.push('Falta a companhia ou entidade');
@@ -1344,7 +1402,7 @@ function notesCSV(list) {
   const rows = [['Subject', 'ActivityDate', 'Description', 'WhatId', 'WhoId', 'RecordTypeId', st.sfFlagField || 'Flag__c', st.sfTradeshowField || 'Type_of_Tradeshow__c', st.sfScopeField || 'Geographical_Scope__c', 'Ref_Companhia', 'Ref_ContaSalesforce', 'Ref_Contacto', 'Ref_DebriefId']];
   for (const m of list) {
     const s = parseLocal(m.start), pc = primaryContact(m), acc = sfAcc({ code: m.airlineCode, name: m.airlineName });
-    rows.push([subjectOf(m), s ? ymd(s) : '', buildDescription(m), acc.id || '', pc?.sfId || '', st.sfRecordTypeId || '', m.flag || '', m.tradeshow || '', scopeOf(m).join(';'), m.airlineName || '', acc.name || '', pc ? contactName(pc) : '', m.id]);
+    rows.push([subjectOf(m), s ? ymd(s) : '', descFor(m), acc.id || '', pc?.sfId || '', st.sfRecordTypeId || '', m.flag || '', m.tradeshow || '', scopeOf(m).join(';'), m.airlineName || '', acc.name || '', pc ? contactName(pc) : '', m.id]);
   }
   return toCSV(rows);
 }
@@ -1513,27 +1571,28 @@ function filteredMeetings() {
       if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
     }
     return true;
-  }).sort((x, y) => (['agenda', 'tentative', 'planned'].includes(f.status) ? (x.start || '').localeCompare(y.start || '') : (y.start || '').localeCompare(x.start || '')) || y.createdAt - x.createdAt);
+  }).sort((x, y) => (['agenda', 'toaccept', 'tentative', 'planned'].includes(f.status) ? (x.start || '').localeCompare(y.start || '') : (y.start || '').localeCompare(x.start || '')) || y.createdAt - x.createdAt);
 }
 /* Estados: agenda (confirmada/por confirmar) → por registar (já passou, sem notas) → rascunho → pronta → exportada; mais alterada após exportar e cancelada na agenda */
 function stateOf(m) {
   if (m.icsStatus === 'CANCELLED' && m.status !== 'exported') return 'cancelled';
-  if (m.status === 'planned') { if (m.icsStatus === 'TENTATIVE') return 'tentative'; return (m.start || '') < toLocalInput(new Date()) ? 'torecord' : 'planned'; }
+  if (m.status === 'planned') { const fut = (m.start || '') >= toLocalInput(new Date()); if (fut && m.icsStatus === 'NEEDS-ACTION') return 'toaccept'; if (m.icsStatus === 'TENTATIVE') return 'tentative'; return (m.start || '') < toLocalInput(new Date()) ? 'torecord' : 'planned'; }
   if (changedAfterExport(m)) return 'changed';
   return m.status || 'draft';
 }
 function inState(m, f) {
   if (!f || f === 'all') return true;
   const st = stateOf(m);
-  if (f === 'agenda') return st === 'planned' || st === 'tentative';
+  if (f === 'agenda') return st === 'planned' || st === 'tentative' || st === 'toaccept';
   if (f === 'exported') return m.status === 'exported';
   return st === f;
 }
 // [chave, nome, mostrar mesmo sem reuniões]
-const STATE_FILTERS = [['agenda', 'Agenda', false], ['tentative', 'Por confirmar', false], ['torecord', 'Por registar', false], ['draft', 'Rascunhos', true], ['ready', 'Prontas', true], ['exported', 'Exportadas', true], ['changed', 'Alteradas após exportar', false], ['cancelled', 'Canceladas na agenda', false]];
+const STATE_FILTERS = [['agenda', 'Agenda', false], ['toaccept', 'Por aceitar', false], ['tentative', 'Por confirmar', false], ['torecord', 'Por registar', false], ['draft', 'Rascunhos', true], ['ready', 'Prontas', true], ['exported', 'Exportadas', true], ['changed', 'Alteradas após exportar', false], ['cancelled', 'Canceladas na agenda', false]];
 function statusPill(m) {
   return {
     cancelled: '<span class="pill">Cancelada na agenda</span>',
+    toaccept: '<span class="pill toaccept">Por aceitar</span>',
     tentative: '<span class="pill tentative">Por confirmar</span>',
     planned: '<span class="pill planned">Confirmada</span>',
     torecord: '<span class="pill changed">Por registar</span>',
@@ -1550,7 +1609,7 @@ function topBanners() {
   if (Sync.mode !== 'cloud' && n >= 3 && stale) h += `<div class="banner warn">${ico('db')}<div class="grow"><b>Faz uma cópia de segurança</b>Os dados existem só neste dispositivo. Última cópia: ${ago(S.settings.lastBackupAt)}.<div class="acts"><button class="btn sm" data-backup>Fazer cópia agora</button></div></div></div>`;
   return h;
 }
-const STATE_ORDER = ['planned', 'tentative', 'torecord', 'draft', 'ready', 'exported', 'changed', 'cancelled'];
+const STATE_ORDER = ['planned', 'toaccept', 'tentative', 'torecord', 'draft', 'ready', 'exported', 'changed', 'cancelled'];
 const TABLE_COLS = [
   { k: 'data', l: 'Data', cls: 'num', def: true, v: (m) => m.start || '', h: (m) => { const d = parseLocal(m.start); return d ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}${d.getFullYear() !== new Date().getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''}` : '—'; } },
   { k: 'hora', l: 'Hora', cls: 'num', def: true, v: (m) => (m.start || '').slice(11, 16), h: (m) => fmtTime(m.start) },
@@ -1698,7 +1757,7 @@ function viewMeeting(id) {
         <div class="field"><button class="airpick" data-air id="airpick"></button></div>
         <div class="field"><label class="lbl" for="f-start">Data e hora</label><input class="inp" type="datetime-local" id="f-start" data-f="start" value="${esc(m.start)}"></div>
         <div class="field" style="margin-bottom:0"><label class="lbl" for="f-loc">Local</label><input class="inp" id="f-loc" data-f="location" list="locs" value="${esc(m.location || '')}" placeholder="Ex.: stand A12, escritório da companhia, Teams…"><datalist id="locs">${[...new Set(S.meetings.map((x) => x.location).filter(Boolean))].slice(0, 30).map((l) => `<option value="${esc(l)}">`).join('')}</datalist></div>
-        ${m.icsStatus === 'CANCELLED' || m.icsStatus === 'TENTATIVE' ? `<div class="locline ${m.icsStatus === 'CANCELLED' ? 'cancel' : ''}">${ico(m.icsStatus === 'CANCELLED' ? 'x' : 'cal', 'sm')} ${m.icsStatus === 'CANCELLED' ? 'Cancelada na agenda' : 'Por confirmar na agenda'}</div>` : ''}
+        ${['CANCELLED', 'TENTATIVE', 'NEEDS-ACTION'].includes(m.icsStatus) ? `<div class="locline ${m.icsStatus === 'CANCELLED' ? 'cancel' : ''}">${ico(m.icsStatus === 'CANCELLED' ? 'x' : 'cal', 'sm')} ${m.icsStatus === 'CANCELLED' ? 'Cancelada na agenda' : m.icsStatus === 'NEEDS-ACTION' ? 'Por aceitar na agenda (falta aceitar do nosso lado)' : 'Por confirmar na agenda'}</div>` : ''}
       </div>
 
       <div class="sec prep" id="prep" hidden></div>
@@ -1826,7 +1885,8 @@ function viewMeeting(id) {
     if (t.closest('[data-status]')) return toggleStatus(m, () => { refreshHeader(); if (desk) renderAside(m); });
     if (t.closest('[data-del]')) return delMeetingFlow(m);
     if (t.closest('[data-menu]')) return meetingMenu(m);
-    if (t.closest('[data-copydesc]')) { await copyText(buildDescription(m)); return toast('Descrição copiada'); }
+    if (t.closest('#aside') && TR.click(m, e, () => { if (isDesk()) renderAside(m); })) return;
+    if (t.closest('[data-copydesc]')) { await copyText(descState(m).text); return toast(m.sfLang === 'en' ? 'Comments (EN) copiados' : 'Comments copiados'); }
   };
   async function removePhoto(mm, pid) { await DB.del('photos', pid); dropURL(pid); mm.photoIds = mm.photoIds.filter((x) => x !== pid); renderPhotos(mm); touchMeeting(mm); if (desk) renderAside(mm); }
   $$('textarea', view).forEach(grow);
@@ -1882,14 +1942,14 @@ function renderAside(m) {
   const box = $('#aside'); if (!box) return;
   if (m._sel && !m.photoIds.includes(m._sel)) m._sel = null;
   if (!m._sel && m.photoIds.length) m._sel = m.photoIds[0];
-  const desc = buildDescription(m);
+  const C = sfComments(m, 'data-copydesc', 'Copiar');
   box.innerHTML = `
     <div class="sec"><h3>${ico('image', 'sm')} Fotos das notas <span class="r">${m._sel ? `<button class="btn sm" data-ocrsel>${ico('scan', 'sm')} Extrair texto</button>` : ''}</span></h3>
       ${m._sel ? `<div class="viewer-inline" data-bigview title="Abrir em ecrã inteiro"><img data-pid="${m._sel}" data-full="1" alt="Nota manuscrita"></div>` : '<p class="faint" style="margin:0 0 10px;font-size:14px">Sem fotos. No telemóvel, fotografa as notas logo a seguir à reunião — aqui ficam ao lado do texto para transcreveres.</p>'}
       <div class="photos">${photoTiles(m)}</div></div>
-    <div class="sec"><h3>${ico('send', 'sm')} Pré-visualização Salesforce <span class="r"><button class="btn sm" data-copydesc>${ico('copy', 'sm')} Copiar</button></span></h3>
+    <div class="sec" id="sfprevsec"><h3>${ico('send', 'sm')} Pré-visualização Salesforce <span class="r">${C.head}</span></h3>
       <div style="font-weight:650;margin-bottom:8px">${esc(subjectOf(m))}</div>
-      <pre class="sfprev">${esc(desc) || '<span class="faint">Os Comments aparecem aqui à medida que escreves.</span>'}</pre></div>`;
+      ${C.body}</div>`;
   hydrateImgs(box);
 }
 function topicMenu(m) {
@@ -2004,7 +2064,7 @@ function meetingMenu(m) {
 }
 function fullText(m) {
   const pc = primaryContact(m);
-  return `Subject: ${subjectOf(m)}\nName: ${pc ? contactName(pc) : '—'}\nRelated To: ${m.airlineName || '—'}\nDue Date: ${dueDate(m)}${m.flag ? '\nFlag: ' + m.flag : ''}${m.tradeshow ? '\nType of Tradeshow: ' + m.tradeshow : ''}\nGeographical Scope: ${scopeOf(m).join(', ') || '—'}\n\nComments:\n${buildDescription(m)}`;
+  return `Subject: ${subjectOf(m)}\nName: ${pc ? contactName(pc) : '—'}\nRelated To: ${m.airlineName || '—'}\nDue Date: ${dueDate(m)}${m.flag ? '\nFlag: ' + m.flag : ''}${m.tradeshow ? '\nType of Tradeshow: ' + m.tradeshow : ''}\nGeographical Scope: ${scopeOf(m).join(', ') || '—'}\n\nComments:\n${descState(m).text}`;
 }
 
 /* ---------- escolher companhia */
@@ -2276,18 +2336,21 @@ function sfSheet(m, after) {
     ['Type of Tradeshow', m.tradeshow || '--None--', !m.tradeshow],
     ['Geographical Scope', scopeOf(m).join(', ') || '—', true, scopeOf(m).length ? 'Escolhe na lista Available → Chosen' : ''],
   ];
-  const desc = buildDescription(m);
+  const C = sfComments(m, 'data-cpdesc', 'Copiar comments', true);
   const sh = sheet({ title: 'New Meeting Note', wide: true, body: `
     ${w.length ? `<div class="warnlist">${w.map((x) => `<div>${ico('x', 'sm')} ${esc(x)}</div>`).join('')}</div>` : ''}
     <div id="sf-linkbox">${sfLinkBox(m)}</div>
     <p class="muted" style="margin:12px 0 10px;font-size:14px">Ou à mão: no Salesforce, abre a conta <b>${esc(acc.name || m.airlineName || 'da companhia')}</b> e carrega em <b>New Meeting Note</b>. Os campos estão pela mesma ordem do formulário — toca para copiar.</p>
     <div class="sec" style="padding:4px 14px">${rows.map(([k, v, noCopy, hint], i) => `<div class="sfrow"><div class="grow"><div class="k">${k}</div><div class="v">${esc(v)}</div>${hint ? `<div class="faint" style="font-size:12.5px">${esc(hint)}</div>` : ''}</div>${noCopy || v === '—' ? '' : `<button class="ibtn solid" data-cp="${i}" aria-label="Copiar ${esc(k)}">${ico('copy', 'sm')}</button>`}</div>`).join('')}</div>
-    <div class="sec"><h3>Comments <span class="r"><button class="btn sm pri" data-cpdesc>${ico('copy', 'sm')} Copiar comments</button></span></h3><pre class="sfprev">${esc(desc) || '—'}</pre></div>`,
+    <div class="sec" id="sf-com"><h3>Comments <span class="r">${C.head}</span></h3>${C.body}</div>`,
     foot: m.status === 'exported' ? `<button class="btn" data-close>Fechar</button>` : `<button class="btn" data-close>Fechar</button><button class="btn dark" data-markexp>${ico('check', 'sm')} Já gravei — marcar exportada</button>` });
   sh.el.onclick = async (ev) => {
     const cp = ev.target.closest('[data-cp]'); if (cp) { await copyText(rows[cp.dataset.cp][1]); toast(`${rows[cp.dataset.cp][0]} copiado`); }
-    if (ev.target.closest('[data-cpdesc]')) { await copyText(desc); toast('Comments copiados'); }
-    if (ev.target.closest('[data-sfopen]')) { copyText(desc).catch(() => {}); toast('A abrir o Salesforce · Comments copiados'); return; }
+    const redraw = () => { const box = sh.el.querySelector('#sf-com'); if (box) { const c = sfComments(m, 'data-cpdesc', 'Copiar comments', true); box.innerHTML = `<h3>Comments <span class="r">${c.head}</span></h3>${c.body}`; } after && after(); };
+    if (TR.click(m, ev, redraw)) return;
+    const desc = descState(m).text; const lg = m.sfLang === 'en' ? ' (EN)' : '';
+    if (ev.target.closest('[data-cpdesc]')) { await copyText(desc); toast(`Comments${lg} copiados`); }
+    if (ev.target.closest('[data-sfopen]')) { copyText(desc).catch(() => {}); toast(`A abrir o Salesforce · Comments${lg} copiados`); return; }
     const reLink = () => { sh.el.querySelector('#sf-linkbox').innerHTML = sfLinkBox(m); };
     if (ev.target.closest('[data-sfpaste]')) { const r = sfParse(sh.el.querySelector('#sf-paste').value); if (!r.dom) return toast('Não reconheço o endereço do Salesforce'); S.settings.sfDomain = r.dom; if (r.rt) S.settings.sfRecordTypeId = r.rt; if (r.acc) { const k = airlineKey({ code: m.airlineCode, name: m.airlineName }); S.settings.airlineSf = { ...(S.settings.airlineSf || {}), [k]: { ...(S.settings.airlineSf?.[k] || {}), id: r.acc } }; } await saveSettings(); toast('Salesforce configurado'); return reLink(); }
     if (ev.target.closest('[data-sfacc]')) { const v = sh.el.querySelector('#sf-acc').value; const r = sfParse(v); const id = r.acc || (SF_ID('001').test(v.trim()) ? v.trim() : ''); if (!id) return toast('Não encontro um ID de conta (001…)'); const k = airlineKey({ code: m.airlineCode, name: m.airlineName }); S.settings.airlineSf = { ...(S.settings.airlineSf || {}), [k]: { name: S.settings.airlineSf?.[k]?.name || m.airlineName, id } }; if (r.dom && !S.settings.sfDomain) S.settings.sfDomain = r.dom; await saveSettings(); toast('Conta ligada'); return reLink(); }
@@ -2465,7 +2528,7 @@ async function viewSettings() {
       <button class="btn sm" data-airfind style="margin-top:10px">${ico('search', 'sm')} Configurar outra companhia</button>
     </div>
     <div class="sec"><h3>${ico('cal', 'sm')} Agenda do evento</h3>
-      <p class="faint" style="font-size:13px;margin:0 0 10px">Cola o endereço do teu calendário (Grip ou outro, <code>webcal://…</code>). As reuniões aparecem como «Confirmadas» quando a companhia (alguém de fora da ANA) já aceitou e como «Por confirmar» até lá, com companhia, hora, stand e participantes, e atualizam-se sozinhas.${Sync.on() ? ' Cada pessoa usa o seu calendário; reuniões em comum não se duplicam.' : ''}</p>
+      <p class="faint" style="font-size:13px;margin:0 0 10px">Cola o endereço do teu calendário (Grip ou outro, <code>webcal://…</code>). As reuniões aparecem como «Confirmadas» quando a companhia (alguém de fora da ANA) já aceitou, «Por confirmar» até lá e «Por aceitar» (azul claro) enquanto um de nós ainda não aceitou, com companhia, hora, stand e participantes, e atualizam-se sozinhas.${Sync.on() ? ' Cada pessoa usa o seu calendário; reuniões em comum não se duplicam.' : ''}</p>
       <div class="field"><input class="inp" id="ics-url" value="${esc(calUrl())}" placeholder="webcal://calendar.grip.events/ics/…" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
       <div class="acts-row"><button class="btn pri" data-icssave>${ico('check', 'sm')} Guardar e sincronizar</button>${calUrl() ? `<button class="btn" data-icsnow>${ico('refresh', 'sm')} Agora</button>` : ''}</div>
       ${st.icsLastResult ? `<p class="faint" style="font-size:12.5px;margin:10px 0 0">Última leitura ${fmtAgoShort(st.icsLastResult.at)}: ${plural(st.icsLastResult.total, 'reunião', 'reuniões')} no calendário · ${st.icsLastResult.novas} novas · ${st.icsLastResult.atualizadas} atualizadas · ${st.icsLastResult.canceladas} canceladas</p>` : ''}
@@ -2612,7 +2675,7 @@ function matchAirline(cands) {
 const GENERIC_LOC = /^(meetings? hub|event venue|meeting area|lounge|tbc|tba)$/i;
 const isAna = (company) => /ana aeroportos|porto airport|vinci airports/i.test(company || '');
 function cleanLoc(loc) { return String(loc || '').replace(/\(.*?\)/g, '').split(/\s*-\s*(?=[A-Z]{1,2}\d|Removed\b)/)[0].replace(/\s+stand$/i, '').trim().replace(/[.\s]+$/, ''); }
-function eventToMeeting(e, self, anaNames = new Set()) {
+function eventToMeeting(e, self, anaNames = new Set(), team = new Set()) {
   const people = icsPeople(e.DESCRIPTION);
   const byName = new Map(people.map((x) => [norm(x.name), x]));
   const entity = (n) => /\b(table|stand)\b/i.test(n);
@@ -2621,11 +2684,12 @@ function eventToMeeting(e, self, anaNames = new Set()) {
   const air = matchAirline(cands.filter(Boolean));
   let airlineName = air ? air.name : '', airlineCode = air ? air.code : '';
   if (!air) { const alt = (!GENERIC_LOC.test(loc) && loc) || people.map((x) => x.company).find((c) => c && !isAna(c)) || ''; airlineName = alt.replace(/\s+(table|stand)\b.*$/i, '').trim(); }
-  const ana = []; const ext = []; const extStat = [];
+  const ana = []; const ext = []; const extStat = []; const teamStat = [];
   for (const a of [...new Set(e.attendees)]) {
+    if (a && (norm(a) === norm(self) || team.has(norm(a)))) teamStat.push((e.partstat || {})[a] || '');
     if (!a || norm(a) === norm(self)) continue;
     const info = byName.get(norm(a)) || {};
-    if (isAna(info.company) || anaNames.has(norm(a))) { ana.push(a); continue; }
+    if (isAna(info.company) || anaNames.has(norm(a)) || team.has(norm(a))) { ana.push(a); continue; }
     extStat.push((e.partstat || {})[a] || '');
     if (entity(a) || (air && norm(a).includes(norm(air.name)))) continue;
     ext.push({ name: a, company: info.company && !/^none$/i.test(info.company) ? info.company : '', title: info.title || '' });
@@ -2640,6 +2704,8 @@ function eventToMeeting(e, self, anaNames = new Set()) {
     else if (known.every((x) => x === 'DECLINED')) icsStatus = 'CANCELLED';
     else icsStatus = 'TENTATIVE';
   }
+  // Um de nós (eu ou o colega do Debrief) ainda não aceitou: «Por aceitar» (azul claro), à frente de Confirmada/Por confirmar.
+  if (icsStatus !== 'CANCELLED' && teamStat.some((x) => /^(NEEDS-ACTION|PENDING|TENTATIVE)$/.test(x))) icsStatus = 'NEEDS-ACTION';
   return { start, durationMin: dur, location: (e.LOCATION || '').trim(), tz: e.DTSTART?.tz || '', airlineName, airlineCode, internal: [self, ...ana].filter(Boolean).join(', '), plannedPeople: ext, icsStatus, icsTitle: e.SUMMARY || '' };
 }
 let calBusy = false;
@@ -2661,11 +2727,14 @@ async function syncCalendar({ manual = false } = {}) {
     const self = [...freq.keys()].find((n) => mine.includes(norm(n))) || ([...freq.entries()].sort((a, b) => b[1] - a[1]).find(([, c]) => c >= evs.length * 0.9) || [''])[0];
     if (self && !S.settings.ownerName) S.settings.ownerName = self;
     const anaNames = new Set(); for (const e of evs) for (const x of icsPeople(e.DESCRIPTION)) if (isAna(x.company)) anaNames.add(norm(x.name));
+    // A equipa: eu, quem usa o Debrief (nomes nas reuniões partilhadas) e os colegas ANA presentes em pelo menos metade das reuniões.
+    const team = new Set([self, Sync.userName, S.settings.ownerName, ...S.meetings.flatMap((m) => [m.createdByName, m.updatedByName])].filter((x) => x && !/@/.test(x)).map(norm));
+    for (const [n, c] of freq) if (anaNames.has(norm(n)) && c >= evs.length * 0.5) team.add(norm(n));
     const ignored = new Set(S.settings.icsIgnored || []); const r = { novas: 0, atualizadas: 0, canceladas: 0 };
     for (const e of evs) {
       const id = 'cal-' + e.UID.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
       if (ignored.has(id)) continue;
-      const d = eventToMeeting(e, self, anaNames); const ex = getM(id);
+      const d = eventToMeeting(e, self, anaNames, team); const ex = getM(id);
       if (d.icsStatus === 'CANCELLED') {
         if (!ex) continue;
         if (ex.status === 'planned' && !hasContent(ex) && !ex.contactIds.length) { await deleteMeetingKeepCal(ex); r.canceladas++; }
