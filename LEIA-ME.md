@@ -47,6 +47,10 @@ Cópia de todos os contactos do Salesforce, só para consulta e separada dos teu
 
 Montar uma vez: corre `supabase/06_diretorio.sql` no SQL Editor do Supabase do Portal. Depois, e sempre que quiseres atualizar: no Salesforce, relatório «Contactos para o Debrief» (Contacts & Accounts, todos os contactos, colunas Contact ID, First/Last Name, Account Name, Account ID, Title, Email, Phone, Mobile, BU, Last Modified Date) → Export → Details Only → CSV; no Debrief, Definições → Diretório Salesforce → **Importar CSV**. A importação substitui o diretório para os dois. Os dados ficam no Supabase (só com login) e no dispositivo; nunca neste repositório.
 
+## Novidades
+
+Depois de cada atualização aparece um cartão com as novidades da versão (só uma vez em cada dispositivo). A lista completa está em Definições → **novidades** (ao lado do número da versão) ou no rodapé do menu. Ao publicar uma versão nova, junta-a no topo de `NOVIDADES` em `index.html`.
+
 ## Partilhar com o colega (Supabase do Portal)
 
 As reuniões, contactos e fotos ficam numa base partilhada no Supabase do Portal do Lounge (UE). Cada dispositivo guarda uma cópia para trabalhar sem rede e sincroniza sozinho quando volta a ter rede (e em tempo real enquanto a app está aberta).

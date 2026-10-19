@@ -438,6 +438,22 @@ details.raw pre{white-space:pre-wrap;font-size:12.5px;background:var(--surface-2
 .viewer-b img{max-width:100%;max-height:100%;object-fit:contain}
 .viewer-b.zoom{display:block}
 .viewer-b.zoom img{max-width:none;max-height:none}
+.verlink{background:none;border:0;padding:0;color:inherit;font:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:2px}
+.verlink:hover{text-decoration-color:currentColor}
+#nov-card{position:fixed;right:16px;left:16px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:85;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:12px 14px 12px;opacity:0;transform:translateY(12px);transition:opacity .22s ease,transform .22s ease;max-width:420px;margin-left:auto}
+#nov-card.show{opacity:1;transform:none}
+#nov-card .nov-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+#nov-card .nov-top b{flex:1;font-size:15px}
+#nov-card .nov-ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:#e3f0fd;color:#1d5fa8}
+#nov-card ul{margin:0 0 10px;padding-left:18px;font-size:13.5px;line-height:1.45;color:var(--ink-2)}
+#nov-card li{margin:3px 0}
+#nov-card .nov-acts{display:flex;gap:8px;justify-content:flex-end}
+@media (min-width:960px){#nov-card{left:auto;bottom:24px;right:24px;width:400px}}
+@media (prefers-color-scheme:dark){#nov-card .nov-ic{background:#14283f;color:#7fb6f0}}
+@media (prefers-reduced-motion:reduce){#nov-card{transition:none}}
+.nov{margin:0 0 16px}.nov:last-child{margin:0}
+.nov h4{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.nov ul{margin:0;padding-left:18px;font-size:14px;line-height:1.5;color:var(--ink-2)}.nov li{margin:3px 0}
 .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:var(--shadow);display:flex;gap:12px;align-items:center;max-width:calc(100vw - 32px);animation:up .2s}
 .toast button{background:none;border:0;color:var(--hot);font-weight:700;padding:0}
 @media (min-width:960px){.toast{bottom:28px}}
@@ -549,7 +565,21 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.16.0';
+// Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
+const NOVIDADES = [
+  { v: '1.16.0', data: '19/10/2026', itens: ['Novidades: depois de cada atualização aparece este cartão. A lista completa fica em Definições → Novidades (ou tocando no número da versão).'] },
+  { v: '1.15.0', data: '19/10/2026', itens: ['Diretório Salesforce: os 8 700 contactos do Salesforce para encontrar uma pessoa pelo nome, separados dos teus Contactos.', 'Ao juntar um contacto a uma reunião, aparecem também as pessoas do diretório (etiqueta SF), já com o ID do Salesforce.', 'Num cartão ou contacto novo, «Completar» preenche cargo, email e telefones a partir do diretório.', 'Na janela do Salesforce, sugere a conta certa da companhia para abrir o New Meeting Note.', 'O Perguntar também procura no diretório.'] },
+  { v: '1.14.0', data: '19/10/2026', itens: ['A lista abre em «Pendentes» (agendadas e rascunhos); as concluídas e exportadas ficam escondidas.', '«Pronta» passa a «Concluída».', 'Eventos: associa uma ou várias reuniões a um evento (Routes World, feiras…), com filtro por evento e o Type of Tradeshow do evento.'] },
+  { v: '1.13.0', data: '19/10/2026', itens: ['«Por aceitar» a azul claro: reuniões que um de nós ainda não aceitou no calendário.', 'Comments em inglês: botão PT | EN no Salesforce e na pré-visualização; o Claude traduz e a tradução fica guardada.'] },
+  { v: '1.12.2', data: '19/10/2026', itens: ['«Confirmada» só quando a companhia (alguém de fora da ANA) aceitou; até lá fica «Por confirmar».'] },
+  { v: '1.12.0', data: '18/10/2026', itens: ['Botão para abrir o New Meeting Note da conta no Salesforce, com os Comments já copiados.'] },
+  { v: '1.11.0', data: '18/10/2026', itens: ['Perguntar: conversa com o Claude sobre as reuniões, contactos, notícias e o simulador.'] },
+  { v: '1.10.0', data: '18/10/2026', itens: ['Simulação de taxas e incentivos da rota dentro de cada reunião, também sem rede.'] },
+  { v: '1.9.0', data: '18/10/2026', itens: ['Preparação da reunião: notícias da companhia escolhidas pelo Claude (CAPA, Aeroroutes, imprensa…) e resumo das reuniões anteriores.', 'Cruz para apagar fotos das notas.'] },
+  { v: '1.8.0', data: '18/10/2026', itens: ['Notas manuscritas e cartões de visita lidos com IA (Claude).'] },
+  { v: '1.7.0', data: '18/10/2026', itens: ['Logótipos das companhias.'] },
+];
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -1601,7 +1631,7 @@ function renderChrome(active) {
     <a class="nav ${active === 'q' ? 'on' : ''}" href="#/perguntar">${ico('chat')} Perguntar</a>
     <a class="nav ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send')} Exportar</a>
     <a class="nav ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders')} Definições</a>
-    <div class="side-foot"><span class="syncst"></span>${Sync.on() ? `<span class="userrow"><span>${esc(Sync.userName || Sync.email)}</span><button class="ibtn sm" data-logout title="Terminar sessão" aria-label="Terminar sessão">${ico('logout', 'sm')}</button></span>` : `<span>Última cópia de segurança: ${ago(S.settings.lastBackupAt)}</span><span class="userrow"><span>Partilhar com o colega</span><button class="btn sm" data-gologin2>Entrar</button></span>`}<span>v${APP_VERSION}</span></div>`;
+    <div class="side-foot"><span class="syncst"></span>${Sync.on() ? `<span class="userrow"><span>${esc(Sync.userName || Sync.email)}</span><button class="ibtn sm" data-logout title="Terminar sessão" aria-label="Terminar sessão">${ico('logout', 'sm')}</button></span>` : `<span>Última cópia de segurança: ${ago(S.settings.lastBackupAt)}</span><span class="userrow"><span>Partilhar com o colega</span><button class="btn sm" data-gologin2>Entrar</button></span>`}<button class="verlink" data-novidades title="Novidades">v${APP_VERSION} · novidades</button></div>`;
   $('#tabbar').innerHTML = `
     <a class="tab ${active === 'm' ? 'on' : ''}" href="#/">${ico('list', 'lg')}Reuniões</a>
     <a class="tab ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users', 'lg')}Contactos</a>
@@ -1611,6 +1641,7 @@ function renderChrome(active) {
   $$('[data-new]').forEach((b) => (b.onclick = createMeeting));
   $$('[data-logout]').forEach((b) => (b.onclick = confirmSignOut));
   $$('[data-gologin2]').forEach((b) => (b.onclick = () => showLogin()));
+  $$('[data-novidades]').forEach((b) => (b.onclick = () => novidadesSheet()));
   setTimeout(() => Sync.render(), 0);
 }
 async function createMeeting() {
@@ -2766,7 +2797,7 @@ async function viewSettings() {
   const st = S.settings;
   const usedKeys = new Set(S.meetings.filter((m) => m.airlineName).map((m) => airlineKey({ code: m.airlineCode, name: m.airlineName })));
   const shown = airlines().filter((a) => usedKeys.has(airlineKey(a)) || st.airlineSf?.[airlineKey(a)] || a.custom).sort((a, b) => a.name.localeCompare(b.name));
-  view.innerHTML = `<div class="page"><div class="top"><h1>Definições</h1><span class="ver">v${APP_VERSION}</span></div><div class="two"><div>
+  view.innerHTML = `<div class="page"><div class="top"><h1>Definições</h1><button class="ver verlink" data-novidades2 title="Novidades">v${APP_VERSION} · novidades</button></div><div class="two"><div>
     <div class="sec"><h3>${ico('user', 'sm')} Predefinições</h3>
       <div class="field"><label class="lbl">O teu nome (participante ANA)</label><input class="inp" data-s="ownerName" value="${esc(st.ownerName)}" placeholder="Ex.: Nuno Silva"></div>
       <div class="grid2"><div class="field"><label class="lbl">Prefixo do Subject</label><input class="inp" data-s="subjectPrefix" value="${esc(st.subjectPrefix)}" placeholder="Meeting"></div>
@@ -2852,6 +2883,7 @@ async function viewSettings() {
     if (t.closest('[data-goexp]')) return go('#/exportar');
     if (t.closest('[data-wipe]')) return wipeAll();
     if (t.closest('[data-syncnow]')) { Sync.run(); return; }
+    if (t.closest('[data-novidades2]')) return novidadesSheet();
     const dsy = t.closest('[data-dirsync]'); if (dsy) { dsy.disabled = true; try { await DIR.refresh(true); toast(`Diretório: ${plural(DIR.count(), 'contacto', 'contactos')}`); } catch (er) { toast(er.message || 'Não foi possível atualizar'); } dsy.disabled = false; const n = $('#dir-n'); if (n) { n.textContent = DIR.count() ? plural(DIR.count(), 'contacto', 'contactos') : 'Ainda vazio'; $('#dir-at').textContent = DIR.meta?.at ? `Importado ${fmtTs(new Date(DIR.meta.at).getTime())}` : ''; } return; }
     const dim = t.closest('[data-dirimp]'); if (dim) {
       const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv,text/csv';
@@ -3108,10 +3140,32 @@ function showNoAccess() {
   view.querySelector('[data-out]').onclick = async () => { try { await Sync.client().auth.signOut(); } catch (e) {} Sync.mode = null; Sync.userId = null; await Sync.save(); showLogin(); };
   view.querySelector('[data-local]').onclick = async () => { try { await Sync.client().auth.signOut(); } catch (e) {} Sync.mode = 'local'; Sync.userId = null; await Sync.save(); enterApp(false); };
 }
+/* ---------- novidades de cada versão */
+const vnum = (v) => String(v || '0').split('.').map((x) => +x || 0).reduce((a, x) => a * 1000 + x, 0);
+function novidadesSheet() {
+  $('#nov-card')?.remove();
+  sheet({ title: 'Novidades', body: NOVIDADES.map((n) => `<section class="nov"><h4>Versão ${esc(n.v)} <span class="faint">· ${esc(n.data)}</span>${n.v === APP_VERSION ? ' <span class="pill toaccept">atual</span>' : ''}</h4><ul>${n.itens.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></section>`).join('') });
+  markNovidades();
+}
+async function markNovidades() { if (S.settings.seenVersion !== APP_VERSION) { S.settings.seenVersion = APP_VERSION; await saveSettings(); } }
+function novidadesCard() {
+  const seen = S.settings.seenVersion;
+  if (seen === APP_VERSION || $('#nov-card')) return;
+  // instalação nova (sem reuniões nem contactos): não há nada de novo para contar
+  if (!seen && !S.meetings.length && !S.contacts.length) { markNovidades(); return; }
+  const novas = seen ? NOVIDADES.filter((n) => vnum(n.v) > vnum(seen) && vnum(n.v) <= vnum(APP_VERSION)) : NOVIDADES.slice(0, 4);
+  const list = (novas.length ? novas : NOVIDADES.slice(0, 1)).flatMap((n) => n.itens);
+  if (!list.length) { markNovidades(); return; }
+  const c = document.createElement('div'); c.id = 'nov-card'; c.setAttribute('role', 'status');
+  c.innerHTML = `<div class="nov-top"><span class="nov-ic">${ico('check', 'sm')}</span><b>Novidades da versão ${esc(APP_VERSION)}</b><button class="ibtn sm" data-a="ok" aria-label="Fechar">${ico('x', 'sm')}</button></div><ul>${list.slice(0, 4).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>${list.length > 4 ? `<div class="faint" style="font-size:12.5px;margin:-2px 0 8px">e mais ${list.length - 4}…</div>` : ''}<div class="nov-acts"><button class="btn sm" data-a="ok">Entendi</button><button class="btn sm pri" data-a="ver">Ver tudo</button></div>`;
+  document.body.appendChild(c); requestAnimationFrame(() => c.classList.add('show'));
+  c.onclick = (e) => { const b = e.target.closest('[data-a]'); if (!b) return; markNovidades(); c.classList.remove('show'); setTimeout(() => c.remove(), 220); if (b.dataset.a === 'ver') novidadesSheet(); };
+}
 async function enterApp(cloud) {
   document.body.classList.remove('gate');
   if (location.hash.startsWith('#/login')) location.hash = '#/';
   route();
+  setTimeout(() => { try { novidadesCard(); } catch (e) { console.warn('novidades', e); } }, 900);
   if (cloud) Sync.start();
   setTimeout(() => syncCalendar(), 2500);
 }
