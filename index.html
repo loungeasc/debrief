@@ -496,6 +496,20 @@ body.gate main{padding-bottom:0}
 .top .syncst{margin-top:2px}
 /* settings / export */
 .setrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.setpage{max-width:760px}
+.setrow:last-child{border-bottom:0}
+.setrow .av{width:36px;height:36px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.setline{display:flex;align-items:center;gap:12px}
+details.setgrp{padding:0}
+details.setgrp>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px}
+details.setgrp>summary::-webkit-details-marker{display:none}
+details.setgrp>summary .grow{flex:1;min-width:0}
+.setline .grow{flex:1;min-width:0}
+details.setgrp>summary .s{font-size:13px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+details.setgrp>summary>svg:last-child{color:var(--ink-3);transition:transform .15s}
+details.setgrp[open]>summary>svg:last-child{transform:rotate(90deg)}
+details.setgrp .setbody{padding:0 14px 14px;border-top:1px solid var(--line);padding-top:12px}
+.setfoot{text-align:center;font-size:13px;color:var(--ink-3);padding:6px 0 18px}
 .setrow:last-child{border-bottom:0}
 .setrow .grow{flex:1;min-width:0}
 .setrow .inp{min-height:40px;padding:8px 10px}
@@ -527,6 +541,24 @@ body.gate main{padding-bottom:0}
   .tbl th{letter-spacing:.02em}
 }
 </style>
+<script>
+/* Aspeto: Claro, Escuro ou Sistema (só neste dispositivo). Ajusta as regras @media (prefers-color-scheme: dark) da folha de estilos. */
+var THEME = {
+  Q: { system: '(prefers-color-scheme: dark)', dark: '(prefers-color-scheme: dark), (prefers-color-scheme: light)', light: '(prefers-color-scheme: dark) and (max-width: 0.001px)' },
+  get: function () { try { var v = localStorage.getItem('debrief-theme'); return v === 'light' || v === 'dark' ? v : 'system'; } catch (e) { return 'system'; } },
+  set: function (v) { try { if (v === 'system') localStorage.removeItem('debrief-theme'); else localStorage.setItem('debrief-theme', v); } catch (e) {} this.apply(); },
+  apply: function () {
+    var q = this.Q[this.get()];
+    for (var i = 0; i < document.styleSheets.length; i++) {
+      var rules; try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
+      for (var j = 0; j < rules.length; j++) { var r = rules[j]; if (r.media && /prefers-color-scheme:\s*dark/.test(r.media.mediaText) && r.media.mediaText !== q) { try { r.media.mediaText = q; } catch (e) {} } }
+    }
+    document.documentElement.setAttribute('data-theme', this.get());
+    try { var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(); var m = document.querySelector('meta[name="theme-color"]'); if (m && bg) m.setAttribute('content', bg); } catch (e) {}
+  },
+};
+THEME.apply();
+</script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -583,10 +615,11 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.17.0';
+const APP_VERSION = '1.18.0';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.18.0', data: '19/10/2026', itens: ['Definições arrumadas: em cima a conta, o teu nome e o aspeto; o resto em grupos que abres quando precisas (Agenda, Eventos, Temas, Salesforce, Diretório, IA, Dados).', 'Aspeto: Claro, Escuro ou Sistema (em Definições, só neste dispositivo).'] },
   { v: '1.17.0', data: '19/10/2026', itens: ['Organizar com IA: o Claude arruma as notas por temas e tira os próximos passos; revês e carregas em «Aplicar».', 'A reunião mostra primeiro o que interessa no momento: antes, a preparação; durante, as notas e fotos; depois, temas e campos do Salesforce. O resto fica em «Mais».', 'Filtros mais simples: Pendentes · Agenda · Por fazer · Feitas · Todas.', 'Cartão «Agora» no topo da lista: a reunião a decorrer, a que acabou sem notas ou a próxima de hoje.', 'Importação com o Data Loader escondida (sem acesso API ao Salesforce).'] },
   { v: '1.16.0', data: '19/10/2026', itens: ['Novidades: depois de cada atualização aparece este cartão. A lista completa fica em Definições → Novidades (ou tocando no número da versão).'] },
   { v: '1.15.0', data: '19/10/2026', itens: ['Diretório Salesforce: os 8 700 contactos do Salesforce para encontrar uma pessoa pelo nome, separados dos teus Contactos.', 'Ao juntar um contacto a uma reunião, aparecem também as pessoas do diretório (etiqueta SF), já com o ID do Salesforce.', 'Num cartão ou contacto novo, «Completar» preenche cargo, email e telefones a partir do diretório.', 'Na janela do Salesforce, sugere a conta certa da companhia para abrir o New Meeting Note.', 'O Perguntar também procura no diretório.'] },
@@ -2903,72 +2936,76 @@ async function viewSettings() {
   const st = S.settings;
   const usedKeys = new Set(S.meetings.filter((m) => m.airlineName).map((m) => airlineKey({ code: m.airlineCode, name: m.airlineName })));
   const shown = airlines().filter((a) => usedKeys.has(airlineKey(a)) || st.airlineSf?.[airlineKey(a)] || a.custom).sort((a, b) => a.name.localeCompare(b.name));
-  view.innerHTML = `<div class="page"><div class="top"><h1>Definições</h1><button class="ver verlink" data-novidades2 title="Novidades">v${APP_VERSION} · novidades</button></div><div class="two"><div>
-    <div class="sec"><h3>${ico('user', 'sm')} Predefinições</h3>
-      <div class="field"><label class="lbl">O teu nome (participante ANA)</label><input class="inp" data-s="ownerName" value="${esc(st.ownerName)}" placeholder="Ex.: Nuno Silva"></div>
-      <div class="grid2"><div class="field"><label class="lbl">Prefixo do Subject</label><input class="inp" data-s="subjectPrefix" value="${esc(st.subjectPrefix)}" placeholder="Meeting"></div>
-      <div class="field"><label class="lbl">Aeroporto no Subject</label><input class="inp" data-s="airportCode" value="${esc(st.airportCode)}" maxlength="3" style="text-transform:uppercase" placeholder="OPO"></div></div>
-      <div class="field"><label class="lbl">Aeroportos concorrentes <span class="faint" style="font-weight:500">(para a preparação das reuniões)</span></label><input class="inp" data-s="competitors" value="${esc(st.competitors)}" style="text-transform:uppercase" placeholder="LIS, FAO, VGO, SCQ"></div>
-      <div class="field"><label class="lbl">Geographical Scope por defeito</label><input class="inp" data-s="defaultScope" value="${esc(st.defaultScope)}" style="text-transform:uppercase" placeholder="OPO (vários: OPO, LIS)"></div>
-      <p class="faint" style="font-size:12.5px;margin:0">Exemplo: <code style="font-family:var(--mono)">${esc(st.subjectPrefix || 'Meeting')}_${esc(st.airportCode || 'OPO')}_TP_Slots e planeamento</code></p>
-      <label class="check" style="margin-top:8px"><input type="checkbox" class="ck" data-sb="showLogos" ${st.showLogos !== false ? 'checked' : ''}> Mostrar logótipos das companhias <span class="faint" style="font-size:12.5px">(carregados do Google pelo código IATA; ficam guardados para usar sem rede)</span></label>
-      <label class="check"><input type="checkbox" class="ck" data-sb="aiRead" ${st.aiRead !== false ? 'checked' : ''}> Ler fotos de notas e cartões com IA (Claude) <span class="faint" style="font-size:12.5px">(com rede e sessão iniciada; a foto é enviada ao Claude só para leitura. Sem rede, a leitura é feita no dispositivo)</span></label>
+  const theme = THEME.get();
+  const open = S._setOpen || (S._setOpen = new Set());
+  const grp = (k, icon, title, sub, body) => `<details class="sec setgrp" data-grp="${k}" ${open.has(k) ? 'open' : ''}><summary>${ico(icon, 'sm')}<div class="grow"><b>${title}</b>${sub ? `<div class="s">${sub}</div>` : ''}</div>${ico('chev', 'sm')}</summary><div class="setbody">${body}</div></details>`;
+  const nAcc = shown.filter((a) => st.airlineSf?.[airlineKey(a)]?.id).length;
+  const icsLast = st.icsLastResult ? `Lida ${fmtAgoShort(st.icsLastResult.at)} · ${plural(st.icsLastResult.total, 'reunião', 'reuniões')}` : '';
+  view.innerHTML = `<div class="page setpage"><div class="top"><h1>Definições</h1></div>
+
+    <div class="sec">
+      ${Sync.mode === 'cloud' ? `<div class="setrow"><div class="av">${ico('user', 'sm')}</div><div class="grow"><b>${esc(Sync.userName || 'Conta')}</b><div class="faint" style="font-size:13px">${esc(Sync.email)} · <span class="syncst"></span></div></div><button class="btn sm" data-syncnow title="Sincronizar agora">${ico('refresh', 'sm')}</button><button class="btn sm" data-signout>Sair</button></div>`
+      : `<div class="setrow"><div class="av">${ico('user', 'sm')}</div><div class="grow"><b>Só neste dispositivo</b><div class="faint" style="font-size:13px">Entra com a conta do Portal do Lounge para partilhar as reuniões com o colega.</div></div><button class="btn sm pri" data-gologin>Entrar</button></div>`}
+      <div class="field" style="margin:12px 0 0"><label class="lbl">O teu nome <span class="faint" style="font-weight:500">(vai em «Participantes ANA»)</span></label><input class="inp" data-s="ownerName" value="${esc(st.ownerName)}" placeholder="Ex.: Nuno Silva"></div>
     </div>
-    <div class="sec"><h3>${ico('pen', 'sm')} Temas <span class="r faint">aparecem como atalhos em cada reunião</span></h3>
+
+    <div class="sec">
+      <div class="setline"><div class="grow"><b>Aspeto</b><div class="faint" style="font-size:13px">Só neste dispositivo</div></div>
+        <div class="seg mini" role="group" aria-label="Aspeto">${[['light', 'Claro'], ['dark', 'Escuro'], ['system', 'Sistema']].map(([k, l]) => `<button data-thm="${k}" class="${theme === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <label class="check" style="margin-top:10px"><input type="checkbox" class="ck" data-sb="showLogos" ${st.showLogos !== false ? 'checked' : ''}> Mostrar logótipos das companhias</label>
+    </div>
+
+    ${grp('agenda', 'cal', 'Agenda', calUrl() ? (icsLast || 'Ligada') : 'Liga o calendário do evento (Grip…)', `
+      <p class="faint" style="font-size:13px;margin:0 0 10px">Cola o endereço do teu calendário (Grip ou outro, <code>webcal://…</code>). As reuniões entram sozinhas: «Confirmada» quando a companhia aceitou, «Por confirmar» até lá, «Por aceitar» (azul claro) enquanto um de nós ainda não aceitou.${Sync.on() ? ' Cada pessoa usa o seu calendário; as reuniões em comum não se duplicam.' : ''}</p>
+      <div class="field"><input class="inp" id="ics-url" value="${esc(calUrl())}" placeholder="webcal://calendar.grip.events/ics/…" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      <div class="acts-row"><button class="btn pri" data-icssave>${ico('check', 'sm')} Guardar e sincronizar</button>${calUrl() ? `<button class="btn" data-icsnow>${ico('refresh', 'sm')} Ler agora</button>` : ''}</div>
+      ${st.icsLastResult ? `<p class="faint" style="font-size:12.5px;margin:10px 0 0">Última leitura ${fmtAgoShort(st.icsLastResult.at)}: ${plural(st.icsLastResult.total, 'reunião', 'reuniões')} · ${st.icsLastResult.novas} novas · ${st.icsLastResult.atualizadas} atualizadas · ${st.icsLastResult.canceladas} canceladas</p>` : ''}`)}
+
+    ${grp('eventos', 'cal', 'Eventos', EV.all().length ? EV.all().slice(0, 2).map((e) => esc(e.name)).join(' · ') + (EV.all().length > 2 ? ` · +${EV.all().length - 2}` : '') : 'Routes, feiras, roadshows…', `
+      <div id="ev-set">${EV.all().map((e) => `<button class="pickrow" data-evset="${e.id}">${ico('cal', 'sm')}<div class="grow"><div class="t">${esc(e.name)}</div><div class="s">${esc([EV.sub(e), plural(EV.count(e), 'reunião', 'reuniões')].filter(Boolean).join(' · '))}</div></div>${ico('chev', 'sm')}</button>`).join('') || '<p class="faint" style="font-size:13px;margin:0">Ainda não há eventos.</p>'}</div>
+      <button class="btn sm" data-evsetnew style="margin-top:8px">${ico('plus', 'sm')} Novo evento</button>`)}
+
+    ${grp('temas', 'list', 'Temas das reuniões', plural(st.topics.length, 'tema', 'temas') + ' · atalhos em cada reunião', `
       <div id="topics-set"></div>
-      <div class="subj-row" style="margin-top:10px"><input class="inp" id="new-topic" placeholder="Novo tema"><button class="btn" data-addtopic>${ico('plus', 'sm')} Adicionar</button></div>
-    </div>
-    <div class="sec"><h3>${ico('send', 'sm')} Salesforce</h3>
-      <div class="field"><label class="lbl">Endereço do Salesforce <span class="faint" style="font-weight:500">(para abrir o New Meeting Note da conta)</span></label><input class="inp" data-s="sfDomain" value="${esc(st.sfDomain)}" placeholder="empresa.lightning.force.com" autocapitalize="off" style="font-family:var(--mono)"></div>
-      <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeParticipants" ${st.sfIncludeParticipants ? 'checked' : ''}> Incluir participantes da companhia nos Comments</label>
-      <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeInternal" ${st.sfIncludeInternal ? 'checked' : ''}> Incluir participantes ANA nos Comments</label>
-    </div>
-    ${DATALOADER ? `<div class="sec"><h3>${ico('download', 'sm')} Importação com Data Loader <span class="r faint">avançado</span></h3>
-      <p class="faint" style="font-size:12.5px;margin:0 0 10px">Só precisas disto se usares o ficheiro CSV. Pede estes valores ao administrador do Salesforce.</p>
-      <div class="field"><label class="lbl">ID do tipo de registo «Meeting Note»</label><input class="inp" data-s="sfRecordTypeId" value="${esc(st.sfRecordTypeId)}" placeholder="012…" autocapitalize="off" style="font-family:var(--mono)"></div>
+      <div class="subj-row" style="margin-top:10px"><input class="inp" id="new-topic" placeholder="Novo tema"><button class="btn" data-addtopic>${ico('plus', 'sm')} Adicionar</button></div>`)}
+
+    ${grp('sf', 'send', 'Salesforce', esc(st.sfDomain || 'Endereço por definir') + (nAcc ? ` · ${plural(nAcc, 'conta ligada', 'contas ligadas')}` : ''), `
+      <div class="field"><label class="lbl">Endereço do Salesforce</label><input class="inp" data-s="sfDomain" value="${esc(st.sfDomain)}" placeholder="empresa.lightning.force.com" autocapitalize="off" style="font-family:var(--mono)"></div>
+      <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeParticipants" ${st.sfIncludeParticipants ? 'checked' : ''}> Participantes da companhia nos Comments</label>
+      <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeInternal" ${st.sfIncludeInternal ? 'checked' : ''}> Participantes ANA nos Comments</label>
+      <div class="grid2" style="margin-top:12px"><div class="field"><label class="lbl">Subject: prefixo</label><input class="inp" data-s="subjectPrefix" value="${esc(st.subjectPrefix)}" placeholder="Meeting"></div>
+      <div class="field"><label class="lbl">Subject: aeroporto</label><input class="inp" data-s="airportCode" value="${esc(st.airportCode)}" maxlength="3" style="text-transform:uppercase" placeholder="OPO"></div></div>
+      <div class="field"><label class="lbl">Geographical Scope por defeito</label><input class="inp" data-s="defaultScope" value="${esc(st.defaultScope)}" style="text-transform:uppercase" placeholder="OPO (vários: OPO, LIS)"></div>
+      <label class="lbl" style="margin-top:4px">Contas das companhias <span class="faint" style="font-weight:500">(para abrir o New Meeting Note da conta)</span></label>
+      <div id="air-set">${shown.length ? shown.map((a) => { const sf = st.airlineSf?.[airlineKey(a)] || {}; return `<button class="pickrow" data-airset="${esc(airlineKey(a))}">${badge(a.code, true)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${sf.id ? esc(sf.name || 'Conta ligada') + ' · ' + esc(sf.id) : 'Sem conta ligada'}</div></div>${ico('chev', 'sm')}</button>`; }).join('') : '<p class="faint" style="font-size:13px;margin:0">As companhias aparecem aqui quando tiverem reuniões.</p>'}</div>
+      <button class="btn sm" data-airfind style="margin-top:10px">${ico('search', 'sm')} Outra companhia</button>
+      ${DATALOADER ? `<div class="field" style="margin-top:14px"><label class="lbl">ID do tipo de registo «Meeting Note»</label><input class="inp" data-s="sfRecordTypeId" value="${esc(st.sfRecordTypeId)}" placeholder="012…" autocapitalize="off" style="font-family:var(--mono)"></div>
       <div class="field"><label class="lbl">Nome API do campo Flag</label><input class="inp" data-s="sfFlagField" value="${esc(st.sfFlagField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
       <div class="field"><label class="lbl">Nome API do campo Type of Tradeshow</label><input class="inp" data-s="sfTradeshowField" value="${esc(st.sfTradeshowField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
-      <div class="field" style="margin:0"><label class="lbl">Nome API do campo Geographical Scope</label><input class="inp" data-s="sfScopeField" value="${esc(st.sfScopeField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
-    </div>` : ''}
-  </div><div>
-    <div class="sec"><h3>${ico('cal', 'sm')} Eventos <span class="r faint">partilhados com o colega</span></h3>
-      <p class="faint" style="font-size:13px;margin:0 0 8px">Feiras, Routes, roadshows… Cada reunião pode ficar associada a um evento (na própria reunião ou, no portátil, selecionando várias na lista).</p>
-      <div id="ev-set">${EV.all().map((e) => `<button class="pickrow" data-evset="${e.id}">${ico('cal', 'sm')}<div class="grow"><div class="t">${esc(e.name)}</div><div class="s">${esc([EV.sub(e), plural(EV.count(e), 'reunião', 'reuniões')].filter(Boolean).join(' · '))}</div></div>${ico('chev', 'sm')}</button>`).join('')}</div>
-      <button class="btn sm" data-evsetnew style="margin-top:8px">${ico('plus', 'sm')} Novo evento</button>
-    </div>
-    <div class="sec"><h3>${ico('plane', 'sm')} Companhias e contas Salesforce</h3>
-      <p class="faint" style="font-size:13px;margin:0 0 8px">Opcional. O ID da conta (começa por 001) permite abrir o New Meeting Note da conta diretamente a partir da reunião.</p>
-      <div id="air-set">${shown.length ? shown.map((a) => { const sf = st.airlineSf?.[airlineKey(a)] || {}; return `<button class="pickrow" data-airset="${esc(airlineKey(a))}">${badge(a.code, true)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${sf.id ? 'ID ' + esc(sf.id) : 'Sem ID de conta'}${sf.name ? ' · ' + esc(sf.name) : ''}</div></div>${ico('chev', 'sm')}</button>`; }).join('') : '<p class="faint" style="font-size:14px;margin:0">As companhias das tuas reuniões aparecem aqui.</p>'}</div>
-      <button class="btn sm" data-airfind style="margin-top:10px">${ico('search', 'sm')} Configurar outra companhia</button>
-    </div>
-    <div class="sec"><h3>${ico('cal', 'sm')} Agenda do evento</h3>
-      <p class="faint" style="font-size:13px;margin:0 0 10px">Cola o endereço do teu calendário (Grip ou outro, <code>webcal://…</code>). As reuniões aparecem como «Confirmadas» quando a companhia (alguém de fora da ANA) já aceitou, «Por confirmar» até lá e «Por aceitar» (azul claro) enquanto um de nós ainda não aceitou, com companhia, hora, stand e participantes, e atualizam-se sozinhas.${Sync.on() ? ' Cada pessoa usa o seu calendário; reuniões em comum não se duplicam.' : ''}</p>
-      <div class="field"><input class="inp" id="ics-url" value="${esc(calUrl())}" placeholder="webcal://calendar.grip.events/ics/…" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-      <div class="acts-row"><button class="btn pri" data-icssave>${ico('check', 'sm')} Guardar e sincronizar</button>${calUrl() ? `<button class="btn" data-icsnow>${ico('refresh', 'sm')} Agora</button>` : ''}</div>
-      ${st.icsLastResult ? `<p class="faint" style="font-size:12.5px;margin:10px 0 0">Última leitura ${fmtAgoShort(st.icsLastResult.at)}: ${plural(st.icsLastResult.total, 'reunião', 'reuniões')} no calendário · ${st.icsLastResult.novas} novas · ${st.icsLastResult.atualizadas} atualizadas · ${st.icsLastResult.canceladas} canceladas</p>` : ''}
-    </div>
-    <div class="sec"><h3>${ico('users', 'sm')} Conta e partilha</h3>
-      ${Sync.mode === 'cloud' ? `
-      <div class="setrow"><div class="grow"><b>${esc(Sync.userName || 'Conta')}</b><div class="faint" style="font-size:13px">${esc(Sync.email)}</div></div></div>
-      <div class="setrow"><div class="grow"><b>Sincronização</b><div><span class="syncst"></span></div></div><button class="btn sm" data-syncnow>${ico('refresh', 'sm')} Agora</button></div>
-      <div class="setrow"><div class="grow"><b>Terminar sessão</b><div class="faint" style="font-size:13px">Apaga a cópia deste dispositivo; os dados continuam no servidor.</div></div><button class="btn sm" data-signout>Sair</button></div>`
-      : `<div class="setrow"><div class="grow"><b>Só neste dispositivo</b><div class="faint" style="font-size:13px">Entra com a conta do Portal do Lounge para partilhares as reuniões com o teu colega.</div></div><button class="btn sm pri" data-gologin>Entrar</button></div>`}
-    </div>
-    ${Sync.mode === 'cloud' ? `<div class="sec"><h3>${ico('users', 'sm')} Diretório Salesforce <span class="r faint">só para consulta</span></h3>
-      <p class="faint" style="font-size:13px;margin:0 0 8px">Cópia dos contactos do Salesforce para encontrar uma pessoa pelo nome. Não aparece nos teus Contactos: só quando pesquisas, ao juntar um contacto a uma reunião e ao ler um cartão. Fica no Supabase (só com login) e no dispositivo, para usar sem rede.</p>
+      <div class="field" style="margin:0"><label class="lbl">Nome API do campo Geographical Scope</label><input class="inp" data-s="sfScopeField" value="${esc(st.sfScopeField)}" autocapitalize="off" style="font-family:var(--mono)"></div>` : ''}`)}
+
+    ${Sync.mode === 'cloud' ? grp('dir', 'users', 'Diretório Salesforce', `<span id="dir-sum">${DIR.count() ? plural(DIR.count(), 'contacto', 'contactos') : 'A carregar…'}</span>`, `
+      <p class="faint" style="font-size:13px;margin:0 0 8px">Cópia dos contactos do Salesforce para encontrar uma pessoa pelo nome. Não aparece nos teus Contactos: só quando pesquisas, ao juntar um contacto a uma reunião e ao ler um cartão.</p>
       <div class="setrow"><div class="grow"><b id="dir-n">A carregar…</b><div class="faint" style="font-size:13px" id="dir-at"></div></div><button class="btn sm" data-dirsync>${ico('refresh', 'sm')} Atualizar</button></div>
-      <div class="setrow"><div class="grow"><b>Importar do Salesforce</b><div class="faint" style="font-size:13px">Relatório «Contactos para o Debrief» → Export → Details Only → CSV. Substitui o diretório para ti e para o colega.</div></div><button class="btn sm" data-dirimp>${ico('download', 'sm')} Importar CSV</button></div>
-    </div>` : ''}
-    <div class="sec"><h3>${ico('shield', 'sm')} Dados e privacidade</h3>
-      <div class="setrow"><div class="grow"><b>Onde ficam os dados</b><div class="faint" style="font-size:13px">${Sync.mode === 'cloud' ? 'No Supabase do Portal (UE, Irlanda), visíveis só para quem tiver a permissão «Reuniões companhias». Há uma cópia neste dispositivo para trabalhares sem rede. A leitura dos cartões e das fotos é feita no dispositivo.' : 'Só neste dispositivo e neste browser. Nada é enviado para servidores — nem as fotos, nem a leitura dos cartões.'}</div></div></div>
+      <div class="setrow"><div class="grow"><b>Importar do Salesforce</b><div class="faint" style="font-size:13px">Relatório «Contactos para o Debrief» → Export → Details Only → CSV. Substitui o diretório para os dois.</div></div><button class="btn sm" data-dirimp>${ico('download', 'sm')} Importar CSV</button></div>`) : ''}
+
+    ${grp('ia', 'chat', 'Inteligência artificial (Claude)', st.aiRead !== false ? 'Ligada' : 'Desligada', `
+      <label class="check"><input type="checkbox" class="ck" data-sb="aiRead" ${st.aiRead !== false ? 'checked' : ''}> Usar o Claude para ler fotos de notas e cartões, organizar as notas e traduzir</label>
+      <p class="faint" style="font-size:12.5px;margin:2px 0 12px">Só com rede e sessão iniciada. As fotos e as notas são enviadas ao Claude apenas para esse pedido. Sem rede, a leitura é feita no dispositivo e organizas à mão.</p>
+      <div class="field" style="margin:0"><label class="lbl">Aeroportos concorrentes <span class="faint" style="font-weight:500">(para a preparação das reuniões)</span></label><input class="inp" data-s="competitors" value="${esc(st.competitors)}" style="text-transform:uppercase" placeholder="LIS, FAO, VGO, SCQ"></div>`)}
+
+    ${grp('dados', 'shield', 'Dados e cópias', `Última cópia: ${ago(st.lastBackupAt)}`, `
+      <div class="setrow"><div class="grow"><b>Onde ficam os dados</b><div class="faint" style="font-size:13px">${Sync.mode === 'cloud' ? 'No Supabase do Portal (UE, Irlanda), visíveis só para quem tem a permissão «Reuniões companhias», e numa cópia neste dispositivo para trabalhares sem rede.' : 'Só neste dispositivo e neste browser.'}</div></div></div>
+      <div class="setrow"><div class="grow"><b>Cópia de segurança</b><div class="faint" style="font-size:13px">Um ficheiro com reuniões, contactos e fotos. Última: ${ago(st.lastBackupAt)}.</div></div><button class="btn sm" data-backup>${ico(isTouch() ? 'share' : 'download', 'sm')} Exportar</button><button class="btn sm" data-restore>${ico('upload', 'sm')} Importar</button></div>
       <div class="setrow"><div class="grow"><b>Armazenamento</b><div class="faint" style="font-size:13px" id="stor">A calcular…</div></div></div>
-      <div class="setrow"><div class="grow"><b>Leitor de cartões offline</b><div class="faint" style="font-size:13px" id="ocrst">A verificar…</div></div></div>
-      <div class="setrow"><div class="grow"><b>Cópia de segurança</b><div class="faint" style="font-size:13px">Última: ${ago(st.lastBackupAt)}</div></div><button class="btn sm" data-goexp>Abrir</button></div>
-      ${Sync.mode === 'cloud' ? '' : '<div class="setrow"><div class="grow"><b style="color:var(--danger)">Apagar tudo</b><div class="faint" style="font-size:13px">Remove reuniões, contactos, fotos e definições deste dispositivo.</div></div><button class="btn sm danger" data-wipe>Apagar</button></div>'}
-    </div>
-  </div></div></div>`;
+      <div class="setrow"><div class="grow"><b>Leitura sem rede</b><div class="faint" style="font-size:13px" id="ocrst">A verificar…</div></div></div>
+      ${Sync.mode === 'cloud' ? '' : '<div class="setrow"><div class="grow"><b style="color:var(--danger)">Apagar tudo</b><div class="faint" style="font-size:13px">Remove reuniões, contactos, fotos e definições deste dispositivo.</div></div><button class="btn sm danger" data-wipe>Apagar</button></div>'}`)}
+
+    <div class="setfoot"><button class="verlink" data-novidades2>Debrief v${APP_VERSION} · novidades</button></div>
+  </div>`;
+  $$('.setgrp', view).forEach((d) => d.addEventListener('toggle', () => { if (d.open) open.add(d.dataset.grp); else open.delete(d.dataset.grp); }));
   renderTopicSettings();
-  const dirInfo = () => { const n = $('#dir-n'); if (!n) return; n.textContent = DIR.count() ? plural(DIR.count(), 'contacto', 'contactos') : 'Ainda vazio'; $('#dir-at').textContent = DIR.meta?.at ? `Importado ${fmtTs(new Date(DIR.meta.at).getTime())}` : (DIR.count() ? '' : 'Importa o CSV do relatório do Salesforce.'); };
+  const dirInfo = () => { const ds = $('#dir-sum'); if (ds) ds.textContent = DIR.count() ? plural(DIR.count(), 'contacto', 'contactos') : 'Ainda vazio'; const n = $('#dir-n'); if (!n) return; n.textContent = DIR.count() ? plural(DIR.count(), 'contacto', 'contactos') : 'Ainda vazio'; $('#dir-at').textContent = DIR.meta?.at ? `Importado ${fmtTs(new Date(DIR.meta.at).getTime())}` : (DIR.count() ? '' : 'Importa o CSV do relatório do Salesforce.'); };
   if ($('#dir-n')) DIR.load().then(dirInfo);
   const saveSoon = debounce(saveSettings, 300);
   view.oninput = (e) => { const k = e.target.dataset.s; if (k) { let v = e.target.value; if (k === 'airportCode') v = v.trim().toUpperCase(); if (k === 'defaultScope') v = v.toUpperCase(); if (k === 'sfDomain') v = sfParse(v).dom || v.trim().replace(/^https?:\/\//, '').split('/')[0].toLowerCase(); st[k] = v; saveSoon(); } };
@@ -2990,6 +3027,9 @@ async function viewSettings() {
     if (t.closest('[data-wipe]')) return wipeAll();
     if (t.closest('[data-syncnow]')) { Sync.run(); return; }
     if (t.closest('[data-novidades2]')) return novidadesSheet();
+    const th = t.closest('[data-thm]'); if (th) { THEME.set(th.dataset.thm); $$('[data-thm]', view).forEach((b) => b.classList.toggle('on', b === th)); return; }
+    if (t.closest('[data-backup]')) return exportBackup();
+    if (t.closest('[data-restore]')) return importBackup();
     const dsy = t.closest('[data-dirsync]'); if (dsy) { dsy.disabled = true; try { await DIR.refresh(true); toast(`Diretório: ${plural(DIR.count(), 'contacto', 'contactos')}`); } catch (er) { toast(er.message || 'Não foi possível atualizar'); } dsy.disabled = false; const n = $('#dir-n'); if (n) { n.textContent = DIR.count() ? plural(DIR.count(), 'contacto', 'contactos') : 'Ainda vazio'; $('#dir-at').textContent = DIR.meta?.at ? `Importado ${fmtTs(new Date(DIR.meta.at).getTime())}` : ''; } return; }
     const dim = t.closest('[data-dirimp]'); if (dim) {
       const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv,text/csv';
