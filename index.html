@@ -326,6 +326,24 @@ textarea.inp{resize:vertical;line-height:1.5}
 .evfilters{padding-bottom:4px}
 .sftag{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:#1d5fa8;background:#e3f0fd;border-radius:5px;padding:1px 5px;vertical-align:2px;margin-left:4px}
 @media (prefers-color-scheme:dark){.sftag{background:#14283f;color:#7fb6f0}}
+.orgt{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:var(--surface)}
+.orgt.off{opacity:.45}
+.orgt-h{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.orgt-h .inp{font-weight:650;height:40px}
+details.more{margin:6px 0 14px}
+details.more>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:12px 14px;border:1px dashed var(--line);border-radius:14px;font-weight:600;font-size:14px;color:var(--ink-2)}
+details.more>summary::-webkit-details-marker{display:none}
+details.more[open]>summary{margin-bottom:12px;border-style:solid}
+details.more>summary .faint{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nowcard{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line);color:inherit;text-decoration:none;box-shadow:var(--shadow-sm,0 1px 2px rgba(0,0,0,.04))}
+.nowcard .main{flex:1;min-width:0}
+.nowcard .k{font-size:12px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-3)}
+.nowcard.now .k{color:#1f7a43}.nowcard.ended .k{color:#b4540a}
+.nowcard .t{font-weight:650;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nowcard .s{font-size:13px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nowcard.now{border-color:#bfe3cb;background:linear-gradient(0deg,rgba(31,122,67,.05),rgba(31,122,67,.05)),var(--surface)}
+.nowcard.ended{border-color:#f3d2b3}
+@media (prefers-color-scheme:dark){.nowcard.now .k{color:#6fd69a}.nowcard.ended .k{color:#f5a35c}.nowcard.now{border-color:#1f4a31}.nowcard.ended{border-color:#5a3517}}
 .pickrow{display:flex;align-items:center;gap:12px;width:100%;padding:10px 6px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left}
 .pickrow:last-child{border-bottom:0}
 .pickrow .grow{flex:1;min-width:0}
@@ -565,9 +583,11 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.16.0';
+const APP_VERSION = '1.17.0';
+const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.17.0', data: '19/10/2026', itens: ['Organizar com IA: o Claude arruma as notas por temas e tira os próximos passos; revês e carregas em «Aplicar».', 'A reunião mostra primeiro o que interessa no momento: antes, a preparação; durante, as notas e fotos; depois, temas e campos do Salesforce. O resto fica em «Mais».', 'Filtros mais simples: Pendentes · Agenda · Por fazer · Feitas · Todas.', 'Cartão «Agora» no topo da lista: a reunião a decorrer, a que acabou sem notas ou a próxima de hoje.', 'Importação com o Data Loader escondida (sem acesso API ao Salesforce).'] },
   { v: '1.16.0', data: '19/10/2026', itens: ['Novidades: depois de cada atualização aparece este cartão. A lista completa fica em Definições → Novidades (ou tocando no número da versão).'] },
   { v: '1.15.0', data: '19/10/2026', itens: ['Diretório Salesforce: os 8 700 contactos do Salesforce para encontrar uma pessoa pelo nome, separados dos teus Contactos.', 'Ao juntar um contacto a uma reunião, aparecem também as pessoas do diretório (etiqueta SF), já com o ID do Salesforce.', 'Num cartão ou contacto novo, «Completar» preenche cargo, email e telefones a partir do diretório.', 'Na janela do Salesforce, sugere a conta certa da companhia para abrir o New Meeting Note.', 'O Perguntar também procura no diretório.'] },
   { v: '1.14.0', data: '19/10/2026', itens: ['A lista abre em «Pendentes» (agendadas e rascunhos); as concluídas e exportadas ficam escondidas.', '«Pronta» passa a «Concluída».', 'Eventos: associa uma ou várias reuniões a um evento (Routes World, feiras…), com filtro por evento e o Type of Tradeshow do evento.'] },
@@ -1705,7 +1725,7 @@ function filteredMeetings() {
 /* Estados: agenda (confirmada/por confirmar) → por registar (já passou, sem notas) → rascunho → concluída → exportada; mais alterada após exportar e cancelada na agenda */
 function stateOf(m) {
   if (m.icsStatus === 'CANCELLED' && m.status !== 'exported') return 'cancelled';
-  if (m.status === 'planned') { const fut = (m.start || '') >= toLocalInput(new Date()); if (fut && m.icsStatus === 'NEEDS-ACTION') return 'toaccept'; if (m.icsStatus === 'TENTATIVE') return 'tentative'; return (m.start || '') < toLocalInput(new Date()) ? 'torecord' : 'planned'; }
+  if (m.status === 'planned') { const t0 = parseLocal(m.start); const ended = !!t0 && Date.now() > t0.getTime() + (m.durationMin || 30) * 60000; if (!ended && m.icsStatus === 'NEEDS-ACTION') return 'toaccept'; if (m.icsStatus === 'TENTATIVE') return 'tentative'; return ended ? 'torecord' : 'planned'; }
   if (changedAfterExport(m)) return 'changed';
   return m.status || 'draft';
 }
@@ -1715,10 +1735,14 @@ function inState(m, f) {
   if (!f || f === 'all') return true;
   const st = stateOf(m);
   if (f === 'pending') return PENDING_STATES.includes(st);
+  if (f === 'todo') return st === 'torecord' || st === 'draft' || st === 'changed';
+  if (f === 'done') return st === 'ready' || st === 'exported';
   if (f === 'agenda') return st === 'planned' || st === 'tentative' || st === 'toaccept';
   if (f === 'exported') return m.status === 'exported';
   return st === f;
 }
+// Filtros principais (simples) e os de detalhe (só na lista do portátil, em «Mais estados»)
+const MAIN_FILTERS = [['pending', 'Pendentes'], ['agenda', 'Agenda'], ['todo', 'Por fazer'], ['done', 'Feitas'], ['all', 'Todas']];
 // [chave, nome, mostrar mesmo sem reuniões]
 const STATE_FILTERS = [['agenda', 'Agenda', false], ['toaccept', 'Por aceitar', false], ['tentative', 'Por confirmar', false], ['torecord', 'Por registar', false], ['draft', 'Rascunhos', true], ['ready', 'Concluídas', true], ['exported', 'Exportadas', true], ['changed', 'Alteradas após exportar', false], ['cancelled', 'Canceladas na agenda', false]];
 function statusPill(m) {
@@ -1763,13 +1787,30 @@ function sortRows(list) {
   const empty = (x) => x === '' || x == null;
   return [...list].sort((a, b) => { const x = col.v(a), y = col.v(b); if (empty(x) !== empty(y)) return empty(x) ? 1 : -1; const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'pt'); return c * dir || (a.start || '').localeCompare(b.start || ''); });
 }
+// Cartão «Agora»: a reunião a decorrer, a que acabou há pouco sem notas, ou a próxima de hoje
+function nowCard() {
+  const now = Date.now(); const today = ymd(new Date());
+  const ms = S.meetings.filter((m) => !m._unsaved && m.start && stateOf(m) !== 'cancelled' && m.status !== 'exported' && m.status !== 'ready');
+  const span = (m) => { const t0 = parseLocal(m.start)?.getTime() || 0; return [t0, t0 + (m.durationMin || 30) * 60000]; };
+  let m = null, kind = '';
+  const cur = ms.filter((x) => { const [a, b] = span(x); return a <= now && now < b; }).sort((a, b) => span(b)[0] - span(a)[0])[0];
+  if (cur) { m = cur; kind = 'now'; }
+  if (!m) { const done = ms.filter((x) => { const [, b] = span(x); return b <= now && now - b < 90 * 60000 && !hasContent(x); }).sort((a, b) => span(b)[1] - span(a)[1])[0]; if (done) { m = done; kind = 'ended'; } }
+  if (!m) { const nx = ms.filter((x) => span(x)[0] > now && (x.start || '').slice(0, 10) === today).sort((a, b) => span(a)[0] - span(b)[0])[0]; if (nx) { m = nx; kind = 'next'; } }
+  if (!m) return '';
+  const [a, b] = span(m); const mins = (ms_) => { const n = Math.round(ms_ / 60000); return n < 60 ? `${n} min` : `${Math.floor(n / 60)} h${n % 60 ? ' ' + (n % 60) + ' min' : ''}`; };
+  const lbl = kind === 'now' ? `A decorrer · acaba às ${fmtTime(toLocalInput(new Date(b)))}` : kind === 'ended' ? `Acabou há ${mins(now - b)} · regista as notas` : `Próxima · daqui a ${mins(a - now)}`;
+  const ev = EV.of(m);
+  return `<a class="nowcard ${kind}" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="k">${esc(lbl)}</div><div class="t">${esc(m.airlineName || 'Companhia por escolher')} <span class="faint">· ${fmtTime(m.start)}</span></div>${m.location || ev ? `<div class="s">${esc([m.location, ev?.name].filter(Boolean).join(' · '))}</div>` : ''}</div><span class="btn sm ${kind === 'next' ? '' : 'pri'}">${kind === 'ended' ? 'Registar' : 'Abrir'}</span></a>`;
+}
 function viewMeetings() {
   renderChrome('m');
   const f = S.list; const desk = isDesk();
   const list = filteredMeetings();
   const counts = { all: S.meetings.length, toExport: S.meetings.filter((m) => m.status === 'draft' || m.status === 'ready').length, pending: S.meetings.filter((m) => inState(m, 'pending')).length };
   for (const [k] of STATE_FILTERS) counts[k] = S.meetings.filter((m) => inState(m, k)).length;
-  if (!['all', 'pending'].includes(f.status) && !STATE_FILTERS.some(([k]) => k === f.status)) f.status = 'pending';
+  for (const k of ['todo', 'done']) counts[k] = S.meetings.filter((m) => inState(m, k)).length;
+  if (!MAIN_FILTERS.some(([k]) => k === f.status) && !STATE_FILTERS.some(([k]) => k === f.status)) f.status = 'pending';
   const shownFilters = STATE_FILTERS.filter(([k, , always]) => always || counts[k] || f.status === k);
   const evs = EV.all(); if (f.event && f.event !== '_none' && !EV.get(f.event)) f.event = '';
   const usedAir = [...new Map(S.meetings.filter((m) => m.airlineName).map((m) => [airlineKey({ code: m.airlineCode, name: m.airlineName }), m.airlineName])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -1782,7 +1823,7 @@ function viewMeetings() {
     body = `
       <div class="toolbar">
         <div class="search">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar companhia, tema, contacto…" value="${esc(f.q)}"></div>
-        <select class="inp" id="f-status"><option value="pending">Pendentes · ${counts.pending}</option><option value="all">Todos os estados · ${counts.all}</option>${shownFilters.map(([k, l]) => `<option value="${k}">${l} · ${counts[k]}</option>`).join('')}</select>
+        <select class="inp" id="f-status">${MAIN_FILTERS.map(([k, l]) => `<option value="${k}">${l} · ${counts[k]}</option>`).join('')}<optgroup label="Mais estados">${shownFilters.filter(([k]) => !['agenda'].includes(k)).map(([k, l]) => `<option value="${k}">${l} · ${counts[k]}</option>`).join('')}</optgroup></select>
         <select class="inp" id="f-air"><option value="">Todas as companhias</option>${usedAir.map(([k, n]) => `<option value="${esc(k)}">${esc(n)}</option>`).join('')}</select>
         ${evs.length || f.event ? `<select class="inp" id="f-event" title="Evento"><option value="">Todos os eventos</option>${evs.map((e) => `<option value="${e.id}" ${f.event === e.id ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}<option value="_none" ${f.event === '_none' ? 'selected' : ''}>Sem evento</option></select>` : ''}
         <select class="inp" id="f-period" title="Período">${[['all', 'Todas as datas'], ['today', 'Hoje'], ['next7', 'Próximos 7 dias'], ['week', 'Esta semana'], ['month', 'Este mês'], ['last30', 'Últimos 30 dias'], ['custom', 'Escolher datas…']].map(([k, l]) => `<option value="${k}" ${(f.period || 'all') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -1794,7 +1835,7 @@ function viewMeetings() {
       ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:34px"><input type="checkbox" id="ck-all" ${list.length && list.every((m) => sel.has(m.id)) ? 'checked' : ''} aria-label="Selecionar todas"></th>${cols.map((c) => `<th class="sortable ${so.col === c.k ? 'sorted' : ''}" data-sortcol="${c.k}" title="Ordenar por ${c.l.toLowerCase()}">${c.l}<span class="arr">${so.col === c.k ? (so.dir === 'desc' ? '▼' : '▲') : '▲'}</span></th>`).join('')}</tr></thead><tbody>
       ${rows.map((m) => `<tr data-id="${m.id}" class="${sel.has(m.id) ? 'sel' : ''}"><td><input type="checkbox" class="ck-row" ${sel.has(m.id) ? 'checked' : ''} aria-label="Selecionar"></td>${cols.map((c) => `<td${c.cls ? ` class="${c.cls}"` : ''}>${c.h(m)}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>` : `<div class="empty"><p>Nenhuma reunião corresponde aos filtros.</p></div>`}
-      ${sel.size ? `<div class="bulk"><span>${plural(sel.size, 'selecionada', 'selecionadas')}</span><button class="btn sm" data-bulk="export">${ico('download', 'sm')} Exportar CSV</button><button class="btn sm" data-bulk="event">${ico('cal', 'sm')} Evento</button><button class="btn sm" data-bulk="ready">Marcar concluídas</button><button class="btn sm" data-bulk="exported">${ico('check', 'sm')} Marcar exportadas</button><button class="btn sm" data-bulk="delete">${ico('trash', 'sm')}</button><button class="btn sm" data-bulk="clear">${ico('x', 'sm')}</button></div>` : ''}`;
+      ${sel.size ? `<div class="bulk"><span>${plural(sel.size, 'selecionada', 'selecionadas')}</span>${DATALOADER ? `<button class="btn sm" data-bulk="export">${ico('download', 'sm')} Exportar CSV</button>` : ''}<button class="btn sm" data-bulk="event">${ico('cal', 'sm')} Evento</button><button class="btn sm" data-bulk="ready">Marcar concluídas</button><button class="btn sm" data-bulk="exported">${ico('check', 'sm')} Marcar exportadas</button><button class="btn sm" data-bulk="delete">${ico('trash', 'sm')}</button><button class="btn sm" data-bulk="clear">${ico('x', 'sm')}</button></div>` : ''}`;
   } else {
     const today = ymd(new Date());
     const agenda = (f.status === 'all' || f.status === 'pending') && !f.q ? list.filter((m) => inState(m, 'agenda') && (m.start || '').slice(0, 10) >= today).sort((a, b) => (a.start || '').localeCompare(b.start || '')) : [];
@@ -1805,13 +1846,15 @@ function viewMeetings() {
     body = `
       <div class="search" style="margin-bottom:10px">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar" value="${esc(f.q)}"></div>
       ${evs.length ? `<div class="filters evfilters">${[['', 'Todos os eventos'], ...evs.map((e) => [e.id, e.name]), ['_none', 'Sem evento']].map(([k, l]) => `<button class="chip ${(f.event || '') === k ? 'on' : ''}" data-evf="${k}">${k && k !== '_none' ? ico('cal', 'sm') : ''}${esc(l)}</button>`).join('')}</div>` : ''}
-      <div class="filters">${[['pending', 'Pendentes'], ['all', 'Todas'], ...shownFilters].map(([k, l]) => [k, l, counts[k]]).map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
+      <div class="filters">${[...MAIN_FILTERS, ...(MAIN_FILTERS.some(([k]) => k === f.status) ? [] : shownFilters.filter(([k]) => k === f.status))].map(([k, l]) => [k, l, counts[k]]).map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
       ${list.length ? [...groups.entries()].map(([g, ms]) => `<div class="group-h">${esc(g)}</div><div class="list">${ms.map((m) => `
         <a class="row" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="t">${esc(m.airlineName || 'Companhia por escolher')}</div><div class="when">${esc(fmtDay(m.start))} · ${fmtTime(m.start)}</div>
         ${m.location ? `<div class="metaline">${ico('pin', 'sm')}<span class="loc">${esc(m.location)}</span></div>` : ''}${EV.of(m) && f.event !== m.eventId ? `<div class="metaline">${ico('cal', 'sm')}<span class="loc">${esc(EV.of(m).name)}</span></div>` : ''}</div>
         <div class="meta">${statusPill(m)}</div></a>`).join('')}</div>`).join('') : `<div class="empty"><p>Nada para mostrar.</p></div>`}`;
   }
 
+  const nc = !f.q && ['pending', 'agenda', 'todo', 'all'].includes(f.status) ? nowCard() : '';
+  if (nc && S.meetings.length) body = nc + body;
   view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.toExport} por exportar</small>` : ''}</h1>${!desk && Sync.mode === 'cloud' ? '<span class="syncst dot" data-dot role="button" tabindex="0"></span>' : ''}${!desk && Sync.on() ? `<a class="ibtn solid" href="#/perguntar" aria-label="Perguntar ao Claude" title="Perguntar ao Claude">${ico('chat')}</a>` : ''}${calUrl() ? (desk ? `<button class="btn" data-calsync title="Ler outra vez o calendário">${ico('refresh', 'sm')} Agenda</button>` : `<button class="ibtn solid" data-calsync aria-label="Atualizar agenda" title="Atualizar agenda">${ico('refresh')}</button>`) : ''}${!desk && Sync.on() ? `<button class="ibtn solid" data-logout2 aria-label="Terminar sessão" title="Terminar sessão">${ico('logout')}</button>` : ''}${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
 
   const st = $('#f-status'); if (st) st.value = f.status;
@@ -1877,6 +1920,14 @@ async function bulkAction(kind) {
 /* =====================================================================
    VISTA: editor de reunião (captura no telemóvel / revisão no portátil)
    ===================================================================== */
+function meetingPhase(m, desk) {
+  if (m.status === 'ready' || m.status === 'exported') return 'after';
+  const st = parseLocal(m.start); if (!st) return desk ? 'after' : 'during';
+  const now = Date.now(), t0 = st.getTime(), t1 = t0 + (m.durationMin || 30) * 60000;
+  if (now < t0 - 5 * 60000 && !hasContent(m)) return 'before';
+  if (!desk && now < t1 + 3 * 3600e3) return 'during';
+  return 'after';
+}
 function viewMeeting(id) {
   const m = getM(id); if (!m) return go('#/');
   renderChrome('m');
@@ -1885,6 +1936,50 @@ function viewMeeting(id) {
   if (!Array.isArray(m.scope)) m.scope = scopeOf(m);
   const tsOpts = [...new Set([...(S.settings.tradeshowOptions || []), ...S.meetings.map((x) => x.tradeshow).filter(Boolean)])];
   const scopeSugg = [...new Set(['OPO', 'LIS', 'FAO', 'FNC', 'PXO', 'PDL', 'HOR', 'SMA', 'FLW', 'BYJ', ...S.meetings.flatMap((x) => x.scope || [])])];
+
+  const SEC = {
+    prep: `      <div class="sec prep" id="prep" hidden></div>`,
+    sims: `      <div class="sec" id="sims"></div>`,
+    people: `      <div class="sec"><h3>${ico('users', 'sm')} Participantes da companhia</h3>
+        <div class="people" id="people"></div>
+        <div class="acts-row"><button class="btn" data-card>${ico('scan', 'sm')} Cartão de visita</button><button class="btn" data-pickc>${ico('user', 'sm')} Contacto</button></div>
+      </div>`,
+    notes: `      <div class="sec"><h3>${ico('pen', 'sm')} Notas da reunião <span class="r faint" id="raw-count"></span></h3>
+        <textarea class="inp" data-f="raw" id="f-raw" placeholder="Escreve tudo à medida que a reunião decorre — uma ideia por linha, sem te preocupares com a ordem. No fim, organizas por temas.">${esc(m.raw || '')}</textarea>
+        <div class="acts-row" style="margin-top:10px"><button class="btn dark" data-organize id="b-org">${ico('list', 'sm')} Organizar por temas</button><button class="btn" data-ocrall>${ico('scan', 'sm')} Texto das fotos</button></div>
+      </div>`,
+    topics: `      <div class="sec"><h3>${ico('list', 'sm')} Temas <span class="r faint" id="t-count"></span></h3>
+        <div id="topics"></div>
+        <button class="btn sm" data-addtopicmenu>${ico('plus', 'sm')} Tema</button>
+      </div>`,
+    photos: `      <div class="sec sec-photos-mobile"><h3>${ico('image', 'sm')} Fotos das notas <span class="r faint" id="p-count"></span></h3>
+        <div class="photos" id="photos"></div>
+      </div>`,
+    next: `      <div class="sec"><h3>${ico('check', 'sm')} Próximos passos</h3>
+        <textarea class="inp" data-f="nextSteps" id="f-next" rows="3" placeholder="Compromissos, pedidos, prazos…">${esc(m.nextSteps)}</textarea>
+      </div>`,
+    fields: `      <div class="sec"><h3>${ico('send', 'sm')} Campos do Meeting Note</h3>
+        <label class="lbl" for="f-subj">Subject</label>
+        <div class="subj-row"><input class="inp" id="f-subj" value="${esc(subjectOf(m))}"><button class="ibtn solid" data-subjauto title="Voltar ao assunto automático" aria-label="Assunto automático">${ico('refresh')}</button></div>
+        <div class="faint" id="subj-hint" style="font-size:12.5px;margin:6px 0 12px"></div>
+        <div class="grid2"><div class="field"><label class="lbl" for="f-flag">Flag</label><input class="inp" id="f-flag" data-f="flag" value="${esc(m.flag)}" placeholder="Opcional"></div>
+        <div class="field"><label class="lbl" for="f-ts">Type of Tradeshow</label><input class="inp" id="f-ts" data-f="tradeshow" list="tsl" value="${esc(m.tradeshow)}" placeholder="--None--"><datalist id="tsl">${tsOpts.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></div></div>
+        <label class="lbl">Geographical Scope</label>
+        <div class="chips" id="scope" style="margin-bottom:8px"></div>
+        <div class="subj-row" style="margin-bottom:12px"><input class="inp" id="f-scope" list="scl" maxlength="3" placeholder="Código (ex.: LIS)" autocapitalize="characters" style="text-transform:uppercase"><datalist id="scl">${scopeSugg.map((c) => `<option value="${c}">`).join('')}</datalist><button class="btn" data-addscope>${ico('plus', 'sm')} Juntar</button></div>
+        <div class="field" style="margin:0"><label class="lbl" for="f-int">Participantes ANA <span class="faint" style="font-weight:500">(vão no fim dos Comments)</span></label><input class="inp" id="f-int" data-f="internal" value="${esc(m.internal)}" placeholder="Quem esteve da tua parte"></div>
+      </div>`,
+  };
+  // O ecrã muda conforme o momento: antes (preparar), durante/logo a seguir (notas) e depois (rever e passar para o Salesforce)
+  const phase = meetingPhase(m, desk);
+  const hasT = m.topics.some((t) => (t.text || '').trim()); const hasSims = (m.sims || []).length > 0;
+  const LAY = {
+    before: { main: ['people', 'prep', 'notes', 'photos', 'next', ...(hasSims ? ['sims'] : [])], more: [...(hasSims ? [] : ['sims']), 'topics', 'fields'] },
+    during: { main: ['people', 'notes', 'photos', ...(hasT ? ['topics'] : []), 'next'], more: ['prep', 'sims', ...(hasT ? [] : ['topics']), 'fields'] },
+    after: { main: ['people', ...((m.raw || '').trim() || !hasT ? ['notes'] : []), 'topics', 'next', 'fields', ...(hasT && !(m.raw || '').trim() ? ['notes'] : []), 'photos', ...(hasSims ? ['sims'] : [])], more: ['prep', ...(hasSims ? [] : ['sims'])] },
+  }[phase];
+  const MORE_LBL = { prep: 'Preparação', sims: 'Simulação', topics: 'Temas', fields: 'Campos do Salesforce', notes: 'Notas' };
+  const secHTML = LAY.main.map((k) => SEC[k]).join('\n\n') + (LAY.more.length ? `\n<details class="more" id="ed-more" ${S._moreOpen ? 'open' : ''}><summary>${ico('plus', 'sm')} Mais <span class="faint">· ${LAY.more.map((k) => MORE_LBL[k]).join(' · ')}</span></summary>${LAY.more.map((k) => SEC[k]).join('\n')}</details>` : '');
 
   view.innerHTML = `<div class="page">
     <div class="top"><button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button><h1 id="ed-title">${esc(m.airlineName || 'Nova reunião')}<small id="ed-sub"></small></h1>
@@ -1900,44 +1995,7 @@ function viewMeeting(id) {
         ${['CANCELLED', 'TENTATIVE', 'NEEDS-ACTION'].includes(m.icsStatus) ? `<div class="locline ${m.icsStatus === 'CANCELLED' ? 'cancel' : ''}">${ico(m.icsStatus === 'CANCELLED' ? 'x' : 'cal', 'sm')} ${m.icsStatus === 'CANCELLED' ? 'Cancelada na agenda' : m.icsStatus === 'NEEDS-ACTION' ? 'Por aceitar na agenda (falta aceitar do nosso lado)' : 'Por confirmar na agenda'}</div>` : ''}
       </div>
 
-      <div class="sec prep" id="prep" hidden></div>
-
-      <div class="sec" id="sims"></div>
-
-      <div class="sec"><h3>${ico('users', 'sm')} Participantes da companhia</h3>
-        <div class="people" id="people"></div>
-        <div class="acts-row"><button class="btn" data-card>${ico('scan', 'sm')} Cartão de visita</button><button class="btn" data-pickc>${ico('user', 'sm')} Contacto</button></div>
-      </div>
-
-      <div class="sec"><h3>${ico('pen', 'sm')} Notas da reunião <span class="r faint" id="raw-count"></span></h3>
-        <textarea class="inp" data-f="raw" id="f-raw" placeholder="Escreve tudo à medida que a reunião decorre — uma ideia por linha, sem te preocupares com a ordem. No fim, organizas por temas.">${esc(m.raw || '')}</textarea>
-        <div class="acts-row" style="margin-top:10px"><button class="btn dark" data-organize id="b-org">${ico('list', 'sm')} Organizar por temas</button><button class="btn" data-ocrall>${ico('scan', 'sm')} Texto das fotos</button></div>
-      </div>
-
-      <div class="sec"><h3>${ico('list', 'sm')} Temas <span class="r faint" id="t-count"></span></h3>
-        <div id="topics"></div>
-        <button class="btn sm" data-addtopicmenu>${ico('plus', 'sm')} Tema</button>
-      </div>
-
-      <div class="sec sec-photos-mobile"><h3>${ico('image', 'sm')} Fotos das notas <span class="r faint" id="p-count"></span></h3>
-        <div class="photos" id="photos"></div>
-      </div>
-
-      <div class="sec"><h3>${ico('check', 'sm')} Próximos passos</h3>
-        <textarea class="inp" data-f="nextSteps" id="f-next" rows="3" placeholder="Compromissos, pedidos, prazos…">${esc(m.nextSteps)}</textarea>
-      </div>
-
-      <div class="sec"><h3>${ico('send', 'sm')} Campos do Meeting Note</h3>
-        <label class="lbl" for="f-subj">Subject</label>
-        <div class="subj-row"><input class="inp" id="f-subj" value="${esc(subjectOf(m))}"><button class="ibtn solid" data-subjauto title="Voltar ao assunto automático" aria-label="Assunto automático">${ico('refresh')}</button></div>
-        <div class="faint" id="subj-hint" style="font-size:12.5px;margin:6px 0 12px"></div>
-        <div class="grid2"><div class="field"><label class="lbl" for="f-flag">Flag</label><input class="inp" id="f-flag" data-f="flag" value="${esc(m.flag)}" placeholder="Opcional"></div>
-        <div class="field"><label class="lbl" for="f-ts">Type of Tradeshow</label><input class="inp" id="f-ts" data-f="tradeshow" list="tsl" value="${esc(m.tradeshow)}" placeholder="--None--"><datalist id="tsl">${tsOpts.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></div></div>
-        <label class="lbl">Geographical Scope</label>
-        <div class="chips" id="scope" style="margin-bottom:8px"></div>
-        <div class="subj-row" style="margin-bottom:12px"><input class="inp" id="f-scope" list="scl" maxlength="3" placeholder="Código (ex.: LIS)" autocapitalize="characters" style="text-transform:uppercase"><datalist id="scl">${scopeSugg.map((c) => `<option value="${c}">`).join('')}</datalist><button class="btn" data-addscope>${ico('plus', 'sm')} Juntar</button></div>
-        <div class="field" style="margin:0"><label class="lbl" for="f-int">Participantes ANA <span class="faint" style="font-weight:500">(vão no fim dos Comments)</span></label><input class="inp" id="f-int" data-f="internal" value="${esc(m.internal)}" placeholder="Quem esteve da tua parte"></div>
-      </div>
+      ${secHTML}
       ${desk ? '' : `<div style="text-align:center;padding:6px 0 10px"><button class="btn ghost danger" data-del>${ico('trash', 'sm')} Apagar reunião</button></div>`}
     </div>
     <div class="ed-aside" id="aside"></div>
@@ -1959,8 +2017,9 @@ function viewMeeting(id) {
   const refreshAside = debounce(() => renderAside(m), 300);
   const changed = () => { touchMeeting(m); refreshSubject(); refreshHeader(); if (desk) refreshAside(); };
 
-  const refreshRaw = () => { const n = splitBlocks(m.raw).length; $('#raw-count').textContent = n ? plural(n, 'linha', 'linhas') : ''; const b = $('#b-org'); b.disabled = !n; b.innerHTML = `${ico('list', 'sm')} Organizar por temas${n ? ` (${n})` : ''}`; };
+  const refreshRaw = () => { const n = splitBlocks(m.raw).length; $('#raw-count').textContent = n ? plural(n, 'linha', 'linhas') : ''; const b = $('#b-org'); b.disabled = !n; b.innerHTML = `${ico('list', 'sm')} ${AI.available() ? 'Organizar com IA' : 'Organizar por temas'}${n ? ` (${n})` : ''}`; };
   renderPeople(m); renderTopics(m); renderPhotos(m); refreshHeader(); refreshRaw(); renderPrep(m); renderSims(m);
+  $('#ed-more')?.addEventListener('toggle', (e) => { S._moreOpen = e.target.open; if (e.target.open) $$('textarea', e.target).forEach(grow); });
   const afterNotes = () => { $('#f-raw').value = m.raw || ''; grow($('#f-raw')); refreshRaw(); renderTopics(m); changed(); };
   if (desk) renderAside(m);
 
@@ -2001,7 +2060,7 @@ function viewMeeting(id) {
     }
     const rm = t.closest('[data-rmc]'); if (rm) { m.contactIds = m.contactIds.filter((x) => x !== rm.dataset.rmc); renderPeople(m); return changed(); }
     const oc = t.closest('[data-openc]'); if (oc) return contactSheet(getC(oc.dataset.openc), { onSaved: () => { renderPeople(m); changed(); } });
-    if (t.closest('[data-organize]')) { await flushSaves(); return organizeSheet(m, afterNotes); }
+    if (t.closest('[data-organize]')) { await flushSaves(); return aiOrganizeSheet(m, () => { afterNotes(); const nx = $('#f-next'); if (nx) { nx.value = m.nextSteps || ''; grow(nx); } }); }
     if (t.closest('[data-ocrall]')) { if (!m.photoIds.length) return toast('Ainda não há fotos das notas'); return ocrSheet(m, [...m.photoIds], afterNotes); }
     if (t.closest('[data-ocrsel]')) return ocrSheet(m, [m._sel], afterNotes);
     if (t.closest('[data-addtopicmenu]')) return topicMenu(m);
@@ -2101,6 +2160,53 @@ function topicMenu(m) {
   sh.el.onclick = async (e) => {
     const b = e.target.closest('[data-n]'); if (b) { sh.close(); return addTopic(m, b.dataset.n); }
     if (e.target.closest('[data-other]')) { sh.close(); const n = await promptSheet('Outro tema', 'Nome do tema'); if (n) addTopic(m, n); }
+  };
+}
+// Organizar com IA: o Claude agrupa as notas por temas e tira os próximos passos; o utilizador revê antes de aplicar
+async function aiOrganizeSheet(m, after) {
+  const raw = (m.raw || '').trim(); if (!raw) return toast('Ainda não há notas para organizar');
+  if (!AI.available()) return organizeSheet(m, after);
+  const options = [...new Set([...m.topics.map((t) => t.name), ...S.settings.topics])];
+  const sh = sheet({ title: 'Organizar com IA', wide: true, body: `<div class="ocrbox">${ico('list')}<div style="flex:1"><b>O Claude está a organizar as notas…</b><div class="faint" style="font-size:12.5px">Por temas, com os próximos passos à parte. Demora uns segundos.</div><div class="bar"><i style="width:40%"></i></div></div></div>`,
+    foot: `<button class="btn ghost" data-manual style="margin-right:auto">Organizar à mão</button><button class="btn" data-close>Cancelar</button><button class="btn pri" data-apply disabled>${ico('check', 'sm')} Aplicar</button>` });
+  sh.el.querySelector('[data-manual]').onclick = () => { sh.close(); organizeSheet(m, after); };
+  let res;
+  const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 75000);
+  try {
+    const { data, error } = await Sync.client().functions.invoke('debrief-ler', { body: { mode: 'organize', text: raw, airline: m.airlineName || '', topics: options }, signal: ctl.signal });
+    if (error) { let info = {}; try { info = await error.context?.json?.(); } catch (e) {} throw new Error(info?.message || 'Organizar com IA indisponível'); }
+    res = data || {};
+    if (!(res.topics || []).length && !(res.next_steps || []).length) throw new Error('O Claude não encontrou nada para organizar');
+  } catch (e) {
+    clearTimeout(tm); if (!sh.el.isConnected) return;
+    sh.el.querySelector('.sheet-b').innerHTML = `<div class="ocrbox">${ico('x')}<div style="flex:1"><b>${esc(e.name === 'AbortError' ? 'O Claude demorou demasiado' : e.message || 'Organizar com IA indisponível')}</b><div class="faint" style="font-size:12.5px">As notas ficaram como estavam. Podes organizar à mão.</div></div></div>`;
+    return;
+  }
+  clearTimeout(tm); if (!sh.el.isConnected) return;
+  const tps = res.topics.map((t) => ({ name: t.name, text: t.text, on: true }));
+  const has = (n) => m.topics.some((x) => norm(x.name) === norm(n) && (x.text || '').trim());
+  const body = sh.el.querySelector('.sheet-b');
+  body.innerHTML = `<p class="hint">Revê e corrige à vontade antes de aplicar. Nada muda até carregares em «Aplicar».</p>
+    <div id="org-tps">${tps.map((t, i) => `<div class="orgt"><div class="orgt-h"><input class="inp" data-tn="${i}" value="${esc(t.name)}" aria-label="Nome do tema">${has(t.name) ? '<span class="faint" style="font-size:12px;white-space:nowrap">junta ao tema</span>' : ''}<button class="ibtn sm" data-trm="${i}" aria-label="Não usar este tema" title="Não usar">${ico('x', 'sm')}</button></div><textarea class="inp" data-tt="${i}" rows="2">${esc(t.text)}</textarea></div>`).join('')}</div>
+    <label class="lbl" style="margin-top:12px">Próximos passos <span class="faint" style="font-weight:500">(um por linha)</span></label><textarea class="inp" id="org-next" rows="3">${esc((res.next_steps || []).join('\n'))}</textarea>
+    <label class="lbl" style="margin-top:12px">Fica nas notas <span class="faint" style="font-weight:500">(o que não encaixou)</span></label><textarea class="inp" id="org-keep" rows="2">${esc((res.keep || []).join('\n'))}</textarea>`;
+  $$('textarea', body).forEach(grow); body.addEventListener('input', (e) => { if (e.target.tagName === 'TEXTAREA') grow(e.target); });
+  body.addEventListener('click', (e) => { const x = e.target.closest('[data-trm]'); if (!x) return; const i = +x.dataset.trm; tps[i].on = !tps[i].on; const row = x.closest('.orgt'); row.classList.toggle('off', !tps[i].on); });
+  const ap = sh.el.querySelector('[data-apply]'); ap.disabled = false;
+  ap.onclick = () => {
+    let n = 0; const back = [];
+    tps.forEach((t, i) => {
+      const name = body.querySelector(`[data-tn="${i}"]`).value.trim(); const text = body.querySelector(`[data-tt="${i}"]`).value.trim();
+      if (!text) return; if (!t.on || !name) { back.push(text); return; }
+      let tp = m.topics.find((x) => norm(x.name) === norm(name)); if (!tp) { tp = { id: uid(), name, text: '' }; m.topics.push(tp); }
+      tp.text = [(tp.text || '').trim(), text].filter(Boolean).join('\n'); n++;
+    });
+    const next = body.querySelector('#org-next').value.split('\n').map((x) => x.trim()).filter(Boolean);
+    const cur = (m.nextSteps || '').trim(); const curN = norm(cur);
+    const add = next.filter((x) => !curN.includes(norm(x)));
+    if (add.length) m.nextSteps = [cur, ...add].filter(Boolean).join('\n');
+    m.raw = [...back, ...body.querySelector('#org-keep').value.split('\n').map((x) => x.trim()).filter(Boolean)].join('\n');
+    sh.close(); toast(`Organizado: ${plural(n, 'tema', 'temas')}${add.length ? ` e ${plural(add.length, 'próximo passo', 'próximos passos')}` : ''}`); after();
   };
 }
 function organizeSheet(m, after) {
@@ -2430,7 +2536,7 @@ function contactFormHTML(c) {
     <div class="grid2">${f('phone', 'Telefone', 'tel')}${f('mobile', 'Telemóvel', 'tel')}</div>
     ${f('website', 'Website', 'url', '', 'autocapitalize="off"')}
     <div class="field"><label class="lbl" for="c-notes">Notas</label><textarea class="inp" id="c-notes" data-cf="notes" rows="2">${esc(c.notes)}</textarea></div>
-    <details class="raw"><summary>Salesforce (opcional)</summary><div style="padding-top:8px">${f('sfId', 'ID do contacto no Salesforce', 'text', '003… (só para importar com o Data Loader)', 'autocapitalize="off"')}</div></details>
+    <details class="raw"><summary>Salesforce (opcional)</summary><div style="padding-top:8px">${f('sfId', 'ID do contacto no Salesforce', 'text', '003… (liga o contacto ao Salesforce)', 'autocapitalize="off"')}</div></details>
     ${c.ocrText ? `<details class="raw ocr-raw"><summary>Texto lido do cartão</summary><pre>${esc(c.ocrText)}</pre></details>` : ''}`;
 }
 function bindContactForm(root, c, touched) {
@@ -2690,28 +2796,28 @@ function viewExport() {
       ${set.length ? `<div class="list" style="max-height:260px;overflow:auto">${set.map((m) => `<a class="row" href="#/r/${m.id}" style="padding:9px 12px">${badge(m.airlineCode, true)}<div class="main"><div class="t" style="font-size:14px">${esc(subjectOf(m))}</div><div class="s">${dueDate(m)}${m.contactIds.length ? '' : ' · sem contacto'}</div></div>${statusPill(m)}</a>`).join('')}</div>` : `<p class="faint" style="margin:0;font-size:14px">Nenhuma reunião neste filtro. Marca as reuniões como «Concluída» quando estiverem revistas.</p>`}
     </div>
 
-    <div class="sec"><h3>${ico('copy', 'sm')} Opção A · Copiar e colar</h3>
+    <div class="sec"><h3>${ico('copy', 'sm')} ${DATALOADER ? 'Opção A · ' : ''}Copiar e colar</h3>
       <p class="how" style="margin:0 0 10px">Funciona sempre, sem permissões especiais. Abre cada reunião e toca em <b>Salesforce</b>: tens os campos do <b>New Meeting Note</b> pela ordem do formulário, prontos a colar.</p>
       <button class="btn" data-copybatch ${set.length ? '' : 'disabled'}>${ico('copy', 'sm')} Copiar todas em texto</button>
     </div>
 
-    <div class="sec"><h3>${ico('download', 'sm')} Opção B · Ficheiros para importação</h3>
+    ${DATALOADER ? `<div class="sec"><h3>${ico('download', 'sm')} Opção B · Ficheiros para importação</h3>
       ${noAcc ? `<div class="warnlist"><div>${ico('x', 'sm')} ${plural(noAcc, 'reunião não tem', 'reuniões não têm')} o ID da conta Salesforce (WhatId). Podes importar na mesma, mas ficam sem ligação à conta. Define os IDs em Definições → Companhias.</div></div>` : ''}
       ${noContact ? `<div class="warnlist"><div>${ico('x', 'sm')} ${plural(noContact, 'reunião não tem', 'reuniões não têm')} contacto (Name).</div></div>` : ''}
       <button class="btn block" data-dl="notes" ${set.length ? '' : 'disabled'} style="margin-bottom:10px">${ico('download', 'sm')} Meeting Notes para o Data Loader (${set.length})</button>
       <button class="btn block" data-dl="contacts" ${cs.length ? '' : 'disabled'}>${ico('download', 'sm')} Contactos para o Assistente de Importação (${cs.length})</button>
       <label class="check" style="margin-top:10px"><input type="checkbox" class="ck" id="xp-new" ${XP.onlyNewContacts ? 'checked' : ''}> Só contactos ainda não exportados</label>
       <label class="check"><input type="checkbox" class="ck" id="xp-mark" ${XP.mark ? 'checked' : ''}> Marcar como exportados depois de descarregar</label>
-    </div>
+    </div>` : ''}
   </div><div>
-    <div class="sec how"><h3>${ico('send', 'sm')} Como importar no Salesforce</h3>
+    ${DATALOADER ? `<div class="sec how"><h3>${ico('send', 'sm')} Como importar no Salesforce</h3>
       <b style="color:var(--ink)">Meeting Notes → Data Loader</b>
       <ol><li>Abre o Data Loader e escolhe <code>Insert</code>, objeto <code>Task</code> (as Meeting Notes são tarefas).</li><li>Escolhe o ficheiro CSV e carrega em <i>Auto-Match Fields to Columns</i>.</li><li>As colunas <code>Ref_…</code> são só para tua referência: deixa-as por mapear.</li></ol>
       <p style="margin:0 0 10px">Antes da primeira importação, pede ao administrador o <b>ID do tipo de registo «Meeting Note»</b> e os <b>nomes API</b> dos campos Flag, Type of Tradeshow e Geographical Scope, e põe-nos em Definições → Importação. O <code>WhatId</code> (conta) e o <code>WhoId</code> (contacto) só são preenchidos se tiveres posto os IDs nas definições ou nas fichas. Sem Data Loader, usa a opção A.</p>
       <b style="color:var(--ink)">Contactos → Assistente de Importação de Dados</b>
       <ol><li>Configuração → <i>Assistente de Importação de Dados</i> → <i>Contas e Contactos</i> → adicionar novos.</li><li>Associa à conta pelo nome da conta (coluna <code>Account Name</code>).</li><li>Codificação de caracteres: <code>UTF-8</code>.</li></ol>
       <p style="margin:0">Se o nome da conta no Salesforce não for igual ao nome da companhia aqui, define-o em Definições → Companhias.</p>
-    </div>
+    </div>` : ''}
     <div class="sec"><h3>${ico('db', 'sm')} Cópia de segurança e passagem para o portátil</h3>
       <p class="how" style="margin:0 0 10px">Um ficheiro com tudo (reuniões, contactos e fotos). No portátil, abre o Debrief e importa-o: junta-se ao que lá estiver, sem duplicar. Última cópia: <b>${ago(S.settings.lastBackupAt)}</b>.</p>
       <div class="acts-row"><button class="btn" data-backup>${ico(isTouch() ? 'share' : 'download', 'sm')} Exportar cópia</button><button class="btn" data-restore>${ico('upload', 'sm')} Importar cópia</button></div>
@@ -2720,8 +2826,8 @@ function viewExport() {
   $$('#xp-scope button').forEach((b) => b.classList.toggle('on', b.dataset.sc === XP.scope));
   $('#xp-from').onchange = (e) => { XP.from = e.target.value; viewExport(); };
   $('#xp-to').onchange = (e) => { XP.to = e.target.value; viewExport(); };
-  $('#xp-new').onchange = (e) => { XP.onlyNewContacts = e.target.checked; viewExport(); };
-  $('#xp-mark').onchange = (e) => { XP.mark = e.target.checked; };
+  $('#xp-new') && ($('#xp-new').onchange = (e) => { XP.onlyNewContacts = e.target.checked; viewExport(); });
+  $('#xp-mark') && ($('#xp-mark').onchange = (e) => { XP.mark = e.target.checked; });
   view.onclick = async (e) => {
     const sc = e.target.closest('[data-sc]'); if (sc) { XP.scope = sc.dataset.sc; return viewExport(); }
     const dl = e.target.closest('[data-dl]');
@@ -2817,13 +2923,13 @@ async function viewSettings() {
       <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeParticipants" ${st.sfIncludeParticipants ? 'checked' : ''}> Incluir participantes da companhia nos Comments</label>
       <label class="check"><input type="checkbox" class="ck" data-sb="sfIncludeInternal" ${st.sfIncludeInternal ? 'checked' : ''}> Incluir participantes ANA nos Comments</label>
     </div>
-    <div class="sec"><h3>${ico('download', 'sm')} Importação com Data Loader <span class="r faint">avançado</span></h3>
+    ${DATALOADER ? `<div class="sec"><h3>${ico('download', 'sm')} Importação com Data Loader <span class="r faint">avançado</span></h3>
       <p class="faint" style="font-size:12.5px;margin:0 0 10px">Só precisas disto se usares o ficheiro CSV. Pede estes valores ao administrador do Salesforce.</p>
       <div class="field"><label class="lbl">ID do tipo de registo «Meeting Note»</label><input class="inp" data-s="sfRecordTypeId" value="${esc(st.sfRecordTypeId)}" placeholder="012…" autocapitalize="off" style="font-family:var(--mono)"></div>
       <div class="field"><label class="lbl">Nome API do campo Flag</label><input class="inp" data-s="sfFlagField" value="${esc(st.sfFlagField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
       <div class="field"><label class="lbl">Nome API do campo Type of Tradeshow</label><input class="inp" data-s="sfTradeshowField" value="${esc(st.sfTradeshowField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
       <div class="field" style="margin:0"><label class="lbl">Nome API do campo Geographical Scope</label><input class="inp" data-s="sfScopeField" value="${esc(st.sfScopeField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
-    </div>
+    </div>` : ''}
   </div><div>
     <div class="sec"><h3>${ico('cal', 'sm')} Eventos <span class="r faint">partilhados com o colega</span></h3>
       <p class="faint" style="font-size:13px;margin:0 0 8px">Feiras, Routes, roadshows… Cada reunião pode ficar associada a um evento (na própria reunião ou, no portátil, selecionando várias na lista).</p>
@@ -2831,7 +2937,7 @@ async function viewSettings() {
       <button class="btn sm" data-evsetnew style="margin-top:8px">${ico('plus', 'sm')} Novo evento</button>
     </div>
     <div class="sec"><h3>${ico('plane', 'sm')} Companhias e contas Salesforce</h3>
-      <p class="faint" style="font-size:13px;margin:0 0 8px">Opcional. O nome da conta ajuda a importar contactos; o ID da conta (começa por 001) liga as Meeting Notes à conta no Data Loader.</p>
+      <p class="faint" style="font-size:13px;margin:0 0 8px">Opcional. O ID da conta (começa por 001) permite abrir o New Meeting Note da conta diretamente a partir da reunião.</p>
       <div id="air-set">${shown.length ? shown.map((a) => { const sf = st.airlineSf?.[airlineKey(a)] || {}; return `<button class="pickrow" data-airset="${esc(airlineKey(a))}">${badge(a.code, true)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${sf.id ? 'ID ' + esc(sf.id) : 'Sem ID de conta'}${sf.name ? ' · ' + esc(sf.name) : ''}</div></div>${ico('chev', 'sm')}</button>`; }).join('') : '<p class="faint" style="font-size:14px;margin:0">As companhias das tuas reuniões aparecem aqui.</p>'}</div>
       <button class="btn sm" data-airfind style="margin-top:10px">${ico('search', 'sm')} Configurar outra companhia</button>
     </div>

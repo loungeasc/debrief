@@ -21,7 +21,8 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
 
 ## Fluxo
 
-1. **+** → companhia → **Cartão de visita** (fotografa; os dados são lidos automaticamente) → escreve tudo em **Notas da reunião**, uma ideia por linha, sem ordem → **Organizar por temas** (as sugestões vêm pré-marcadas; confirma ou muda) → **Marcar como concluída**.
+1. **+** → companhia → **Cartão de visita** (fotografa; os dados são lidos automaticamente) → escreve tudo em **Notas da reunião**, uma ideia por linha, sem ordem → **Organizar com IA** (o Claude arruma por temas e tira os próximos passos; revês e carregas em «Aplicar»; sem rede, organizas à mão) → **Marcar como concluída**.
+   O ecrã da reunião muda conforme o momento: antes da hora mostra a preparação; durante e nas horas seguintes, só contacto, notas, fotos e próximos passos; depois (e no portátil), temas e campos do Salesforce. O resto fica em **Mais**. No topo da lista, o cartão **Agora** mostra a reunião a decorrer, a que acabou sem notas ou a próxima de hoje.
    - Fotos de notas em papel: abre a foto → **Texto** para extrair o texto (com IA quando há rede; ver abaixo), rever e juntar às notas. No iPhone/iPad também podes tocar e manter sobre o texto da foto (Texto ao Vivo).
    - O que ficar por organizar vai para os Comments como «Notas».
 2. No Salesforce: conta da companhia → **New Meeting Note**. No Debrief, toca em **Salesforce** e copia cada campo pela ordem do formulário (Subject, Name, Related To, Due Date, Flag, Type of Tradeshow, Geographical Scope, Comments).
@@ -106,7 +107,11 @@ Com a conta do Portal isto já é automático. Sem conta: Exportar → **Exporta
 
 Faz cópias regularmente: se o browser for limpo, os dados perdem-se.
 
-## Importação em massa (opcional, Data Loader)
+## Importação em massa (Data Loader — desligada)
+
+Escondida na app (`DATALOADER = false` em `index.html`), porque não há acesso API ao Salesforce. Para voltar a mostrar, muda para `true`.
+
+### Como funcionava
 
 Exportar → **Meeting Notes para o Data Loader** gera um CSV para `Insert` no objeto `Task`. Antes da primeira vez, pede ao administrador do Salesforce:
 

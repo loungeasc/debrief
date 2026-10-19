@@ -1,4 +1,4 @@
-// Debrief — leitura de fotos com o Claude (notas manuscritas e cartões de visita).
+// Debrief — leitura de fotos com o Claude (notas manuscritas e cartões de visita), tradução e organização das notas.
 // A chave da API fica só nos segredos do Supabase (ANTHROPIC_API_KEY); nunca vai para a app.
 // Só aceita pedidos de quem tem sessão iniciada e a permissão «reunioes_companhias».
 // As imagens não são guardadas aqui: seguem para o Claude e a resposta volta para a app.
@@ -62,6 +62,16 @@ const CARD_SCHEMA = {
     },
     required: ['firstName', 'lastName', 'title', 'company', 'email', 'phone', 'mobile', 'website', 'text'],
 };
+const ORG_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    topics: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, text: { type: 'string' } }, required: ['name', 'text'] } },
+    next_steps: { type: 'array', items: { type: 'string' } },
+    keep: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['topics', 'next_steps', 'keep'],
+};
 function parseJson(out: any) {
   const t = (out?.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('');
   try { return JSON.parse(t); } catch { const m = t.match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : {}; } catch { return {}; } }
@@ -102,6 +112,38 @@ Deno.serve(async (req) => {
     const out = await r.json();
     const en = (out.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim();
     return json({ mode: 'translate', text: en, model: out.model, usage: out.usage });
+  }
+
+  // Organizar as notas da reunião por temas, com próximos passos
+  if (body?.mode === 'organize') {
+    const raw = String(body?.text ?? '').slice(0, 20000);
+    if (!raw.trim()) return json({ error: 'pedido_invalido' }, 400);
+    const airline = clean(body?.airline, 80);
+    const topics = Array.isArray(body?.topics) ? body.topics.slice(0, 40).map((t: unknown) => clean(t, 60)).filter(Boolean) : [];
+    const prompt = [
+      `Organiza as notas soltas de uma reunião do Aeroporto do Porto (ANA / VINCI Airports) com ${airline ? `a companhia ${airline}` : 'uma companhia aérea'}. As notas foram escritas à pressa, durante ou logo depois da reunião, e vão para o Salesforce.`,
+      topics.length ? `Temas habituais (usa estes nomes, exatamente assim, sempre que servirem): ${topics.join(' | ')}.` : '',
+      '',
+      'Regras:',
+      '- Agrupa por tema. Cria um tema novo só se nenhum dos habituais servir, com um nome curto no mesmo estilo.',
+      '- Em cada tema, escreve o que foi dito em frases curtas e claras, por ordem lógica. Junta ideias repetidas. Corrige abreviaturas óbvias e gralhas, mas mantém siglas, códigos de aeroportos e companhias, números, datas e valores exatamente.',
+      '- Não inventes nada nem acrescentes interpretações. Mantém a língua das notas (português e/ou inglês, como estiverem).',
+      '- Próximos passos: só compromissos e ações concretas (quem faz o quê e quando, se estiver nas notas), uma por linha, começando pelo verbo. Estas ações não se repetem nos temas.',
+      '- «keep»: o que não percebes ou não encaixa em nenhum tema (fica nas notas por organizar). Normalmente vazio.',
+      '- Ordena os temas do mais importante para o menos importante para esta reunião.',
+      '', 'Notas:', raw,
+    ].filter((x) => x !== '').join('\n');
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 6000, output_config: { format: { type: 'json_schema', schema: ORG_SCHEMA } }, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!r.ok) { const t = await r.text(); console.error('anthropic', r.status, t.slice(0, 500)); return json({ error: 'claude', message: r.status === 429 ? 'Limite de utilização atingido.' : 'O Claude não respondeu.' }, 502); }
+    const out = await r.json();
+    const f = parseJson(out);
+    const topicsOut = (Array.isArray(f.topics) ? f.topics : []).map((t: any) => ({ name: clean(t?.name, 60), text: String(t?.text ?? '').trim().slice(0, 4000) })).filter((t: any) => t.name && t.text);
+    const list = (x: unknown) => (Array.isArray(x) ? x : []).map((v) => String(v ?? '').trim()).filter(Boolean).slice(0, 40);
+    return json({ mode: 'organize', topics: topicsOut, next_steps: list(f.next_steps), keep: list(f.keep), model: out.model, usage: out.usage });
   }
 
   const mode = body?.mode === 'card' ? 'card' : 'notes';
