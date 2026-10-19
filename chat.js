@@ -59,7 +59,7 @@ const chatStore = {
 const chatWords = (s) => norm(s).split(/[^a-z0-9]+/).filter((w) => w.length >= 2);
 const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 function chatMeetingText(m) {
-  return [m.airlineName, m.airlineCode, subjectOf(m), m.location, m.internal, m.tradeshow, ...(m.topics || []).map((t) => `${t.name} ${t.text || ''}`), m.raw, m.nextSteps,
+  return [m.airlineName, m.airlineCode, EV.of(m)?.name, subjectOf(m), m.location, m.internal, m.tradeshow, ...(m.topics || []).map((t) => `${t.name} ${t.text || ''}`), m.raw, m.nextSteps,
     ...(m.contactIds || []).map(getC).filter(Boolean).map((c) => `${contactName(c)} ${c.title || ''}`), ...(m.plannedPeople || []).map((p) => p.name)].join(' ');
 }
 function chatFindAirline(q) {
@@ -84,7 +84,7 @@ const CHAT_TOOLS = {
     return {
       total: list.length,
       reunioes: list.slice(0, lim).map((m) => ({
-        id: m.id, data: m.start, companhia: m.airlineName, codigo: m.airlineCode, assunto: subjectOf(m), estado: stateOf(m), local: m.location || '',
+        id: m.id, data: m.start, companhia: m.airlineName, codigo: m.airlineCode, assunto: subjectOf(m), estado: stateOf(m), local: m.location || '', evento: EV.of(m)?.name || '',
         temas: (m.topics || []).filter((t) => (t.text || '').trim()).map((t) => t.name),
         notas: cut([...(m.topics || []).map((t) => t.text), m.raw].filter(Boolean).join(' · '), 260),
         proximos_passos: cut(m.nextSteps, 180),
@@ -96,7 +96,7 @@ const CHAT_TOOLS = {
     if (!m) return { erro: 'Reunião não encontrada' };
     return {
       id: m.id, data: m.start, companhia: m.airlineName, codigo: m.airlineCode, assunto: subjectOf(m), estado: stateOf(m), local: m.location || '',
-      type_of_tradeshow: m.tradeshow || '', criada_por: m.createdByName || '',
+      evento: EV.of(m) ? { nome: EV.of(m).name, datas: EV.dates(EV.of(m)), local: EV.of(m).location || '' } : null, type_of_tradeshow: m.tradeshow || '', criada_por: m.createdByName || '',
       participantes_companhia: (m.contactIds || []).map(getC).filter(Boolean).map((c) => ({ nome: contactName(c), cargo: c.title || '', email: c.email || '' })),
       na_agenda: (m.plannedPeople || []).map((p) => p.name),
       participantes_ana: m.internal || '',

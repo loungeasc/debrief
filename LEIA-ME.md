@@ -21,7 +21,7 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
 
 ## Fluxo
 
-1. **+** → companhia → **Cartão de visita** (fotografa; os dados são lidos automaticamente) → escreve tudo em **Notas da reunião**, uma ideia por linha, sem ordem → **Organizar por temas** (as sugestões vêm pré-marcadas; confirma ou muda) → **Marcar como pronta**.
+1. **+** → companhia → **Cartão de visita** (fotografa; os dados são lidos automaticamente) → escreve tudo em **Notas da reunião**, uma ideia por linha, sem ordem → **Organizar por temas** (as sugestões vêm pré-marcadas; confirma ou muda) → **Marcar como concluída**.
    - Fotos de notas em papel: abre a foto → **Texto** para extrair o texto (com IA quando há rede; ver abaixo), rever e juntar às notas. No iPhone/iPad também podes tocar e manter sobre o texto da foto (Texto ao Vivo).
    - O que ficar por organizar vai para os Comments como «Notas».
 2. No Salesforce: conta da companhia → **New Meeting Note**. No Debrief, toca em **Salesforce** e copia cada campo pela ordem do formulário (Subject, Name, Related To, Due Date, Flag, Type of Tradeshow, Geographical Scope, Comments).
@@ -34,6 +34,12 @@ Subject automático: `Meeting_OPO_<código IATA>_<temas>` (prefixo e aeroporto e
 
 Definições → **Agenda do evento** → cola o endereço do calendário (`webcal://…`) → **Guardar e sincronizar**.
 As reuniões entram como «Confirmadas» só quando alguém de fora da ANA (a companhia) já aceitou; até lá ficam «Por confirmar» (e se todos os de fora recusarem, ficam canceladas). Enquanto um de nós (tu ou o colega do Debrief) ainda não aceitou no calendário, ficam «Por aceitar», a azul claro, com companhia, hora (do local do evento), stand e participantes. Os colegas da ANA vão para «Participantes ANA»; as pessoas da companhia aparecem como atalho para criar o contacto. As canceladas ficam de fora (ou são marcadas, se já tiverem notas). A agenda volta a ser lida sozinha ao abrir a app (no máximo de 15 em 15 minutos) e há um botão ↻ no ecrã principal para a ler na hora; uma reunião apagada no Debrief não volta a aparecer. Reuniões em comum com o colega não se duplicam.
+
+## Lista e eventos
+
+A lista abre em **Pendentes**: reuniões agendadas (confirmadas, por aceitar, por confirmar, por registar), rascunhos e alteradas após exportar. As concluídas, exportadas e canceladas ficam escondidas; vês todas em **Todas** ou no filtro de cada estado.
+
+**Eventos** (Routes World, feiras, roadshows): cria-os em Definições → Eventos, na própria reunião (campo **Evento**) ou, no portátil, selecionando várias reuniões na lista → **Evento**. Cada evento tem nome, datas, local e, opcionalmente, o **Type of Tradeshow**, que passa para as reuniões que ainda não o têm. Ao criar um evento com datas, podes associar logo as reuniões dessas datas; as reuniões novas (e as que chegam da agenda) dentro das datas de um evento ficam associadas sozinhas. Filtra a lista por evento (no telemóvel, na linha de cima). Os eventos são partilhados com o colega.
 
 ## Partilhar com o colega (Supabase do Portal)
 

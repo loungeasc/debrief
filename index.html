@@ -319,6 +319,11 @@ textarea.inp{resize:vertical;line-height:1.5}
 @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
 @keyframes pop{from{transform:scale(.97);opacity:0}to{transform:none;opacity:1}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
+.evbtn{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;min-height:44px}
+.evbtn .grow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pickrow.evrow{padding:0 0 0 0}
+.evrow .evpickbtn{display:flex;align-items:center;gap:12px;border:0;background:none;text-align:left;padding:10px 6px;min-width:0}
+.evfilters{padding-bottom:4px}
 .pickrow{display:flex;align-items:center;gap:12px;width:100%;padding:10px 6px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left}
 .pickrow:last-child{border-bottom:0}
 .pickrow .grow{flex:1;min-width:0}
@@ -542,7 +547,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.14.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -620,7 +625,7 @@ const TIPO_STORE = { meeting: 'meetings', contact: 'contacts', photo: 'photos' }
 
 /* ---------- sincronização com o Supabase do Portal (offline-first) */
 const CLOUD = { url: 'https://uogrldgopqzdicrwcwir.supabase.co', key: 'sb_publishable_wjWRDRsB9LNA7XIn4fsXBw_-_b2yVnV', bucket: 'crm-fotos', table: 'crm_registos' };
-const SHARED_KEYS = ['icsUrls', 'icsIgnored', 'topics', 'customAirlines', 'airlineSf', 'tradeshowOptions', 'subjectPrefix', 'airportCode', 'defaultScope', 'sfIncludeParticipants', 'sfIncludeInternal', 'sfRecordTypeId', 'sfFlagField', 'sfTradeshowField', 'sfScopeField', 'competitors', 'sfDomain', 'sfLinkCustom'];
+const SHARED_KEYS = ['events', 'icsUrls', 'icsIgnored', 'topics', 'customAirlines', 'airlineSf', 'tradeshowOptions', 'subjectPrefix', 'airportCode', 'defaultScope', 'sfIncludeParticipants', 'sfIncludeInternal', 'sfRecordTypeId', 'sfFlagField', 'sfTradeshowField', 'sfScopeField', 'competitors', 'sfDomain', 'sfLinkCustom'];
 const sharedSettings = () => Object.fromEntries(SHARED_KEYS.map((k) => [k, S.settings[k]]));
 const stripLocal = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (!k.startsWith('_')) r[k] = v; return r; };
 const Sync = {
@@ -859,7 +864,7 @@ const DEFAULT_SETTINGS = {
   sfRecordTypeId: '', sfFlagField: 'Flag__c', sfTradeshowField: 'Type_of_Tradeshow__c', sfScopeField: 'Geographical_Scope__c',
   lastBackupAt: 0, iosHintDismissed: false, competitors: 'LIS, FAO, VGO, SCQ', sfDomain: '', sfLinkCustom: true,
 };
-const S = { meetings: [], contacts: [], settings: { ...DEFAULT_SETTINGS }, list: { q: '', status: 'all', airline: '', from: '', to: '', sel: new Set() }, clist: { q: '' } };
+const S = { meetings: [], contacts: [], settings: { ...DEFAULT_SETTINGS }, list: { q: '', status: 'pending', airline: '', from: '', to: '', sel: new Set() }, clist: { q: '' } };
 
 async function loadAll() {
   const [m, c, st] = await Promise.all([DB.all('meetings'), DB.all('contacts'), DB.get('kv', 'settings')]);
@@ -893,6 +898,95 @@ function newMeeting() {
     id: uid(), airlineCode: '', airlineName: '', start: toLocalInput(d), contactIds: [], internal: st.ownerName || '', topics: [], nextSteps: '', photoIds: [],
     raw: '', flag: '', tradeshow: '', scope: parseCodes(st.defaultScope),
     subject: '', subjectAuto: true, status: 'draft', exportedAt: 0, createdAt: now, updatedAt: now,
+    ...EV.autoFields(toLocalInput(d)),
+  };
+}
+/* ---------- eventos (Routes World, feiras, roadshows…): a lista é partilhada com o colega pelas definições; cada reunião guarda o eventId */
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const EV = {
+  list() { return (S.settings.events || []).filter((e) => e && e.id); },
+  all() { return this.list().slice().sort((a, b) => (b.from || '').localeCompare(a.from || '') || (a.name || '').localeCompare(b.name || '')); },
+  get(id) { return id ? this.list().find((e) => e.id === id) || null : null; },
+  of(m) { return this.get(m && m.eventId); },
+  count(e) { return S.meetings.filter((m) => !m._unsaved && m.eventId === e.id).length; },
+  dates(e) {
+    const p = (d) => { const [y, mo, da] = (d || '').split('-').map(Number); return y ? { y, mo, da } : null; };
+    const a = p(e.from), b = p(e.to) || a; if (!a) return '';
+    if (a.y === b.y && a.mo === b.mo) return `${a.da === b.da ? a.da : a.da + '–' + b.da} ${MESES[a.mo - 1]} ${a.y}`;
+    return `${a.da} ${MESES[a.mo - 1]}${a.y !== b.y ? ' ' + a.y : ''} – ${b.da} ${MESES[b.mo - 1]} ${b.y}`;
+  },
+  sub(e) { return [this.dates(e), e.location].filter(Boolean).join(' · '); },
+  covers(e, start) { const d = (start || '').slice(0, 10); return !!(e.from && d && d >= e.from && d <= (e.to || e.from)); },
+  // reunião nova (ou vinda da agenda) dentro das datas de um único evento: fica logo associada
+  autoFields(start) { const hit = this.list().filter((e) => this.covers(e, start)); if (hit.length !== 1) return {}; const e = hit[0]; return { eventId: e.id, ...(e.tradeshow ? { tradeshow: e.tradeshow } : {}) }; },
+  assign(ms, e) {
+    for (const m of ms) {
+      if ((m.eventId || '') === (e ? e.id : '')) continue;
+      const wasClean = m.status === 'exported' && !changedAfterExport(m);
+      if (e) { m.eventId = e.id; if (e.tradeshow && !m.tradeshow && m.status !== 'exported') m.tradeshow = e.tradeshow; } else delete m.eventId;
+      if (m._unsaved) continue;
+      touchMeeting(m); if (wasClean) m.exportedAt = m.updatedAt; // associar a um evento não conta como «alterada após exportar»
+    }
+  },
+  async save(e) { const l = this.list(); const i = l.findIndex((x) => x.id === e.id); if (i >= 0) l[i] = e; else l.push(e); S.settings.events = [...l]; await saveSettings(); },
+  async remove(e) { this.assign(S.meetings.filter((m) => m.eventId === e.id), null); S.settings.events = this.list().filter((x) => x.id !== e.id); await saveSettings(); },
+};
+// Escolher o evento de uma ou mais reuniões
+function eventPicker(ms, after) {
+  const cur = new Set(ms.map((m) => m.eventId || ''));
+  const one = cur.size === 1 ? [...cur][0] : null;
+  const draw = () => {
+    const evs = EV.all();
+    return `${ms.length > 1 ? `<p class="muted" style="margin:0 0 8px;font-size:14px">${plural(ms.length, 'reunião selecionada', 'reuniões selecionadas')}.</p>` : ''}
+      ${evs.length ? evs.map((e) => `<div class="pickrow evrow"><button class="grow evpickbtn" data-evid="${e.id}">${ico('cal', 'sm')}<div class="grow"><div class="t">${esc(e.name)}</div><div class="s">${esc([EV.sub(e), plural(EV.count(e), 'reunião', 'reuniões')].filter(Boolean).join(' · '))}</div></div>${one === e.id ? ico('check', 'sm') : ''}</button><button class="ibtn sm" data-evedit="${e.id}" aria-label="Editar evento" title="Editar evento">${ico('pen', 'sm')}</button></div>`).join('') : '<p class="faint" style="margin:0 0 8px;font-size:14px">Ainda não há eventos. Cria o primeiro (ex.: Routes World 2026).</p>'}
+      <div class="acts-row" style="margin-top:12px"><button class="btn" data-evnew>${ico('plus', 'sm')} Novo evento</button>${[...cur].some(Boolean) ? `<button class="btn ghost" data-evnone>${ico('x', 'sm')} Retirar do evento</button>` : ''}</div>`;
+  };
+  const sh = sheet({ title: ms.length > 1 ? 'Associar a um evento' : 'Evento', body: draw() });
+  const done = (e) => { EV.assign(ms, e); sh.close(); toast(e ? `${ms.length > 1 ? plural(ms.length, 'reunião associada', 'reuniões associadas') : 'Associada'} a ${e.name}` : 'Retirada do evento'); after && after(); };
+  sh.el.onclick = (ev) => {
+    const b = ev.target.closest('[data-evid]'); if (b) return done(EV.get(b.dataset.evid));
+    const ed = ev.target.closest('[data-evedit]'); if (ed) return eventForm(EV.get(ed.dataset.evedit), { after: () => { sh.el.querySelector('.sheet-b').innerHTML = draw(); after && after(); } });
+    if (ev.target.closest('[data-evnew]')) return eventForm(null, { seed: ms, after: (e) => { if (e) done(e); } });
+    if (ev.target.closest('[data-evnone]')) return done(null);
+  };
+}
+// Criar / editar um evento
+function eventForm(e, { seed = [], after } = {}) {
+  const isNew = !e;
+  const ds = seed.map((m) => (m.start || '').slice(0, 10)).filter(Boolean).sort();
+  const x = e ? { ...e } : { id: uid(), name: '', from: ds[0] || '', to: ds[ds.length - 1] || '', location: '', tradeshow: '', createdAt: Date.now() };
+  const tsOpts = [...new Set([...(S.settings.tradeshowOptions || []), ...S.meetings.map((m) => m.tradeshow).filter(Boolean)])];
+  const seedIds = new Set(seed.map((m) => m.id));
+  const others = () => { const f = S.sheetEv; if (!f.from) return []; return S.meetings.filter((m) => !m._unsaved && !seedIds.has(m.id) && !m.eventId && EV.covers(f, m.start)); };
+  S.sheetEv = x;
+  const sh = sheet({ title: isNew ? 'Novo evento' : 'Editar evento', body: `
+    <div class="field"><label class="lbl" for="ev-name">Nome</label><input class="inp" id="ev-name" value="${esc(x.name)}" placeholder="Ex.: Routes World 2026"></div>
+    <div class="grid2"><div class="field"><label class="lbl" for="ev-from">De</label><input class="inp" type="date" id="ev-from" value="${esc(x.from)}"></div><div class="field"><label class="lbl" for="ev-to">Até</label><input class="inp" type="date" id="ev-to" value="${esc(x.to)}"></div></div>
+    <div class="field"><label class="lbl" for="ev-loc">Local</label><input class="inp" id="ev-loc" value="${esc(x.location)}" placeholder="Cidade ou recinto"></div>
+    <div class="field"><label class="lbl" for="ev-ts">Type of Tradeshow <span class="faint" style="font-weight:500">(passa para as reuniões do evento)</span></label><input class="inp" id="ev-ts" list="evtsl" value="${esc(x.tradeshow)}" placeholder="--None--"><datalist id="evtsl">${tsOpts.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></div>
+    <label class="check" id="ev-also-w" hidden><input type="checkbox" class="ck" id="ev-also" checked> <span id="ev-also-t"></span></label>
+    <p class="faint" style="font-size:12.5px;margin:6px 0 0">As reuniões novas (e as que chegam da agenda) dentro destas datas ficam associadas sozinhas.</p>`,
+    foot: `${isNew ? '' : `<button class="btn ghost danger" data-evdel style="margin-right:auto">${ico('trash', 'sm')} Apagar</button>`}<button class="btn" data-close>Cancelar</button><button class="btn pri" data-evok>Guardar</button>`,
+    onClose: () => { S.sheetEv = null; } });
+  const q = (id) => sh.el.querySelector(id);
+  const read = () => { x.name = q('#ev-name').value.trim(); x.from = q('#ev-from').value; x.to = q('#ev-to').value; if (x.from && x.to && x.to < x.from) [x.from, x.to] = [x.to, x.from]; if (x.from && !x.to) x.to = x.from; x.location = q('#ev-loc').value.trim(); x.tradeshow = q('#ev-ts').value.trim(); };
+  const refreshAlso = () => { read(); const n = others().length; q('#ev-also-w').hidden = !n; q('#ev-also-t').textContent = n === 1 ? 'Associar também a outra reunião destas datas que ainda não tem evento' : `Associar também as outras ${n} reuniões destas datas que ainda não têm evento`; };
+  sh.el.addEventListener('input', refreshAlso); refreshAlso();
+  setTimeout(() => q('#ev-name').focus(), 60);
+  sh.el.onclick = async (ev) => {
+    if (ev.target.closest('[data-evok]')) {
+      read(); if (!x.name) { toast('Dá um nome ao evento'); return q('#ev-name').focus(); }
+      const also = !q('#ev-also-w').hidden && q('#ev-also').checked ? others() : [];
+      x.updatedAt = Date.now(); await EV.save({ ...x });
+      if (also.length) EV.assign(also, x);
+      if (!isNew && x.tradeshow) for (const m of S.meetings) if (m.eventId === x.id && !m.tradeshow && m.status !== 'exported') { m.tradeshow = x.tradeshow; touchMeeting(m); }
+      sh.close(); toast(isNew ? 'Evento criado' : 'Evento guardado'); after && after(EV.get(x.id));
+    }
+    if (ev.target.closest('[data-evdel]')) {
+      const n = EV.count(x);
+      if (!(await confirmSheet('Apagar evento?', n ? `As ${plural(n, 'reunião', 'reuniões')} deste evento ficam sem evento (não são apagadas).` : 'O evento é apagado.'))) return;
+      await EV.remove(x); sh.close(); toast('Evento apagado'); after && after(null);
+    }
   };
 }
 const parseCodes = (v) => [...new Set(String(v || '').toUpperCase().split(/[\s,;]+/).filter((x) => /^[A-Z0-9]{3}$/.test(x)))];
@@ -1562,33 +1656,37 @@ function filteredMeetings() {
   return S.meetings.filter((m) => {
     if (!inState(m, f.status)) return false;
     if (f.airline && airlineKey({ code: m.airlineCode, name: m.airlineName }) !== f.airline) return false;
+    if (f.event === '_none' ? !!EV.of(m) : f.event && m.eventId !== f.event) return false;
     const day = (m.start || '').slice(0, 10);
     const [pf, pt] = periodRange(f);
     if (pf && day < pf) return false;
     if (pt && day > pt) return false;
     if (q) {
-      const hay = norm([m.airlineName, m.airlineCode, subjectOf(m), m.raw, m.nextSteps, m.internal, ...m.topics.map((t) => t.name + ' ' + t.text), ...m.contactIds.map((id) => contactName(getC(id)))].join(' '));
+      const hay = norm([m.airlineName, m.airlineCode, EV.of(m)?.name, subjectOf(m), m.raw, m.nextSteps, m.internal, ...m.topics.map((t) => t.name + ' ' + t.text), ...m.contactIds.map((id) => contactName(getC(id)))].join(' '));
       if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
     }
     return true;
   }).sort((x, y) => (['agenda', 'toaccept', 'tentative', 'planned'].includes(f.status) ? (x.start || '').localeCompare(y.start || '') : (y.start || '').localeCompare(x.start || '')) || y.createdAt - x.createdAt);
 }
-/* Estados: agenda (confirmada/por confirmar) → por registar (já passou, sem notas) → rascunho → pronta → exportada; mais alterada após exportar e cancelada na agenda */
+/* Estados: agenda (confirmada/por confirmar) → por registar (já passou, sem notas) → rascunho → concluída → exportada; mais alterada após exportar e cancelada na agenda */
 function stateOf(m) {
   if (m.icsStatus === 'CANCELLED' && m.status !== 'exported') return 'cancelled';
   if (m.status === 'planned') { const fut = (m.start || '') >= toLocalInput(new Date()); if (fut && m.icsStatus === 'NEEDS-ACTION') return 'toaccept'; if (m.icsStatus === 'TENTATIVE') return 'tentative'; return (m.start || '') < toLocalInput(new Date()) ? 'torecord' : 'planned'; }
   if (changedAfterExport(m)) return 'changed';
   return m.status || 'draft';
 }
+// Pendentes (o filtro por defeito): agendadas e rascunhos — o que ainda tem trabalho. Concluídas, exportadas e canceladas ficam escondidas.
+const PENDING_STATES = ['planned', 'toaccept', 'tentative', 'torecord', 'draft', 'changed'];
 function inState(m, f) {
   if (!f || f === 'all') return true;
   const st = stateOf(m);
+  if (f === 'pending') return PENDING_STATES.includes(st);
   if (f === 'agenda') return st === 'planned' || st === 'tentative' || st === 'toaccept';
   if (f === 'exported') return m.status === 'exported';
   return st === f;
 }
 // [chave, nome, mostrar mesmo sem reuniões]
-const STATE_FILTERS = [['agenda', 'Agenda', false], ['toaccept', 'Por aceitar', false], ['tentative', 'Por confirmar', false], ['torecord', 'Por registar', false], ['draft', 'Rascunhos', true], ['ready', 'Prontas', true], ['exported', 'Exportadas', true], ['changed', 'Alteradas após exportar', false], ['cancelled', 'Canceladas na agenda', false]];
+const STATE_FILTERS = [['agenda', 'Agenda', false], ['toaccept', 'Por aceitar', false], ['tentative', 'Por confirmar', false], ['torecord', 'Por registar', false], ['draft', 'Rascunhos', true], ['ready', 'Concluídas', true], ['exported', 'Exportadas', true], ['changed', 'Alteradas após exportar', false], ['cancelled', 'Canceladas na agenda', false]];
 function statusPill(m) {
   return {
     cancelled: '<span class="pill">Cancelada na agenda</span>',
@@ -1597,7 +1695,7 @@ function statusPill(m) {
     planned: '<span class="pill planned">Confirmada</span>',
     torecord: '<span class="pill changed">Por registar</span>',
     changed: '<span class="pill changed">Alterada após exportar</span>',
-    draft: '<span class="pill">Rascunho</span>', ready: '<span class="pill ready">Pronta</span>', exported: '<span class="pill exported">Exportada</span>',
+    draft: '<span class="pill">Rascunho</span>', ready: '<span class="pill ready">Concluída</span>', exported: '<span class="pill exported">Exportada</span>',
   }[stateOf(m)] || '';
 }
 function topBanners() {
@@ -1616,6 +1714,7 @@ const TABLE_COLS = [
   { k: 'companhia', l: 'Companhia', def: true, v: (m) => norm(m.airlineName), h: (m) => `<div class="cellair">${badge(m.airlineCode, true)}<span class="an">${esc(m.airlineName || '—')}</span></div>` },
   { k: 'local', l: 'Local', def: true, v: (m) => norm(m.location), h: (m) => `<div class="loc" title="${esc(m.location || '')}">${esc(m.location || '—')}</div>` },
   { k: 'assunto', l: 'Assunto', def: true, v: (m) => norm(subjectOf(m)), h: (m) => `<div class="subj" title="${esc(subjectOf(m))}">${esc(subjectOf(m))}</div>` },
+  { k: 'evento', l: 'Evento', def: true, v: (m) => norm(EV.of(m)?.name || ''), h: (m) => `<div class="loc" title="${esc(EV.of(m)?.name || '')}">${esc(EV.of(m)?.name || '—')}</div>` },
   { k: 'contactos', l: 'Contactos', def: false, v: (m) => norm(m.contactIds.map((id) => contactName(getC(id))).join(', ')), h: (m) => `<div class="names">${esc(m.contactIds.map((id) => contactName(getC(id))).join(', ') || (m.plannedPeople || []).map((x) => x.name).join(', ') || '—')}</div>` },
   { k: 'ana', l: 'Participantes ANA', def: false, v: (m) => norm(m.internal), h: (m) => `<div class="names">${esc(m.internal || '—')}</div>` },
   { k: 'temas', l: 'Temas', def: false, v: (m) => m.topics.length, h: (m) => `<div class="names">${esc(m.topics.map((t) => t.name).join(', ') || '—')}</div>` },
@@ -1634,10 +1733,11 @@ function viewMeetings() {
   renderChrome('m');
   const f = S.list; const desk = isDesk();
   const list = filteredMeetings();
-  const counts = { all: S.meetings.length, pending: S.meetings.filter((m) => m.status === 'draft' || m.status === 'ready').length };
+  const counts = { all: S.meetings.length, toExport: S.meetings.filter((m) => m.status === 'draft' || m.status === 'ready').length, pending: S.meetings.filter((m) => inState(m, 'pending')).length };
   for (const [k] of STATE_FILTERS) counts[k] = S.meetings.filter((m) => inState(m, k)).length;
-  if (f.status !== 'all' && !STATE_FILTERS.some(([k]) => k === f.status)) f.status = 'all';
+  if (!['all', 'pending'].includes(f.status) && !STATE_FILTERS.some(([k]) => k === f.status)) f.status = 'pending';
   const shownFilters = STATE_FILTERS.filter(([k, , always]) => always || counts[k] || f.status === k);
+  const evs = EV.all(); if (f.event && f.event !== '_none' && !EV.get(f.event)) f.event = '';
   const usedAir = [...new Map(S.meetings.filter((m) => m.airlineName).map((m) => [airlineKey({ code: m.airlineCode, name: m.airlineName }), m.airlineName])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
 
   let body = '';
@@ -1648,8 +1748,9 @@ function viewMeetings() {
     body = `
       <div class="toolbar">
         <div class="search">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar companhia, tema, contacto…" value="${esc(f.q)}"></div>
-        <select class="inp" id="f-status"><option value="all">Todos os estados · ${counts.all}</option>${shownFilters.map(([k, l]) => `<option value="${k}">${l} · ${counts[k]}</option>`).join('')}</select>
+        <select class="inp" id="f-status"><option value="pending">Pendentes · ${counts.pending}</option><option value="all">Todos os estados · ${counts.all}</option>${shownFilters.map(([k, l]) => `<option value="${k}">${l} · ${counts[k]}</option>`).join('')}</select>
         <select class="inp" id="f-air"><option value="">Todas as companhias</option>${usedAir.map(([k, n]) => `<option value="${esc(k)}">${esc(n)}</option>`).join('')}</select>
+        ${evs.length || f.event ? `<select class="inp" id="f-event" title="Evento"><option value="">Todos os eventos</option>${evs.map((e) => `<option value="${e.id}" ${f.event === e.id ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}<option value="_none" ${f.event === '_none' ? 'selected' : ''}>Sem evento</option></select>` : ''}
         <select class="inp" id="f-period" title="Período">${[['all', 'Todas as datas'], ['today', 'Hoje'], ['next7', 'Próximos 7 dias'], ['week', 'Esta semana'], ['month', 'Este mês'], ['last30', 'Últimos 30 dias'], ['custom', 'Escolher datas…']].map(([k, l]) => `<option value="${k}" ${(f.period || 'all') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
         <div class="colmenu" style="margin-left:auto"><button class="btn" data-colmenu aria-expanded="${f.colOpen ? 'true' : 'false'}">${ico('sliders', 'sm')}<span class="btxt">Colunas</span></button>
           <div class="colpanel ${f.colOpen ? '' : 'hide'}">${TABLE_COLS.map((c) => `<label class="check"><input type="checkbox" class="ck" data-colk="${c.k}" ${cols.some((x) => x.k === c.k) ? 'checked' : ''}> ${c.l}</label>`).join('')}
@@ -1659,24 +1760,25 @@ function viewMeetings() {
       ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:34px"><input type="checkbox" id="ck-all" ${list.length && list.every((m) => sel.has(m.id)) ? 'checked' : ''} aria-label="Selecionar todas"></th>${cols.map((c) => `<th class="sortable ${so.col === c.k ? 'sorted' : ''}" data-sortcol="${c.k}" title="Ordenar por ${c.l.toLowerCase()}">${c.l}<span class="arr">${so.col === c.k ? (so.dir === 'desc' ? '▼' : '▲') : '▲'}</span></th>`).join('')}</tr></thead><tbody>
       ${rows.map((m) => `<tr data-id="${m.id}" class="${sel.has(m.id) ? 'sel' : ''}"><td><input type="checkbox" class="ck-row" ${sel.has(m.id) ? 'checked' : ''} aria-label="Selecionar"></td>${cols.map((c) => `<td${c.cls ? ` class="${c.cls}"` : ''}>${c.h(m)}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>` : `<div class="empty"><p>Nenhuma reunião corresponde aos filtros.</p></div>`}
-      ${sel.size ? `<div class="bulk"><span>${plural(sel.size, 'selecionada', 'selecionadas')}</span><button class="btn sm" data-bulk="export">${ico('download', 'sm')} Exportar CSV</button><button class="btn sm" data-bulk="ready">Marcar prontas</button><button class="btn sm" data-bulk="exported">${ico('check', 'sm')} Marcar exportadas</button><button class="btn sm" data-bulk="delete">${ico('trash', 'sm')}</button><button class="btn sm" data-bulk="clear">${ico('x', 'sm')}</button></div>` : ''}`;
+      ${sel.size ? `<div class="bulk"><span>${plural(sel.size, 'selecionada', 'selecionadas')}</span><button class="btn sm" data-bulk="export">${ico('download', 'sm')} Exportar CSV</button><button class="btn sm" data-bulk="event">${ico('cal', 'sm')} Evento</button><button class="btn sm" data-bulk="ready">Marcar concluídas</button><button class="btn sm" data-bulk="exported">${ico('check', 'sm')} Marcar exportadas</button><button class="btn sm" data-bulk="delete">${ico('trash', 'sm')}</button><button class="btn sm" data-bulk="clear">${ico('x', 'sm')}</button></div>` : ''}`;
   } else {
     const today = ymd(new Date());
-    const agenda = f.status === 'all' && !f.q ? list.filter((m) => inState(m, 'agenda') && (m.start || '').slice(0, 10) >= today).sort((a, b) => (a.start || '').localeCompare(b.start || '')) : [];
+    const agenda = (f.status === 'all' || f.status === 'pending') && !f.q ? list.filter((m) => inState(m, 'agenda') && (m.start || '').slice(0, 10) >= today).sort((a, b) => (a.start || '').localeCompare(b.start || '')) : [];
     const agSet = new Set(agenda.map((m) => m.id));
     const groups = new Map();
     for (const m of agenda) { const k = 'Agenda · ' + (fmtDay(m.start) || 'Sem data'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
     for (const m of list) { if (agSet.has(m.id)) continue; const k = fmtDay(m.start) || 'Sem data'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(m); }
     body = `
       <div class="search" style="margin-bottom:10px">${ico('search')}<input class="inp" type="search" id="q" placeholder="Pesquisar" value="${esc(f.q)}"></div>
-      <div class="filters">${[['all', 'Todas'], ...shownFilters].map(([k, l]) => [k, l, counts[k]]).map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
+      ${evs.length ? `<div class="filters evfilters">${[['', 'Todos os eventos'], ...evs.map((e) => [e.id, e.name]), ['_none', 'Sem evento']].map(([k, l]) => `<button class="chip ${(f.event || '') === k ? 'on' : ''}" data-evf="${k}">${k && k !== '_none' ? ico('cal', 'sm') : ''}${esc(l)}</button>`).join('')}</div>` : ''}
+      <div class="filters">${[['pending', 'Pendentes'], ['all', 'Todas'], ...shownFilters].map(([k, l]) => [k, l, counts[k]]).map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
       ${list.length ? [...groups.entries()].map(([g, ms]) => `<div class="group-h">${esc(g)}</div><div class="list">${ms.map((m) => `
         <a class="row" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="t">${esc(m.airlineName || 'Companhia por escolher')}</div><div class="when">${esc(fmtDay(m.start))} · ${fmtTime(m.start)}</div>
-        ${m.location ? `<div class="metaline">${ico('pin', 'sm')}<span class="loc">${esc(m.location)}</span></div>` : ''}</div>
+        ${m.location ? `<div class="metaline">${ico('pin', 'sm')}<span class="loc">${esc(m.location)}</span></div>` : ''}${EV.of(m) && f.event !== m.eventId ? `<div class="metaline">${ico('cal', 'sm')}<span class="loc">${esc(EV.of(m).name)}</span></div>` : ''}</div>
         <div class="meta">${statusPill(m)}</div></a>`).join('')}</div>`).join('') : `<div class="empty"><p>Nada para mostrar.</p></div>`}`;
   }
 
-  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.pending} por exportar</small>` : ''}</h1>${!desk && Sync.mode === 'cloud' ? '<span class="syncst dot" data-dot role="button" tabindex="0"></span>' : ''}${!desk && Sync.on() ? `<a class="ibtn solid" href="#/perguntar" aria-label="Perguntar ao Claude" title="Perguntar ao Claude">${ico('chat')}</a>` : ''}${calUrl() ? (desk ? `<button class="btn" data-calsync title="Ler outra vez o calendário">${ico('refresh', 'sm')} Agenda</button>` : `<button class="ibtn solid" data-calsync aria-label="Atualizar agenda" title="Atualizar agenda">${ico('refresh')}</button>`) : ''}${!desk && Sync.on() ? `<button class="ibtn solid" data-logout2 aria-label="Terminar sessão" title="Terminar sessão">${ico('logout')}</button>` : ''}${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
+  view.innerHTML = `<div class="page"><div class="top"><h1>Reuniões${desk && S.meetings.length ? `<small>${plural(list.length, 'reunião', 'reuniões')} · ${counts.toExport} por exportar</small>` : ''}</h1>${!desk && Sync.mode === 'cloud' ? '<span class="syncst dot" data-dot role="button" tabindex="0"></span>' : ''}${!desk && Sync.on() ? `<a class="ibtn solid" href="#/perguntar" aria-label="Perguntar ao Claude" title="Perguntar ao Claude">${ico('chat')}</a>` : ''}${calUrl() ? (desk ? `<button class="btn" data-calsync title="Ler outra vez o calendário">${ico('refresh', 'sm')} Agenda</button>` : `<button class="ibtn solid" data-calsync aria-label="Atualizar agenda" title="Atualizar agenda">${ico('refresh')}</button>`) : ''}${!desk && Sync.on() ? `<button class="ibtn solid" data-logout2 aria-label="Terminar sessão" title="Terminar sessão">${ico('logout')}</button>` : ''}${desk ? `<button class="btn" data-goexport>${ico('send', 'sm')} Exportar</button><button class="btn pri" data-new2>${ico('plus')} Nova reunião</button>` : ''}</div>${topBanners()}${body}</div>`;
 
   const st = $('#f-status'); if (st) st.value = f.status;
   $$('[data-colk]').forEach((cb) => cb.addEventListener('change', async () => {
@@ -1689,6 +1791,7 @@ function viewMeetings() {
   $('#q')?.addEventListener('input', debounce((e) => { f.q = e.target.value; rerender(); }, 220));
   st && (st.onchange = () => { f.status = st.value; viewMeetings(); });
   fa && (fa.onchange = () => { f.airline = fa.value; viewMeetings(); });
+  $('#f-event') && ($('#f-event').onchange = (e) => { f.event = e.target.value; viewMeetings(); });
   $('#f-period') && ($('#f-period').onchange = (e) => { f.period = e.target.value; viewMeetings(); });
   $('#f-from') && ($('#f-from').onchange = (e) => { f.from = e.target.value; viewMeetings(); });
   $('#f-to') && ($('#f-to').onchange = (e) => { f.to = e.target.value; viewMeetings(); });
@@ -1704,6 +1807,7 @@ function viewMeetings() {
     if (t.closest('[data-dismiss-ios]')) { S.settings.iosHintDismissed = true; await saveSettings(); return viewMeetings(); }
     if (t.closest('[data-backup]')) return exportBackup();
     const stb = t.closest('[data-st]'); if (stb) { f.status = stb.dataset.st; return viewMeetings(); }
+    const evf = t.closest('[data-evf]'); if (evf) { f.event = evf.dataset.evf; return viewMeetings(); }
     const bulk = t.closest('[data-bulk]'); if (bulk) return bulkAction(bulk.dataset.bulk);
     const sc = t.closest('[data-sortcol]'); if (sc) {
       const cur = S.settings.tableSort || {}; const k = sc.dataset.sortcol;
@@ -1724,9 +1828,10 @@ async function bulkAction(kind) {
   const ids = [...S.list.sel]; const ms = ids.map(getM).filter(Boolean);
   if (kind === 'clear') { S.list.sel.clear(); return viewMeetings(); }
   if (kind === 'export') return exportNotes(ms, { mark: true });
+  if (kind === 'event') return eventPicker(ms, () => viewMeetings());
   if (kind === 'ready' || kind === 'exported') {
     for (const m of ms) { m.status = kind; if (kind === 'exported') { m.updatedAt = Date.now(); m.exportedAt = m.updatedAt; } else m.updatedAt = Date.now(); await DB.put('meetings', m); }
-    toast(kind === 'ready' ? 'Marcadas como prontas' : 'Marcadas como exportadas'); return viewMeetings();
+    toast(kind === 'ready' ? 'Marcadas como concluídas' : 'Marcadas como exportadas'); return viewMeetings();
   }
   if (kind === 'delete') {
     if (!(await confirmSheet(`Apagar ${plural(ms.length, 'reunião', 'reuniões')}?`, 'As reuniões e as fotos das notas são apagadas deste dispositivo. Os contactos ficam.'))) return;
@@ -1757,6 +1862,7 @@ function viewMeeting(id) {
         <div class="field"><button class="airpick" data-air id="airpick"></button></div>
         <div class="field"><label class="lbl" for="f-start">Data e hora</label><input class="inp" type="datetime-local" id="f-start" data-f="start" value="${esc(m.start)}"></div>
         <div class="field" style="margin-bottom:0"><label class="lbl" for="f-loc">Local</label><input class="inp" id="f-loc" data-f="location" list="locs" value="${esc(m.location || '')}" placeholder="Ex.: stand A12, escritório da companhia, Teams…"><datalist id="locs">${[...new Set(S.meetings.map((x) => x.location).filter(Boolean))].slice(0, 30).map((l) => `<option value="${esc(l)}">`).join('')}</datalist></div>
+        <div class="field" style="margin:12px 0 0"><label class="lbl">Evento</label><button class="inp evbtn" data-evpick id="evpick"></button></div>
         ${['CANCELLED', 'TENTATIVE', 'NEEDS-ACTION'].includes(m.icsStatus) ? `<div class="locline ${m.icsStatus === 'CANCELLED' ? 'cancel' : ''}">${ico(m.icsStatus === 'CANCELLED' ? 'x' : 'cal', 'sm')} ${m.icsStatus === 'CANCELLED' ? 'Cancelada na agenda' : m.icsStatus === 'NEEDS-ACTION' ? 'Por aceitar na agenda (falta aceitar do nosso lado)' : 'Por confirmar na agenda'}</div>` : ''}
       </div>
 
@@ -1810,7 +1916,8 @@ function viewMeeting(id) {
     $('#ed-sub').textContent = `${fmtDay(m.start)} · ${fmtTime(m.start)}${m.status === 'exported' ? ' · exportada ' + fmtTs(m.exportedAt).slice(0, 10) : ''}${by}`;
     $('#airpick').innerHTML = m.airlineName ? `${badge(m.airlineCode)}<div class="grow"><div class="n">${esc(m.airlineName)}</div><div class="c">${m.airlineCode ? esc(m.airlineCode) + ' · tocar para mudar' : 'Nome livre · tocar para editar'}</div></div>${ico('chev')}` : `${badge('')}<div class="grow"><div class="n">Escolher companhia ou entidade</div><div class="c">Da lista ou com nome livre (ex.: um aeroporto)</div></div>${ico('chev')}`;
     $('#scope').innerHTML = scopeOf(m).length ? scopeOf(m).map((c) => `<span class="chip" style="font-family:var(--mono)">${c}<button class="x ibtn sm" data-rmscope="${c}" aria-label="Retirar ${c}" style="border:0;background:none">${ico('x', 'sm')}</button></span>`).join('') : '<span class="faint" style="font-size:14px">Nenhum</span>';
-    const lbl = m.status === 'draft' ? `${ico('check', 'sm')} Marcar como pronta` : m.status === 'ready' ? `${ico('check', 'sm')} Pronta` : `${ico('check', 'sm')} Exportada`;
+    const ev = EV.of(m); $('#evpick').innerHTML = ev ? `${ico('cal', 'sm')}<span class="grow"><b>${esc(ev.name)}</b>${EV.sub(ev) ? ` <span class="faint">· ${esc(EV.sub(ev))}</span>` : ''}</span>${ico('chev', 'sm')}` : `${ico('cal', 'sm')}<span class="grow faint">Sem evento · tocar para associar</span>${ico('chev', 'sm')}`;
+    const lbl = m.status === 'draft' ? `${ico('check', 'sm')} Marcar como concluída` : m.status === 'ready' ? `${ico('check', 'sm')} Concluída` : `${ico('check', 'sm')} Exportada`;
     for (const b of [$('#st-mob'), $('#st-desk')]) { b.innerHTML = lbl; b.className = 'btn ' + (m.status === 'draft' ? 'dark' : 'ok'); }
     $('#subj-hint').textContent = m.subjectAuto ? `Automático: ${S.settings.subjectPrefix || 'Meeting'}_${S.settings.airportCode || 'OPO'}_<código IATA>_<temas>. Podes editar.` : 'Assunto personalizado.';
   };
@@ -1840,6 +1947,7 @@ function viewMeeting(id) {
     const t = e.target;
     if (t.closest('[data-back]')) { await flushSaves(); return goBack('#/'); }
     if (t.closest('[data-ask]')) { await flushSaves(); return go('#/perguntar/r-' + m.id); }
+    if (t.closest('[data-evpick]')) return eventPicker([m], () => { const ts = $('#f-ts'); if (ts) ts.value = m.tradeshow || ''; refreshHeader(); if (desk) renderAside(m); });
     if (t.closest('[data-simnew]')) return simOpen(m, null, () => { renderSims(m); changed(); });
     const so = t.closest('[data-simopen]'); if (so) return simOpen(m, (m.sims || []).find((x) => x.id === so.dataset.simopen), () => { renderSims(m); changed(); });
     const sr = t.closest('[data-simrm]'); if (sr) { if (!(await confirmSheet('Apagar simulação?', 'A simulação é retirada desta reunião.', 'Apagar'))) return; m.sims = (m.sims || []).filter((x) => x.id !== sr.dataset.simrm); renderSims(m); return changed(); }
@@ -2038,10 +2146,10 @@ async function toggleStatus(m, after) {
   if (m.status === 'draft' || m.status === 'planned') {
     const w = meetingWarnings(m).filter((x) => !x.startsWith('Há '));
     if (w.length) { toast(w[0]); return; }
-    m.status = 'ready'; touchMeeting(m); toast('Pronta para exportar');
+    m.status = 'ready'; touchMeeting(m); toast('Concluída · pronta para exportar');
   } else if (m.status === 'ready') { m.status = 'draft'; touchMeeting(m); }
   else {
-    const ok = await confirmSheet('Voltar a «Pronta»?', `Esta reunião foi marcada como exportada em ${fmtTs(m.exportedAt)}. Se a voltares a marcar como pronta, volta a entrar na próxima exportação.`, 'Marcar como pronta', false);
+    const ok = await confirmSheet('Voltar a «Concluída»?', `Esta reunião foi marcada como exportada em ${fmtTs(m.exportedAt)}. Se a voltares a marcar como concluída, volta a entrar na próxima exportação.`, 'Marcar como concluída', false);
     if (!ok) return; m.status = 'ready'; m.exportedAt = 0; touchMeeting(m);
   }
   after && after();
@@ -2059,7 +2167,7 @@ function meetingMenu(m) {
     const o = e.target.closest('[data-o]')?.dataset.o; if (!o) return; sh.close();
     if (o === 'del') return delMeetingFlow(m);
     if (o === 'copyall') { await copyText(fullText(m)); return toast('Copiado'); }
-    if (o === 'dup') { const n = newMeeting(); Object.assign(n, { airlineCode: m.airlineCode, airlineName: m.airlineName, contactIds: [...m.contactIds], internal: m.internal, scope: [...scopeOf(m)], tradeshow: m.tradeshow, flag: m.flag, topics: m.topics.map((t) => ({ id: uid(), name: t.name, text: '' })) }); S.meetings.push(n); await DB.put('meetings', n); go('#/r/' + n.id); toast('Reunião duplicada'); }
+    if (o === 'dup') { const n = newMeeting(); Object.assign(n, { airlineCode: m.airlineCode, airlineName: m.airlineName, contactIds: [...m.contactIds], internal: m.internal, scope: [...scopeOf(m)], tradeshow: m.tradeshow, flag: m.flag, ...(m.eventId ? { eventId: m.eventId } : {}), topics: m.topics.map((t) => ({ id: uid(), name: t.name, text: '' })) }); S.meetings.push(n); await DB.put('meetings', n); go('#/r/' + n.id); toast('Reunião duplicada'); }
   };
 }
 function fullText(m) {
@@ -2381,10 +2489,10 @@ function viewExport() {
   view.innerHTML = `<div class="page"><div class="top"><h1>Exportar<small>Para o Salesforce e cópias de segurança</small></h1></div>
   <div class="two"><div>
     <div class="sec"><h3>${ico('list', 'sm')} Que reuniões?</h3>
-      <div class="field"><div class="seg" id="xp-scope"><button data-sc="ready">Prontas</button><button data-sc="pending">Por exportar</button><button data-sc="all">Todas</button></div></div>
+      <div class="field"><div class="seg" id="xp-scope"><button data-sc="ready">Concluídas</button><button data-sc="pending">Por exportar</button><button data-sc="all">Todas</button></div></div>
       <div class="grid2"><div class="field"><label class="lbl">Desde</label><input class="inp" type="date" id="xp-from" value="${esc(XP.from)}"></div><div class="field"><label class="lbl">Até</label><input class="inp" type="date" id="xp-to" value="${esc(XP.to)}"></div></div>
       <div class="kpi"><div><b>${set.length}</b><span>${set.length === 1 ? 'meeting note' : 'meeting notes'}</span></div><div><b>${cs.length}</b><span>${cs.length === 1 ? 'contacto' : 'contactos'}${XP.onlyNewContacts ? ' novos' : ''}</span></div></div>
-      ${set.length ? `<div class="list" style="max-height:260px;overflow:auto">${set.map((m) => `<a class="row" href="#/r/${m.id}" style="padding:9px 12px">${badge(m.airlineCode, true)}<div class="main"><div class="t" style="font-size:14px">${esc(subjectOf(m))}</div><div class="s">${dueDate(m)}${m.contactIds.length ? '' : ' · sem contacto'}</div></div>${statusPill(m)}</a>`).join('')}</div>` : `<p class="faint" style="margin:0;font-size:14px">Nenhuma reunião neste filtro. Marca as reuniões como «Pronta» quando estiverem revistas.</p>`}
+      ${set.length ? `<div class="list" style="max-height:260px;overflow:auto">${set.map((m) => `<a class="row" href="#/r/${m.id}" style="padding:9px 12px">${badge(m.airlineCode, true)}<div class="main"><div class="t" style="font-size:14px">${esc(subjectOf(m))}</div><div class="s">${dueDate(m)}${m.contactIds.length ? '' : ' · sem contacto'}</div></div>${statusPill(m)}</a>`).join('')}</div>` : `<p class="faint" style="margin:0;font-size:14px">Nenhuma reunião neste filtro. Marca as reuniões como «Concluída» quando estiverem revistas.</p>`}
     </div>
 
     <div class="sec"><h3>${ico('copy', 'sm')} Opção A · Copiar e colar</h3>
@@ -2522,6 +2630,11 @@ async function viewSettings() {
       <div class="field" style="margin:0"><label class="lbl">Nome API do campo Geographical Scope</label><input class="inp" data-s="sfScopeField" value="${esc(st.sfScopeField)}" autocapitalize="off" style="font-family:var(--mono)"></div>
     </div>
   </div><div>
+    <div class="sec"><h3>${ico('cal', 'sm')} Eventos <span class="r faint">partilhados com o colega</span></h3>
+      <p class="faint" style="font-size:13px;margin:0 0 8px">Feiras, Routes, roadshows… Cada reunião pode ficar associada a um evento (na própria reunião ou, no portátil, selecionando várias na lista).</p>
+      <div id="ev-set">${EV.all().map((e) => `<button class="pickrow" data-evset="${e.id}">${ico('cal', 'sm')}<div class="grow"><div class="t">${esc(e.name)}</div><div class="s">${esc([EV.sub(e), plural(EV.count(e), 'reunião', 'reuniões')].filter(Boolean).join(' · '))}</div></div>${ico('chev', 'sm')}</button>`).join('')}</div>
+      <button class="btn sm" data-evsetnew style="margin-top:8px">${ico('plus', 'sm')} Novo evento</button>
+    </div>
     <div class="sec"><h3>${ico('plane', 'sm')} Companhias e contas Salesforce</h3>
       <p class="faint" style="font-size:13px;margin:0 0 8px">Opcional. O nome da conta ajuda a importar contactos; o ID da conta (começa por 001) liga as Meeting Notes à conta no Data Loader.</p>
       <div id="air-set">${shown.length ? shown.map((a) => { const sf = st.airlineSf?.[airlineKey(a)] || {}; return `<button class="pickrow" data-airset="${esc(airlineKey(a))}">${badge(a.code, true)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${sf.id ? 'ID ' + esc(sf.id) : 'Sem ID de conta'}${sf.name ? ' · ' + esc(sf.name) : ''}</div></div>${ico('chev', 'sm')}</button>`; }).join('') : '<p class="faint" style="font-size:14px;margin:0">As companhias das tuas reuniões aparecem aqui.</p>'}</div>
@@ -2561,6 +2674,8 @@ async function viewSettings() {
     const tu = t.closest('[data-tsu]'); if (tu) { const i = +tu.dataset.tsu; if (i > 0) { [st.topics[i - 1], st.topics[i]] = [st.topics[i], st.topics[i - 1]]; await saveSettings(); renderTopicSettings(); } return; }
     const td = t.closest('[data-tsd]'); if (td) { const i = +td.dataset.tsd; if (i < st.topics.length - 1) { [st.topics[i + 1], st.topics[i]] = [st.topics[i], st.topics[i + 1]]; await saveSettings(); renderTopicSettings(); } return; }
     const tr = t.closest('[data-tsr]'); if (tr) { st.topics.splice(+tr.dataset.tsr, 1); await saveSettings(); renderTopicSettings(); return; }
+    const es = t.closest('[data-evset]'); if (es) return eventForm(EV.get(es.dataset.evset), { after: () => rerenderKeep() });
+    if (t.closest('[data-evsetnew]')) return eventForm(null, { after: () => rerenderKeep() });
     const as = t.closest('[data-airset]'); if (as) return airSfSheet(as.dataset.airset);
     if (t.closest('[data-airfind]')) return pickAirline((a) => airSfSheet(airlineKey(a)));
     if (t.closest('[data-goexp]')) return go('#/exportar');
@@ -2744,6 +2859,7 @@ async function syncCalendar({ manual = false } = {}) {
       if (!ex) {
         const m = newMeeting();
         Object.assign(m, { id, status: 'planned', icsUid: e.UID, source: 'calendar', start: d.start, durationMin: d.durationMin, location: d.location, tz: d.tz, airlineName: d.airlineName, airlineCode: d.airlineCode, internal: d.internal || m.internal, plannedPeople: d.plannedPeople, icsStatus: d.icsStatus, icsTitle: d.icsTitle });
+        delete m.eventId; m.tradeshow = ''; Object.assign(m, EV.autoFields(d.start)); // evento pelas datas da reunião
         for (const x of d.plannedPeople) { const c = S.contacts.find((cc) => norm(contactName(cc)) === norm(x.name)); if (c && !m.contactIds.includes(c.id)) m.contactIds.push(c.id); }
         if (Sync.on()) { m.createdByName = Sync.userName || Sync.email; m.updatedByName = m.createdByName; }
         S.meetings.push(m); await DB.put('meetings', m); r.novas++;
