@@ -324,6 +324,8 @@ textarea.inp{resize:vertical;line-height:1.5}
 .pickrow.evrow{padding:0 0 0 0}
 .evrow .evpickbtn{display:flex;align-items:center;gap:12px;border:0;background:none;text-align:left;padding:10px 6px;min-width:0}
 .evfilters{padding-bottom:4px}
+.sftag{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:#1d5fa8;background:#e3f0fd;border-radius:5px;padding:1px 5px;vertical-align:2px;margin-left:4px}
+@media (prefers-color-scheme:dark){.sftag{background:#14283f;color:#7fb6f0}}
 .pickrow{display:flex;align-items:center;gap:12px;width:100%;padding:10px 6px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left}
 .pickrow:last-child{border-bottom:0}
 .pickrow .grow{flex:1;min-width:0}
@@ -547,7 +549,7 @@ body.gate main{padding-bottom:0}
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.14.0';
+const APP_VERSION = '1.15.0';
 
 /* ---------- utilidades */
 const $ = (s, r = document) => r.querySelector(s);
@@ -663,6 +665,7 @@ const Sync = {
       this.state = 'idle'; this.error = ''; this.lastOk = Date.now(); this.save();
       if (changed) await onRemoteChanges();
       syncCalendar();
+      DIR.refresh().catch((e) => console.warn('diretorio', e));
     } catch (e) {
       console.error('sync', e);
       const msg = String(e?.message || e);
@@ -2225,6 +2228,133 @@ function newAirlineSheet(name = '') {
   });
 }
 
+/* ---------- Diretório Salesforce: cópia dos contactos do Salesforce, só para consulta (não entra nos Contactos) */
+const nameCase = (x) => { x = String(x || '').trim(); return x && x === x.toUpperCase() && /[A-ZÀ-Ý]/.test(x) ? x.toLowerCase().replace(/(^|[\s\-'’.])(\p{L})/gu, (_, a, b) => a + b.toUpperCase()) : x; };
+const DIR = {
+  rows: null, meta: null, loading: null,
+  COLS: 'id,nome,apelido,conta,conta_id,cargo,email,telefone,telemovel,bu,alterado_sf,lote,atualizado_em',
+  // linha compacta → objeto
+  obj(r) { return { id: r[0], first: r[1], last: r[2], account: r[3], accountId: r[4], title: r[5], email: r[6], phone: r[7], mobile: r[8], bu: r[9], modified: r[10], k: r[11] }; },
+  name(d) { return [nameCase(d.first), nameCase(d.last)].filter(Boolean).join(' ') || d.email || 'Sem nome'; },
+  async load() {
+    if (this.rows) return this.rows;
+    if (!this.loading) this.loading = (async () => {
+      let k = null; try { k = await DB.get('kv', 'dir'); } catch (e) {}
+      this.meta = k ? { lote: k.lote, at: k.at, count: (k.rows || []).length, checked: k.checked || 0 } : null;
+      this.rows = (k?.rows || []).map((r) => { const d = this.obj(r); d.k = norm([d.first, d.last, d.account, d.email, d.title].join(' ')); return d; });
+      return this.rows;
+    })();
+    return this.loading;
+  },
+  count() { return this.rows ? this.rows.length : (this.meta?.count || 0); },
+  // vai buscar ao Supabase se houver importação nova (vê no máximo de 6 em 6 horas, ou quando pedido)
+  async refresh(force = false) {
+    await this.load();
+    if (!Sync.on() || !navigator.onLine) return false;
+    if (!force && this.meta && Date.now() - (this.meta.checked || 0) < 6 * 3600e3) return false;
+    const sb = Sync.client();
+    const top = await sb.from('crm_diretorio').select('lote,atualizado_em').order('atualizado_em', { ascending: false }).limit(1);
+    if (top.error) { if (/crm_diretorio/.test(top.error.message || '')) return false; throw top.error; }
+    const lote = top.data?.[0]?.lote || '';
+    if (this.meta && this.meta.lote === lote && !force) { this.meta.checked = Date.now(); await this.store(null); return false; }
+    const all = [];
+    for (let off = 0; ; off += 1000) {
+      const { data, error } = await sb.from('crm_diretorio').select(this.COLS).order('id').range(off, off + 999);
+      if (error) throw error;
+      for (const x of data) all.push([x.id, x.nome, x.apelido, x.conta, x.conta_id, x.cargo, x.email, x.telefone, x.telemovel, x.bu, x.alterado_sf || '']);
+      if (data.length < 1000) break;
+    }
+    this.rows = null; this.loading = null;
+    await DB.rawPut('kv', { rows: all, lote, at: top.data?.[0]?.atualizado_em || '', checked: Date.now() }, 'dir');
+    await this.load(); return true;
+  },
+  async store() { try { const k = (await DB.get('kv', 'dir')) || {}; k.checked = Date.now(); await DB.rawPut('kv', k, 'dir'); } catch (e) {} },
+  // pesquisa por nome (e conta, email, cargo); a companhia da reunião aparece primeiro
+  search(q, { airline = '', limit = 30 } = {}) {
+    if (!this.rows) return [];
+    const ws = norm(q).split(/\s+/).filter(Boolean); if (!ws.length) return [];
+    const an = norm(airline);
+    const hits = this.rows.filter((d) => ws.every((w) => d.k.includes(w)));
+    const score = (d) => { const nm = norm(d.first + ' ' + d.last); let sc = 0; if (ws.every((w) => nm.includes(w))) sc += 4; if (nm.startsWith(ws[0]) || norm(d.last).startsWith(ws[0])) sc += 2; if (an && (norm(d.account).includes(an) || an.includes(norm(d.account)))) sc += 3; if (d.bu === 'ANA') sc += 1; return sc; };
+    return hits.map((d) => [d, score(d)]).sort((a, b) => b[1] - a[1] || (b[0].modified || '').localeCompare(a[0].modified || '')).slice(0, limit).map((x) => x[0]);
+  },
+  byEmail(em) { em = String(em || '').trim().toLowerCase(); return em && this.rows ? this.rows.find((d) => (d.email || '').toLowerCase() === em) || null : null; },
+  byName(first, last) { const a = norm(first), b = norm(last); if (!b || !this.rows) return null; const l = this.rows.filter((d) => norm(d.last) === b && (!a || norm(d.first) === a || norm(d.first).startsWith(a))); return l.length === 1 ? l[0] : null; },
+  // contas do Salesforce com nome parecido ao da companhia (para ligar a conta à companhia)
+  accounts(name) {
+    if (!this.rows || !name) return [];
+    const n = norm(name).replace(/\b(airlines?|airways|air lines|group|s\.?a\.?)\b/g, ' ').trim(); if (n.length < 2) return [];
+    const m = new Map();
+    for (const d of this.rows) { if (!d.accountId) continue; const a = norm(d.account); if (a.includes(n) || n.includes(a)) { const x = m.get(d.accountId) || { id: d.accountId, name: d.account, n: 0 }; x.n++; m.set(d.accountId, x); } }
+    return [...m.values()].sort((a, b) => b.n - a.n).slice(0, 5);
+  },
+  // contacto do Debrief a partir de uma linha do diretório (ou o que já existe com o mesmo ID/email)
+  async toContact(d) {
+    const em = (d.email || '').toLowerCase();
+    let c = S.contacts.find((x) => (x.sfId && x.sfId.slice(0, 15) === d.id.slice(0, 15)) || (em && (x.email || '').toLowerCase() === em));
+    if (c) { let ch = false; for (const [k, v] of [['sfId', d.id], ['title', d.title], ['email', d.email], ['phone', d.phone], ['mobile', d.mobile]]) if (!c[k] && v) { c[k] = v; ch = true; } if (ch) { c.updatedAt = Date.now(); await DB.put('contacts', c); } return c; }
+    const a = matchAirline([d.account]);
+    c = newContact({ firstName: nameCase(d.first), lastName: nameCase(d.last), title: d.title, company: a ? a.name : d.account, airlineCode: a ? a.code : '', email: d.email, phone: d.phone, mobile: d.mobile, sfId: d.id, notes: '' });
+    S.contacts.push(c); await DB.put('contacts', c); return c;
+  },
+  row(d, attr) { return `<button class="pickrow" ${attr}>${ico('user', 'sm')}<div class="grow"><div class="t">${esc(this.name(d))} <span class="sftag">SF</span></div><div class="s">${esc([d.title, d.account].filter(Boolean).join(' · '))}</div></div></button>`; },
+  // importação do CSV exportado do Salesforce
+  parseCSV(text) {
+    text = text.replace(/^﻿/, '');
+    const first = text.slice(0, text.indexOf('\n') > 0 ? text.indexOf('\n') : text.length);
+    const sep = (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ';' : (first.includes('\t') ? '\t' : ',');
+    const rows = []; let row = [], cur = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; continue; }
+      if (ch === '"') q = true; else if (ch === sep) { row.push(cur); cur = ''; } else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); cur = ''; if (row.some((x) => x !== '')) rows.push(row); row = []; } else cur += ch;
+    }
+    row.push(cur); if (row.some((x) => x !== '')) rows.push(row);
+    const h = (rows.shift() || []).map((x) => norm(x));
+    const col = (...names) => h.findIndex((x) => names.includes(x));
+    const ix = { id: col('contact id', 'id do contacto', 'id'), first: col('first name', 'nome proprio'), last: col('last name', 'apelido'), account: col('account name', 'nome da conta'), accountId: col('account id', 'id da conta'),
+      title: col('title/role', 'title', 'cargo'), email: col('email'), phone: col('phone 1', 'phone', 'telefone'), mobile: col('mobile', 'telemovel'), bu: col('bu'), modified: col('last modified date', 'data da ultima modificacao') };
+    if (ix.id < 0 || ix.last < 0) throw new Error('O ficheiro não tem as colunas «Contact ID» e «Last Name»');
+    const g = (r, k) => (ix[k] >= 0 ? String(r[ix[k]] || '').trim() : '');
+    const date = (v) => { const m = v.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null; };
+    const out = new Map();
+    for (const r of rows) { const id = g(r, 'id'); if (!/^003[A-Za-z0-9]{12}([A-Za-z0-9]{3})?$/.test(id)) continue; out.set(id, { id, nome: g(r, 'first'), apelido: g(r, 'last'), conta: g(r, 'account'), conta_id: g(r, 'accountId'), cargo: g(r, 'title'), email: g(r, 'email'), telefone: g(r, 'phone'), telemovel: g(r, 'mobile'), bu: g(r, 'bu'), alterado_sf: date(g(r, 'modified')) }); }
+    return [...out.values()];
+  },
+  async importCSV(file, progress) {
+    if (!Sync.on()) throw new Error('A importação precisa de sessão iniciada');
+    const list = this.parseCSV(await file.text());
+    if (!list.length) throw new Error('Não encontrei contactos com Contact ID (003…) no ficheiro');
+    const sb = Sync.client(); const lote = uid(); const now = new Date().toISOString();
+    for (let i = 0; i < list.length; i += 500) {
+      const { error } = await sb.from('crm_diretorio').upsert(list.slice(i, i + 500).map((x) => ({ ...x, lote, atualizado_em: now })), { onConflict: 'id' });
+      if (error) throw new Error(/crm_diretorio/.test(error.message || '') ? 'Falta criar a tabela do diretório no Supabase (06_diretorio.sql)' : error.message);
+      progress && progress(Math.min(list.length, i + 500), list.length);
+    }
+    const del = await sb.from('crm_diretorio').delete().neq('lote', lote); if (del.error) console.warn('diretorio', del.error);
+    await this.refresh(true);
+    return list.length;
+  },
+};
+// Ficha de um contacto do diretório
+function dirSheet(d, { meeting = null, onSaved } = {}) {
+  const line = (l, v, copy = true) => v ? `<div class="sfrow"><div class="grow"><div class="k">${l}</div><div class="v">${esc(v)}</div></div>${copy ? `<button class="ibtn solid" data-dcp="${esc(v)}" aria-label="Copiar ${l}">${ico('copy', 'sm')}</button>` : ''}</div>` : '';
+  const dom = (S.settings.sfDomain || '').trim();
+  const sh = sheet({ title: DIR.name(d), body: `
+    <p class="muted" style="margin:0 0 10px;font-size:14px">Do diretório Salesforce${d.modified ? ` · atualizado no Salesforce em ${esc(d.modified.split('-').reverse().join('/'))}` : ''}${d.bu ? ` · BU ${esc(d.bu)}` : ''}.</p>
+    <div class="sec" style="padding:4px 14px">${line('Cargo', d.title)}${line('Conta', d.account)}${line('Email', d.email)}${line('Telefone', d.phone)}${line('Telemóvel', d.mobile)}${line('Contact ID', d.id)}</div>
+    ${dom ? `<a class="btn" style="margin-top:10px" href="https://${esc(dom)}/lightning/r/Contact/${esc(d.id)}/view" target="_blank" rel="noopener noreferrer">${ico('send', 'sm')} Abrir no Salesforce</a>` : ''}`,
+    foot: `<button class="btn" data-close>Fechar</button><button class="btn pri" data-dsave>${ico('plus', 'sm')} ${meeting ? 'Juntar à reunião' : 'Guardar nos meus contactos'}</button>` });
+  sh.el.onclick = async (e) => {
+    const cp = e.target.closest('[data-dcp]'); if (cp) { await copyText(cp.dataset.dcp); return toast('Copiado'); }
+    if (e.target.closest('[data-dsave]')) {
+      const c = await DIR.toContact(d);
+      if (meeting && !meeting.contactIds.includes(c.id)) meeting.contactIds.push(c.id);
+      sh.close(); toast(meeting ? 'Contacto juntado à reunião' : 'Guardado nos teus contactos'); onSaved && onSaved(c);
+    }
+  };
+}
+
 /* ---------- contactos */
 function newContact(extra = {}) { const now = Date.now(); return { id: uid(), firstName: '', lastName: '', title: '', company: '', airlineCode: '', email: '', phone: '', mobile: '', website: '', notes: '', sfId: '', cardPhotoId: '', ocrText: '', exportedAt: 0, createdAt: now, updatedAt: now, ...extra }; }
 async function scanCard(m, after) {
@@ -2234,9 +2364,17 @@ async function scanCard(m, after) {
   contactSheet(c, { isNew: true, runOcr: true, meeting: m, onSaved: after });
 }
 function pickContact(m, after) {
-  const sh = sheet({ title: 'Adicionar contacto', body: `<div class="search" style="margin-bottom:8px">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar contactos" autocomplete="off"></div><button class="pickrow" data-newc>${ico('plus')}<div class="grow"><div class="t">Novo contacto sem cartão</div><div class="s">Escrever os dados à mão</div></div></button><div id="clist"></div>` });
-  const q = sh.el.querySelector('#cq'); const list = sh.el.querySelector('#clist');
-  const render = () => {
+  const sh = sheet({ title: 'Adicionar contacto', body: `<div class="search" style="margin-bottom:8px">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar contactos${DIR.count() ? ' e o diretório Salesforce' : ''}" autocomplete="off"></div><button class="pickrow" data-newc>${ico('plus')}<div class="grow"><div class="t">Novo contacto sem cartão</div><div class="s">Escrever os dados à mão</div></div></button><div id="clist"></div><div id="dlist"></div>` });
+  const q = sh.el.querySelector('#cq'); const list = sh.el.querySelector('#clist'); const dlist = sh.el.querySelector('#dlist');
+  let dres = [];
+  const renderDir = () => {
+    const v = q.value.trim(); dres = v.length >= 2 ? DIR.search(v, { airline: m.airlineName, limit: 15 }) : [];
+    const have = new Set(S.contacts.map((c) => (c.sfId || '').slice(0, 15)).filter(Boolean));
+    dres = dres.filter((d) => !have.has(d.id.slice(0, 15)));
+    dlist.innerHTML = dres.length ? `<div class="group-h" style="margin:14px 0 4px">Diretório Salesforce</div>${dres.map((d, i) => DIR.row(d, `data-d="${i}"`)).join('')}` : '';
+  };
+  DIR.load().then(renderDir);
+  const render = () => { renderDir();
     const s = norm(q.value); const k = airlineKey({ code: m.airlineCode, name: m.airlineName });
     const cs = S.contacts.filter((c) => !m.contactIds.includes(c.id)).filter((c) => !s || norm([contactName(c), c.company, c.email, c.title].join(' ')).includes(s))
       .sort((a, b) => (airlineKey({ code: b.airlineCode, name: b.company }) === k) - (airlineKey({ code: a.airlineCode, name: a.company }) === k) || contactName(a).localeCompare(contactName(b)));
@@ -2245,13 +2383,14 @@ function pickContact(m, after) {
   render(); q.addEventListener('input', render);
   sh.el.onclick = (e) => {
     const r = e.target.closest('[data-c]'); if (r) { m.contactIds.push(r.dataset.c); sh.close(); return after(); }
+    const dr = e.target.closest('[data-d]'); if (dr) { const d = dres[+dr.dataset.d]; if (!d) return; sh.close(); return DIR.toContact(d).then((c) => { if (!m.contactIds.includes(c.id)) m.contactIds.push(c.id); toast(`${contactName(c)} juntado (do diretório)`); after(); }); }
     if (e.target.closest('[data-newc]')) { sh.close(); contactSheet(newContact({ airlineCode: m.airlineCode, company: m.airlineName }), { isNew: true, meeting: m, onSaved: after }); }
   };
 }
 function contactFormHTML(c) {
   const f = (k, l, type = 'text', ph = '', extra = '') => `<div class="field"><label class="lbl" for="c-${k}">${l}</label><input class="inp" id="c-${k}" data-cf="${k}" type="${type}" value="${esc(c[k])}" placeholder="${ph}" ${extra}></div>`;
   return `
-    <div id="ocr-slot"></div><div id="dup-slot"></div>
+    <div id="ocr-slot"></div><div id="dup-slot"></div><div id="dir-slot"></div>
     ${c.cardPhotoId ? `<div class="cardimg" data-cardview><img data-pid="${c.cardPhotoId}" data-full="1" alt="Cartão de visita"></div>` : ''}
     <div class="grid2">${f('firstName', 'Nome próprio', 'text', '', 'autocapitalize="words"')}${f('lastName', 'Apelido', 'text', '', 'autocapitalize="words"')}</div>
     ${f('title', 'Cargo', 'text', 'Ex.: Station Manager')}
@@ -2264,8 +2403,10 @@ function contactFormHTML(c) {
     ${c.ocrText ? `<details class="raw ocr-raw"><summary>Texto lido do cartão</summary><pre>${esc(c.ocrText)}</pre></details>` : ''}`;
 }
 function bindContactForm(root, c, touched) {
-  root.addEventListener('input', (e) => { const k = e.target.dataset.cf; if (k) { c[k] = e.target.value; touched.add(k); if (k === 'email') checkDup(root, c); } });
+  const dupSoon = debounce(() => checkDup(root, c), 400);
+  root.addEventListener('input', (e) => { const k = e.target.dataset.cf; if (k) { c[k] = e.target.value; touched.add(k); if (k === 'email') checkDup(root, c); else if (k === 'firstName' || k === 'lastName') dupSoon(); } });
   root.addEventListener('click', (e) => {
+    const df = e.target.closest('[data-dirfill]'); if (df) return dirFill(root, c, df.dataset.dirfill, touched);
     if (e.target.closest('[data-cair]')) pickAirline((a) => { c.airlineCode = a.code; c.company = a.name; touched.add('company'); const b = root.querySelector('[data-cair]'); b.innerHTML = `${badge(a.code, true)}<div class="grow"><div class="n" style="font-size:15px">${esc(a.name)}</div></div>${ico('chev')}`; }, c.company || '');
     if (e.target.closest('[data-cardview]') && c.cardPhotoId) openViewer([c.cardPhotoId], 0);
   });
@@ -2276,6 +2417,19 @@ function checkDup(root, c) {
   const em = (c.email || '').trim().toLowerCase();
   const d = em && S.contacts.find((x) => x.id !== c.id && (x.email || '').toLowerCase() === em);
   slot.innerHTML = d ? `<div class="dup">${ico('user')}<div class="grow"><b>Já tens este contacto:</b> ${esc(contactName(d))}${d.company ? ' · ' + esc(d.company) : ''}</div><button class="btn sm" data-usedup="${d.id}">Usar esse</button></div>` : '';
+  // no diretório Salesforce (pelo email, ou pelo nome se só houver um)
+  const ds = root.querySelector('#dir-slot'); if (!ds || d) { if (ds) ds.innerHTML = ''; return; }
+  DIR.load().then(() => {
+    const x = DIR.byEmail(c.email) || DIR.byName(c.firstName, c.lastName);
+    const miss = x && [['title', x.title], ['email', x.email], ['phone', x.phone], ['mobile', x.mobile], ['sfId', x.id]].filter(([k, v]) => v && !c[k]);
+    ds.innerHTML = x && (miss.length || (c.sfId || '').slice(0, 15) !== x.id.slice(0, 15)) ? `<div class="dup">${ico('send')}<div class="grow"><b>No diretório Salesforce:</b> ${esc(DIR.name(x))}${x.title ? ' · ' + esc(x.title) : ''}${x.account ? ' · ' + esc(x.account) : ''}</div><button class="btn sm" data-dirfill="${esc(x.id)}">Completar</button></div>` : '';
+  });
+}
+function dirFill(root, c, id, touched) {
+  const x = DIR.rows?.find((d) => d.id === id); if (!x) return;
+  const map = { firstName: nameCase(x.first), lastName: nameCase(x.last), title: x.title, email: x.email, phone: x.phone, mobile: x.mobile, sfId: x.id };
+  for (const [k, v] of Object.entries(map)) { if (v && (!c[k] || k === 'sfId')) { c[k] = v; touched && touched.add(k); const el = root.querySelector(`[data-cf="${k}"]`); if (el) el.value = v; } }
+  root.querySelector('#dir-slot').innerHTML = ''; toast('Completado com o diretório Salesforce (inclui o ID do contacto)');
 }
 function contactSheet(c, { isNew = false, runOcr = false, meeting = null, onSaved } = {}) {
   if (!c) return;
@@ -2355,19 +2509,26 @@ function viewContacts() {
   const list = S.contacts.filter((c) => !q || norm([contactName(c), c.company, c.email, c.title, c.phone, c.mobile].join(' ')).includes(q)).sort((a, b) => (a.company || '').localeCompare(b.company || '') || contactName(a).localeCompare(contactName(b)));
   const meetCount = (id) => S.meetings.filter((m) => m.contactIds.includes(id)).length;
   let body;
-  if (!S.contacts.length) body = `<div class="empty"><div class="art">${ico('card', 'lg')}</div><h2>Sem contactos</h2><p>Fotografa um cartão de visita — os dados são lidos no próprio telemóvel.</p><button class="btn pri" data-scan>${ico('scan')} Fotografar cartão</button></div>`;
+  if (!S.contacts.length && DIR.count()) body = `<div class="search" style="margin-bottom:12px">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar no diretório Salesforce" value="${esc(f.q)}"></div>${q.length >= 2 ? '' : '<p class="faint" style="font-size:14px">Ainda não tens contactos guardados. Pesquisa uma pessoa no diretório Salesforce ou fotografa um cartão.</p>'}`;
+  else if (!S.contacts.length) body = `<div class="empty"><div class="art">${ico('card', 'lg')}</div><h2>Sem contactos</h2><p>Fotografa um cartão de visita — os dados são lidos no próprio telemóvel.</p><button class="btn pri" data-scan>${ico('scan')} Fotografar cartão</button></div>`;
   else if (desk) body = `<div class="toolbar"><div class="search">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar contactos" value="${esc(f.q)}"></div></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Cargo</th><th>Companhia</th><th>Email</th><th>Telefone</th><th>Reuniões</th><th>Salesforce</th></tr></thead><tbody>
     ${list.map((c) => `<tr data-cid="${c.id}"><td style="font-weight:600">${esc(contactName(c))}</td><td class="muted">${esc(c.title)}</td><td><div class="cellair">${badge(c.airlineCode, true)}<span style="font-weight:500">${esc(c.company || '—')}</span></div></td><td class="muted">${esc(c.email)}</td><td class="num">${esc(c.mobile || c.phone)}</td><td class="num">${meetCount(c.id)}</td><td>${c.exportedAt ? '<span class="pill exported">Exportado</span>' : '<span class="pill">Novo</span>'}</td></tr>`).join('')}
     </tbody></table></div>`;
   else body = `<div class="search" style="margin-bottom:12px">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar" value="${esc(f.q)}"></div>
     <div class="list">${list.map((c) => `<a class="row" href="#/contactos/${c.id}">${badge(c.airlineCode)}<div class="main"><div class="t">${esc(contactName(c))}</div><div class="s">${esc([c.title, c.company].filter(Boolean).join(' · ') || c.email)}</div></div>${ico('chev', 'sm faint')}</a>`).join('') || '<div class="empty"><p>Sem resultados.</p></div>'}</div>`;
+  const dres = q.length >= 2 ? DIR.search(f.q, { limit: desk ? 40 : 25 }).filter((d) => !S.contacts.some((c) => (c.sfId || '').slice(0, 15) === d.id.slice(0, 15))) : [];
+  if (q.length >= 2 && !DIR.rows) DIR.load().then(() => { if (DIR.count() && location.hash.startsWith('#/contactos') && S.clist.q === f.q) viewContacts(); });
+  S._dres = dres;
+  if (dres.length) body = (S.contacts.length ? body : `<div class="search" style="margin-bottom:12px">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar" value="${esc(f.q)}"></div>`) + `<div class="group-h" style="margin-top:18px">Diretório Salesforce · ${dres.length === (desk ? 40 : 25) ? 'primeiros ' : ''}${dres.length}</div><div class="list dirlist">${dres.map((d, i) => DIR.row(d, `data-dres="${i}"`)).join('')}</div>`;
+  else if (q.length >= 2 && DIR.count() && !list.length) body += `<p class="faint" style="font-size:13px">Também não está no diretório Salesforce.</p>`;
   view.innerHTML = `<div class="page"><div class="top"><h1>Contactos${desk && S.contacts.length ? `<small>${plural(S.contacts.length, 'contacto', 'contactos')}</small>` : ''}</h1><button class="btn ${desk ? '' : 'sm'}" data-newc>${ico('plus', 'sm')} Novo</button><button class="btn pri ${desk ? '' : 'sm'}" data-scan>${ico('scan', 'sm')} Cartão</button></div>${body}</div>`;
   $('#cq')?.addEventListener('input', debounce((e) => { f.q = e.target.value; viewContacts(); const el = $('#cq'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }, 220));
   view.onclick = (e) => {
     if (e.target.closest('[data-scan]')) return scanCard(null, (c) => { viewContacts(); });
     if (e.target.closest('[data-newc]')) return contactSheet(newContact(), { isNew: true, onSaved: () => viewContacts() });
     const tr = e.target.closest('tr[data-cid]'); if (tr) go('#/contactos/' + tr.dataset.cid);
+    const dr = e.target.closest('[data-dres]'); if (dr) { const d = S._dres?.[+dr.dataset.dres]; if (d) dirSheet(d, { onSaved: (c) => go('#/contactos/' + c.id) }); }
   };
 }
 function viewContact(id, opts = {}) {
@@ -2427,7 +2588,8 @@ function sfLink(m) {
 function sfLinkBox(m) {
   const L = sfLink(m);
   if (!L) return `<div class="sflink"><b>Abrir o New Meeting Note da conta</b><p>Cola aqui o endereço da conta ${esc(m.airlineName || 'da companhia')} no Salesforce. Fica guardado para as próximas reuniões (e para o colega).</p><div class="subj-row"><input class="inp" id="sf-paste" placeholder="https://….lightning.force.com/lightning/r/Account/001…/view" autocapitalize="off"><button class="btn" data-sfpaste>Guardar</button></div></div>`;
-  if (!L.acc) return `<div class="sflink"><b>Abrir o New Meeting Note da conta</b><p>Falta ligar a conta ${esc(m.airlineName || 'da companhia')}: abre-a no Salesforce e cola aqui o endereço (fica guardado).</p><div class="subj-row"><input class="inp" id="sf-acc" placeholder="Endereço ou ID da conta (001…)" autocapitalize="off"><button class="btn sm" data-sfacc>Ligar conta</button></div></div>`;
+  const sug = !L.acc ? DIR.accounts(m.airlineName) : [];
+  if (!L.acc) return `<div class="sflink"><b>Abrir o New Meeting Note da conta</b><p>Falta ligar a conta ${esc(m.airlineName || 'da companhia')}${sug.length ? '. Contas do diretório Salesforce com este nome — toca na certa:' : ': abre-a no Salesforce e cola aqui o endereço (fica guardado).'}</p>${sug.length ? `<div class="chips" style="margin-bottom:10px">${sug.map((a) => `<button class="chip add" data-sfaccpick="${esc(a.id)}" data-sfaccname="${esc(a.name)}">${esc(a.name)} <small class="faint">${plural(a.n, 'contacto', 'contactos')}</small></button>`).join('')}</div><p style="margin-top:0">Ou cola o endereço da conta:</p>` : ''}<div class="subj-row"><input class="inp" id="sf-acc" placeholder="Endereço ou ID da conta (001…)" autocapitalize="off"><button class="btn sm" data-sfacc>Ligar conta</button></div></div>`;
   return `<div class="sflink"><a class="btn pri" href="${esc(L.url)}" target="_blank" rel="noopener noreferrer" data-sfopen>${ico('send', 'sm')} Abrir o New Meeting Note da conta</a>
     <p>Abre já com <b>Related To</b>, tipo de registo e data. Os <b>Comments</b> ficam copiados ao abrir: cola-os e copia daqui o Subject, o Name, o Flag e o Scope. No telemóvel abre no browser.</p></div>`;
 }
@@ -2452,6 +2614,7 @@ function sfSheet(m, after) {
     <div class="sec" style="padding:4px 14px">${rows.map(([k, v, noCopy, hint], i) => `<div class="sfrow"><div class="grow"><div class="k">${k}</div><div class="v">${esc(v)}</div>${hint ? `<div class="faint" style="font-size:12.5px">${esc(hint)}</div>` : ''}</div>${noCopy || v === '—' ? '' : `<button class="ibtn solid" data-cp="${i}" aria-label="Copiar ${esc(k)}">${ico('copy', 'sm')}</button>`}</div>`).join('')}</div>
     <div class="sec" id="sf-com"><h3>Comments <span class="r">${C.head}</span></h3>${C.body}</div>`,
     foot: m.status === 'exported' ? `<button class="btn" data-close>Fechar</button>` : `<button class="btn" data-close>Fechar</button><button class="btn dark" data-markexp>${ico('check', 'sm')} Já gravei — marcar exportada</button>` });
+  if (!DIR.rows) DIR.load().then(() => { const b = sh.el.querySelector('#sf-linkbox'); if (b && DIR.count()) b.innerHTML = sfLinkBox(m); });
   sh.el.onclick = async (ev) => {
     const cp = ev.target.closest('[data-cp]'); if (cp) { await copyText(rows[cp.dataset.cp][1]); toast(`${rows[cp.dataset.cp][0]} copiado`); }
     const redraw = () => { const box = sh.el.querySelector('#sf-com'); if (box) { const c = sfComments(m, 'data-cpdesc', 'Copiar comments', true); box.innerHTML = `<h3>Comments <span class="r">${c.head}</span></h3>${c.body}`; } after && after(); };
@@ -2461,6 +2624,7 @@ function sfSheet(m, after) {
     if (ev.target.closest('[data-sfopen]')) { copyText(desc).catch(() => {}); toast(`A abrir o Salesforce · Comments${lg} copiados`); return; }
     const reLink = () => { sh.el.querySelector('#sf-linkbox').innerHTML = sfLinkBox(m); };
     if (ev.target.closest('[data-sfpaste]')) { const r = sfParse(sh.el.querySelector('#sf-paste').value); if (!r.dom) return toast('Não reconheço o endereço do Salesforce'); S.settings.sfDomain = r.dom; if (r.rt) S.settings.sfRecordTypeId = r.rt; if (r.acc) { const k = airlineKey({ code: m.airlineCode, name: m.airlineName }); S.settings.airlineSf = { ...(S.settings.airlineSf || {}), [k]: { ...(S.settings.airlineSf?.[k] || {}), id: r.acc } }; } await saveSettings(); toast('Salesforce configurado'); return reLink(); }
+    const ap = ev.target.closest('[data-sfaccpick]'); if (ap) { const k = airlineKey({ code: m.airlineCode, name: m.airlineName }); S.settings.airlineSf = { ...(S.settings.airlineSf || {}), [k]: { name: ap.dataset.sfaccname, id: ap.dataset.sfaccpick } }; await saveSettings(); toast('Conta ligada'); return reLink(); }
     if (ev.target.closest('[data-sfacc]')) { const v = sh.el.querySelector('#sf-acc').value; const r = sfParse(v); const id = r.acc || (SF_ID('001').test(v.trim()) ? v.trim() : ''); if (!id) return toast('Não encontro um ID de conta (001…)'); const k = airlineKey({ code: m.airlineCode, name: m.airlineName }); S.settings.airlineSf = { ...(S.settings.airlineSf || {}), [k]: { name: S.settings.airlineSf?.[k]?.name || m.airlineName, id } }; if (r.dom && !S.settings.sfDomain) S.settings.sfDomain = r.dom; await saveSettings(); toast('Conta ligada'); return reLink(); }
     if (ev.target.closest('[data-sfcon]')) { const v = sh.el.querySelector('#sf-con').value; const r = sfParse(v); const id = r.con || (SF_ID('003').test(v.trim()) ? v.trim() : ''); if (!id) return toast('Não encontro um ID de contacto (003…)'); const c = primaryContact(m); if (!c) return; c.sfId = id; c.updatedAt = Date.now(); await DB.put('contacts', c); toast('Contacto ligado'); return reLink(); }
     if (ev.target.closest('[data-sfrt]')) { const v = sh.el.querySelector('#sf-rt').value; const r = sfParse(v); const id = r.rt || (SF_ID('012').test(v.trim()) ? v.trim() : ''); if (!id) return toast('Não encontro um ID de tipo de registo (012…)'); S.settings.sfRecordTypeId = id; await saveSettings(); toast('Tipo de registo guardado'); return reLink(); }
@@ -2653,6 +2817,11 @@ async function viewSettings() {
       <div class="setrow"><div class="grow"><b>Terminar sessão</b><div class="faint" style="font-size:13px">Apaga a cópia deste dispositivo; os dados continuam no servidor.</div></div><button class="btn sm" data-signout>Sair</button></div>`
       : `<div class="setrow"><div class="grow"><b>Só neste dispositivo</b><div class="faint" style="font-size:13px">Entra com a conta do Portal do Lounge para partilhares as reuniões com o teu colega.</div></div><button class="btn sm pri" data-gologin>Entrar</button></div>`}
     </div>
+    ${Sync.mode === 'cloud' ? `<div class="sec"><h3>${ico('users', 'sm')} Diretório Salesforce <span class="r faint">só para consulta</span></h3>
+      <p class="faint" style="font-size:13px;margin:0 0 8px">Cópia dos contactos do Salesforce para encontrar uma pessoa pelo nome. Não aparece nos teus Contactos: só quando pesquisas, ao juntar um contacto a uma reunião e ao ler um cartão. Fica no Supabase (só com login) e no dispositivo, para usar sem rede.</p>
+      <div class="setrow"><div class="grow"><b id="dir-n">A carregar…</b><div class="faint" style="font-size:13px" id="dir-at"></div></div><button class="btn sm" data-dirsync>${ico('refresh', 'sm')} Atualizar</button></div>
+      <div class="setrow"><div class="grow"><b>Importar do Salesforce</b><div class="faint" style="font-size:13px">Relatório «Contactos para o Debrief» → Export → Details Only → CSV. Substitui o diretório para ti e para o colega.</div></div><button class="btn sm" data-dirimp>${ico('download', 'sm')} Importar CSV</button></div>
+    </div>` : ''}
     <div class="sec"><h3>${ico('shield', 'sm')} Dados e privacidade</h3>
       <div class="setrow"><div class="grow"><b>Onde ficam os dados</b><div class="faint" style="font-size:13px">${Sync.mode === 'cloud' ? 'No Supabase do Portal (UE, Irlanda), visíveis só para quem tiver a permissão «Reuniões companhias». Há uma cópia neste dispositivo para trabalhares sem rede. A leitura dos cartões e das fotos é feita no dispositivo.' : 'Só neste dispositivo e neste browser. Nada é enviado para servidores — nem as fotos, nem a leitura dos cartões.'}</div></div></div>
       <div class="setrow"><div class="grow"><b>Armazenamento</b><div class="faint" style="font-size:13px" id="stor">A calcular…</div></div></div>
@@ -2662,6 +2831,8 @@ async function viewSettings() {
     </div>
   </div></div></div>`;
   renderTopicSettings();
+  const dirInfo = () => { const n = $('#dir-n'); if (!n) return; n.textContent = DIR.count() ? plural(DIR.count(), 'contacto', 'contactos') : 'Ainda vazio'; $('#dir-at').textContent = DIR.meta?.at ? `Importado ${fmtTs(new Date(DIR.meta.at).getTime())}` : (DIR.count() ? '' : 'Importa o CSV do relatório do Salesforce.'); };
+  if ($('#dir-n')) DIR.load().then(dirInfo);
   const saveSoon = debounce(saveSettings, 300);
   view.oninput = (e) => { const k = e.target.dataset.s; if (k) { let v = e.target.value; if (k === 'airportCode') v = v.trim().toUpperCase(); if (k === 'defaultScope') v = v.toUpperCase(); if (k === 'sfDomain') v = sfParse(v).dom || v.trim().replace(/^https?:\/\//, '').split('/')[0].toLowerCase(); st[k] = v; saveSoon(); } };
   view.onchange = async (e) => {
@@ -2681,6 +2852,18 @@ async function viewSettings() {
     if (t.closest('[data-goexp]')) return go('#/exportar');
     if (t.closest('[data-wipe]')) return wipeAll();
     if (t.closest('[data-syncnow]')) { Sync.run(); return; }
+    const dsy = t.closest('[data-dirsync]'); if (dsy) { dsy.disabled = true; try { await DIR.refresh(true); toast(`Diretório: ${plural(DIR.count(), 'contacto', 'contactos')}`); } catch (er) { toast(er.message || 'Não foi possível atualizar'); } dsy.disabled = false; const n = $('#dir-n'); if (n) { n.textContent = DIR.count() ? plural(DIR.count(), 'contacto', 'contactos') : 'Ainda vazio'; $('#dir-at').textContent = DIR.meta?.at ? `Importado ${fmtTs(new Date(DIR.meta.at).getTime())}` : ''; } return; }
+    const dim = t.closest('[data-dirimp]'); if (dim) {
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv,text/csv';
+      inp.onchange = async () => {
+        const file = inp.files?.[0]; if (!file) return;
+        dim.disabled = true; const n = $('#dir-n');
+        try { const total = await DIR.importCSV(file, (i, tot) => { if (n) n.textContent = `A importar… ${i} de ${tot}`; }); toast(`Diretório importado: ${plural(total, 'contacto', 'contactos')}`); }
+        catch (er) { toast(er.message || 'Não foi possível importar'); }
+        dim.disabled = false; rerenderKeep();
+      };
+      inp.click(); return;
+    }
     if (t.closest('[data-gologin]')) return showLogin();
     if (t.closest('[data-signout]')) return confirmSignOut();
     if (t.closest('[data-icssave]')) {

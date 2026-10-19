@@ -111,6 +111,14 @@ const CHAT_TOOLS = {
     if (texto) { const ws = chatWords(texto); list = list.filter((c) => { const t = norm([contactName(c), c.title, c.company, c.email, c.notes].join(' ')); return ws.every((w) => t.includes(w)); }); }
     return { total: list.length, contactos: list.slice(0, 25).map((c) => ({ nome: contactName(c), cargo: c.title || '', companhia: c.company || '', email: c.email || '', telefone: c.phone || '', telemovel: c.mobile || '', notas: cut(c.notes, 160), reunioes: S.meetings.filter((m) => (m.contactIds || []).includes(c.id)).length })) };
   },
+  async procurar_diretorio({ texto, companhia, limite } = {}) {
+    await DIR.load();
+    if (!DIR.count()) return { erro: 'O diretório Salesforce ainda não foi importado (Definições → Diretório Salesforce).' };
+    let list = DIR.search([texto, companhia].filter(Boolean).join(' ') || '', { airline: companhia || '', limit: 400 });
+    if (!texto && companhia) list = DIR.rows.filter((d) => norm(d.account).includes(norm(companhia)));
+    const lim = Math.min(40, Math.max(1, +limite || 20));
+    return { total: list.length, contactos: list.slice(0, lim).map((d) => ({ nome: DIR.name(d), cargo: d.title || '', conta: d.account || '', email: d.email || '', telefone: d.phone || '', telemovel: d.mobile || '', bu: d.bu || '', atualizado_no_salesforce: d.modified || '', contact_id: d.id })) };
+  },
   async ler_preparacao({ companhia } = {}) {
     const a = chatFindAirline(companhia);
     const m = S.meetings.find((x) => x.airlineName && (a ? PREP.key(x) === airlineKey(a) : norm(x.airlineName).includes(norm(companhia))));
@@ -170,6 +178,7 @@ const CHAT_TOOLS = {
 const CHAT_TOOL_LABEL = {
   procurar_reunioes: (i) => `Procurei reuniões${i.companhia ? ` de ${i.companhia}` : ''}${i.texto ? ` sobre «${i.texto}»` : ''}`,
   ler_reuniao: (i) => { const m = getM(i.id); return `Li a reunião${m ? ` ${m.airlineName || ''} de ${fmtDateShort(m.start)}` : ''}`; },
+  procurar_diretorio: (i) => `Procurei no diretório Salesforce${i.companhia ? ` (${i.companhia})` : ''}${i.texto ? ` «${i.texto}»` : ''}`,
   procurar_contactos: (i) => `Procurei contactos${i.companhia ? ` de ${i.companhia}` : ''}${i.texto ? ` «${i.texto}»` : ''}`,
   ler_preparacao: (i) => `Li a preparação de ${i.companhia || ''}`,
   procurar_noticias: (i) => `Procurei notícias sobre «${i.texto || ''}»`,

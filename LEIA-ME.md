@@ -41,6 +41,12 @@ A lista abre em **Pendentes**: reuniões agendadas (confirmadas, por aceitar, po
 
 **Eventos** (Routes World, feiras, roadshows): cria-os em Definições → Eventos, na própria reunião (campo **Evento**) ou, no portátil, selecionando várias reuniões na lista → **Evento**. Cada evento tem nome, datas, local e, opcionalmente, o **Type of Tradeshow**, que passa para as reuniões que ainda não o têm. Ao criar um evento com datas, podes associar logo as reuniões dessas datas; as reuniões novas (e as que chegam da agenda) dentro das datas de um evento ficam associadas sozinhas. Filtra a lista por evento (no telemóvel, na linha de cima). Os eventos são partilhados com o colega.
 
+## Diretório Salesforce
+
+Cópia de todos os contactos do Salesforce, só para consulta e separada dos teus Contactos. Serve para encontrar uma pessoa pelo nome: aparece quando pesquisas em Contactos, ao juntar um contacto a uma reunião (secção «Diretório Salesforce») e ao criar um contacto ou ler um cartão («Completar», que também liga o ID do contacto 003…). No Salesforce, a janela da reunião sugere a conta certa (001…) a partir do diretório. O «Perguntar» também procura lá.
+
+Montar uma vez: corre `supabase/06_diretorio.sql` no SQL Editor do Supabase do Portal. Depois, e sempre que quiseres atualizar: no Salesforce, relatório «Contactos para o Debrief» (Contacts & Accounts, todos os contactos, colunas Contact ID, First/Last Name, Account Name, Account ID, Title, Email, Phone, Mobile, BU, Last Modified Date) → Export → Details Only → CSV; no Debrief, Definições → Diretório Salesforce → **Importar CSV**. A importação substitui o diretório para os dois. Os dados ficam no Supabase (só com login) e no dispositivo; nunca neste repositório.
+
 ## Partilhar com o colega (Supabase do Portal)
 
 As reuniões, contactos e fotos ficam numa base partilhada no Supabase do Portal do Lounge (UE). Cada dispositivo guarda uma cópia para trabalhar sem rede e sincroniza sozinho quando volta a ter rede (e em tempo real enquanto a app está aberta).

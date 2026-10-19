@@ -43,6 +43,15 @@ const TOOLS = [
     input_schema: { type: 'object', properties: { texto: { type: 'string' }, companhia: { type: 'string' } } },
   },
   {
+    name: 'procurar_diretorio',
+    description: 'Procura no diretório Salesforce (cópia de todos os contactos do Salesforce do grupo VINCI Airports, ~9000 pessoas de companhias, agências e parceiros): nome, cargo, conta, email, telefones, BU e data da última atualização. Usa quando a pessoa não está nos contactos do Debrief ou para saber quem trabalha numa companhia (ex.: network planning da Finnair). Os mais recentes são os mais fiáveis.',
+    input_schema: { type: 'object', properties: {
+      texto: { type: 'string', description: 'Nome, cargo ou palavras (ex.: "network planning", "Havia").' },
+      companhia: { type: 'string', description: 'Nome da conta/companhia. Opcional.' },
+      limite: { type: 'integer', description: 'Máximo de resultados (predefinido 20, máximo 40).' },
+    } },
+  },
+  {
     name: 'ler_preparacao',
     description: 'Lê a preparação guardada de uma companhia: resumo, notícias escolhidas com «porque importa», pontos para a reunião e resumo das reuniões anteriores.',
     input_schema: { type: 'object', properties: { companhia: { type: 'string' } }, required: ['companhia'] },
@@ -88,7 +97,7 @@ function systemPrompt(ctx: any) {
     '',
     'Como trabalhas:',
     '- Respondes em português de Portugal, direto, frases curtas. Usa listas quando ajudam. Sem floreados.',
-    '- Tens ferramentas que leem os dados do Debrief (reuniões partilhadas com o colega, contactos, preparações, arquivo de notícias) e o simulador de taxas e incentivos. Usa-as em vez de adivinhar.',
+    '- Tens ferramentas que leem os dados do Debrief (reuniões partilhadas com o colega, contactos, diretório Salesforce, preparações, arquivo de notícias) e o simulador de taxas e incentivos. Usa-as em vez de adivinhar.',
     '- Para qualquer valor de taxas ou incentivos usa sempre simular_rota e diz os pressupostos (aeronave, lugares, load factor, início).',
     '- Quando citas o que foi dito numa reunião, indica a data e a companhia. Se não encontrares nada, diz isso.',
     '- Não inventes números, datas nem compromissos. Distingue factos (das notas ou notícias) de leituras tuas.',
