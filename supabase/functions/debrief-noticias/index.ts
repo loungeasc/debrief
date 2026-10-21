@@ -12,13 +12,16 @@ const ANON = Deno.env.get('SUPABASE_ANON_KEY') ?? 'sb_publishable_wjWRDRsB9LNA7X
 const UA = 'Mozilla/5.0 (compatible; Debrief/1.0; +https://loungeasc.github.io/debrief/)';
 
 // filtro: só para fontes gerais (turismo/economia) — guarda apenas o que fala de aviação
-const FEEDS: { fonte: string; url: string; filtro?: boolean }[] = [
+// headers: para sites que bloqueiam leitores automáticos (pedem um User-Agent de browser)
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36';
+const FEEDS: { fonte: string; url: string; filtro?: boolean; headers?: Record<string, string> }[] = [
   { fonte: 'Aeroroutes', url: 'https://www.aeroroutes.com/eng?format=rss' },
   { fonte: 'AeroTime', url: 'https://www.aerotime.aero/feed' },
   { fonte: 'Simple Flying', url: 'https://simpleflying.com/feed/' },
   { fonte: 'FlightGlobal', url: 'https://www.flightglobal.com/rss' },
   { fonte: 'Airlines (IATA)', url: 'https://www.airlines.iata.org/rss.xml' },
   { fonte: 'anna.aero', url: 'https://www.anna.aero/feed/' },
+  { fonte: 'Air Service One', url: 'https://airserviceone.com/feed/', headers: { 'User-Agent': BROWSER_UA } },
   { fonte: 'aeroTELEGRAPH', url: 'https://www.aerotelegraph.com/feed' },
   { fonte: 'AirlineGeeks', url: 'https://www.airlinegeeks.com/feed/' },
   { fonte: 'Aviation24.be', url: 'https://www.aviation24.be/feed/' },

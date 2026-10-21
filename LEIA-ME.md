@@ -84,7 +84,7 @@ Custo aproximado: ~0,015 USD por foto de notas com o Sonnet.
 
 Em cada reunião há uma secção **Preparação**: notícias da companhia que contam para a negociação (frota, rotas, finanças, estratégia, operações, Portugal), cada uma com «porque importa» para o aeroporto, pontos para levar à reunião e o resumo das reuniões anteriores com essa companhia. Fica guardada por companhia (partilhada com o colega) e disponível sem rede depois de aberta; ↻ atualiza.
 
-Fontes: CAPA (RSS da subscrição), Aeroroutes, AeroTime, Simple Flying, FlightGlobal, Airlines (IATA), anna.aero, aeroTELEGRAPH, AirlineGeeks, Aviation24.be, Aviación al Día, Ambitur, Preferente, Hosteltur, Jornal de Negócios, ECO e Google News. Uma tarefa no Supabase lê os feeds de hora a hora e guarda-os (200 dias), por isso o histórico vai crescendo. O Claude Sonnet escolhe e resume (~0,05 USD por preparação). Aeroportos concorrentes em Definições → Predefinições.
+Fontes: CAPA (RSS da subscrição), Aeroroutes, AeroTime, Simple Flying, FlightGlobal, Airlines (IATA), anna.aero, Air Service One, aeroTELEGRAPH, AirlineGeeks, Aviation24.be, Aviación al Día, Ambitur, Preferente, Hosteltur, Jornal de Negócios, ECO e Google News. Uma tarefa no Supabase lê os feeds de hora a hora e guarda-os (200 dias), por isso o histórico vai crescendo. O Claude Sonnet escolhe e resume (~0,05 USD por preparação). Aeroportos concorrentes em Definições → Predefinições.
 
 Configuração (uma vez):
 1. SQL Editor → corre `supabase/03_preparacao.sql` (arquivo de notícias, preparações e a tarefa de hora a hora).
