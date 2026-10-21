@@ -616,10 +616,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.19.0';
+const APP_VERSION = '1.19.1';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.19.1', data: '21/10/2026', itens: ['Subject das reuniões de um evento: Meeting_OPO_<código da companhia>_<evento>, por exemplo Meeting_OPO_EK_Routes World 2026. Sem evento, continua com os temas.'] },
   { v: '1.19.0', data: '21/10/2026', itens: ['Sumário executivo: na pré-visualização do Salesforce escolhe «Completo», «Sumário» ou «Sumário + completo». O Claude escreve um parágrafo curto com o essencial (em PT ou EN), que fica guardado na reunião.'] },
   { v: '1.18.0', data: '19/10/2026', itens: ['Definições arrumadas: em cima a conta, o teu nome e o aspeto; o resto em grupos que abres quando precisas (Agenda, Eventos, Temas, Salesforce, Diretório, IA, Dados).', 'Aspeto: Claro, Escuro ou Sistema (em Definições, só neste dispositivo).'] },
   { v: '1.17.0', data: '19/10/2026', itens: ['Organizar com IA: o Claude arruma as notas por temas e tira os próximos passos; revês e carregas em «Aplicar».', 'A reunião mostra primeiro o que interessa no momento: antes, a preparação; durante, as notas e fotos; depois, temas e campos do Salesforce. O resto fica em «Mais».', 'Filtros mais simples: Pendentes · Agenda · Por fazer · Feitas · Todas.', 'Cartão «Agora» no topo da lista: a reunião a decorrer, a que acabou sem notas ou a próxima de hoje.', 'Importação com o Data Loader escondida (sem acesso API ao Salesforce).'] },
@@ -1083,7 +1084,9 @@ function autoSubject(m) {
   const st = S.settings;
   const parts = [st.subjectPrefix || 'Meeting', st.airportCode || 'OPO'];
   if (m.airlineCode || m.airlineName) parts.push(m.airlineCode || m.airlineName);
-  const names = m.topics.map((t) => t.name).filter(Boolean);
+  // Com evento: Meeting_OPO_EK_Routes World 2026; sem evento: Meeting_OPO_EK_<temas>
+  const ev = EV.of(m);
+  const names = ev ? [ev.name] : m.topics.map((t) => t.name).filter(Boolean);
   let s = parts.join('_') + (names.length ? '_' + names.join(', ') : '');
   return s.length > 255 ? s.slice(0, 254) + '…' : s;
 }
@@ -2099,7 +2102,7 @@ function viewMeeting(id) {
     const ev = EV.of(m); $('#evpick').innerHTML = ev ? `${ico('cal', 'sm')}<span class="grow"><b>${esc(ev.name)}</b>${EV.sub(ev) ? ` <span class="faint">· ${esc(EV.sub(ev))}</span>` : ''}</span>${ico('chev', 'sm')}` : `${ico('cal', 'sm')}<span class="grow faint">Sem evento · tocar para associar</span>${ico('chev', 'sm')}`;
     const lbl = m.status === 'draft' ? `${ico('check', 'sm')} Marcar como concluída` : m.status === 'ready' ? `${ico('check', 'sm')} Concluída` : `${ico('check', 'sm')} Exportada`;
     for (const b of [$('#st-mob'), $('#st-desk')]) { b.innerHTML = lbl; b.className = 'btn ' + (m.status === 'draft' ? 'dark' : 'ok'); }
-    $('#subj-hint').textContent = m.subjectAuto ? `Automático: ${S.settings.subjectPrefix || 'Meeting'}_${S.settings.airportCode || 'OPO'}_<código IATA>_<temas>. Podes editar.` : 'Assunto personalizado.';
+    $('#subj-hint').textContent = m.subjectAuto ? `Automático: ${S.settings.subjectPrefix || 'Meeting'}_${S.settings.airportCode || 'OPO'}_<código IATA>_${EV.of(m) ? '<evento>' : '<temas>'}. Podes editar.` : 'Assunto personalizado.';
   };
   const refreshSubject = () => { const el = $('#f-subj'); if (m.subjectAuto && document.activeElement !== el) el.value = autoSubject(m); };
   const refreshAside = debounce(() => renderAside(m), 300);
@@ -2128,7 +2131,7 @@ function viewMeeting(id) {
     const t = e.target;
     if (t.closest('[data-back]')) { await flushSaves(); return goBack('#/'); }
     if (t.closest('[data-ask]')) { await flushSaves(); return go('#/perguntar/r-' + m.id); }
-    if (t.closest('[data-evpick]')) return eventPicker([m], () => { const ts = $('#f-ts'); if (ts) ts.value = m.tradeshow || ''; refreshHeader(); if (desk) renderAside(m); });
+    if (t.closest('[data-evpick]')) return eventPicker([m], () => { const ts = $('#f-ts'); if (ts) ts.value = m.tradeshow || ''; refreshSubject(); refreshHeader(); if (desk) renderAside(m); });
     if (t.closest('[data-simnew]')) return simOpen(m, null, () => { renderSims(m); changed(); });
     const so = t.closest('[data-simopen]'); if (so) return simOpen(m, (m.sims || []).find((x) => x.id === so.dataset.simopen), () => { renderSims(m); changed(); });
     const sr = t.closest('[data-simrm]'); if (sr) { if (!(await confirmSheet('Apagar simulação?', 'A simulação é retirada desta reunião.', 'Apagar'))) return; m.sims = (m.sims || []).filter((x) => x.id !== sr.dataset.simrm); renderSims(m); return changed(); }

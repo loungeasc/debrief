@@ -29,7 +29,7 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
    Os **Comments** podem ir completos, só com um **sumário executivo** (um parágrafo curto escrito pelo Claude, guardado na reunião) ou com o sumário no topo e as notas completas a seguir — escolhe em «Completo · Sumário · Sumário + completo». Também podem ir em português ou em inglês: no botão **PT | EN** (no Salesforce e na pré-visualização do portátil) escolhe EN e o Claude traduz as notas. A tradução fica guardada na reunião (o colega também a vê); se mudares as notas depois, aparece o aviso «Traduzir de novo». A escolha também vale para o CSV do Data Loader (só se a tradução estiver em dia).
 3. **Já gravei — marcar exportada.**
 
-Subject automático: `Meeting_OPO_<código IATA>_<temas>` (prefixo e aeroporto em Definições).
+Subject automático: `Meeting_OPO_<código IATA>_<evento ou temas>` (prefixo e aeroporto em Definições).
 
 ## Agenda do evento (Grip, Google, Outlook…)
 
