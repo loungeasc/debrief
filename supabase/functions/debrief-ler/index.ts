@@ -1,4 +1,4 @@
-// Debrief — leitura de fotos com o Claude (notas manuscritas e cartões de visita), tradução e organização das notas.
+// Debrief — leitura de fotos com o Claude (notas manuscritas e cartões de visita), tradução, sumário e organização das notas.
 // A chave da API fica só nos segredos do Supabase (ANTHROPIC_API_KEY); nunca vai para a app.
 // Só aceita pedidos de quem tem sessão iniciada e a permissão «reunioes_companhias».
 // As imagens não são guardadas aqui: seguem para o Claude e a resposta volta para a app.
@@ -112,6 +112,38 @@ Deno.serve(async (req) => {
     const out = await r.json();
     const en = (out.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim();
     return json({ mode: 'translate', text: en, model: out.model, usage: out.usage });
+  }
+
+  // Sumário executivo das notas (para os Comments do Salesforce)
+  if (body?.mode === 'summary') {
+    const text = String(body?.text ?? '').slice(0, 20000);
+    if (!text.trim()) return json({ error: 'pedido_invalido' }, 400);
+    const en = body?.lang === 'en';
+    const airline = clean(body?.airline, 80);
+    const prompt = (en ? [
+      `Write an executive summary of these notes from a meeting between Porto Airport (ANA Aeroportos de Portugal / VINCI Airports) and ${airline || 'an airline'}. It goes into Salesforce for colleagues and management who did not attend.`,
+      'Rules:',
+      '- One paragraph of 3 to 5 sentences, at most about 90 words. No headings, no bullet points.',
+      '- Lead with the most important point for the airport (opportunity, risk or decision). Then the main topics discussed and the agreed next steps with owners and dates, if they are in the notes.',
+      '- Keep names, airport and airline codes, aircraft types, numbers, dates and amounts exactly as written. Clear, professional British English.',
+      '- Do not invent anything and do not add opinions. Output only the summary.',
+    ] : [
+      `Escreve um sumário executivo destas notas de uma reunião do Aeroporto do Porto (ANA Aeroportos de Portugal / VINCI Airports) com ${airline ? `a ${airline}` : 'uma companhia aérea'}. Vai para o Salesforce, para colegas e chefias que não estiveram na reunião.`,
+      'Regras:',
+      '- Um parágrafo de 3 a 5 frases, no máximo cerca de 90 palavras. Sem títulos nem listas.',
+      '- Começa pelo ponto mais importante para o aeroporto (oportunidade, risco ou decisão). Depois os principais temas e os próximos passos acordados, com responsáveis e prazos se estiverem nas notas.',
+      '- Mantém nomes, códigos de aeroportos e companhias, aeronaves, números, datas e valores exatamente. Português de Portugal, claro e profissional.',
+      '- Não inventes nada nem acrescentes opiniões. Responde só com o sumário.',
+    ]).concat(['', '---', text]).join('\n');
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1200, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!r.ok) { const t = await r.text(); console.error('anthropic', r.status, t.slice(0, 500)); return json({ error: 'claude', message: r.status === 429 ? 'Limite de utilização atingido.' : 'O Claude não respondeu.' }, 502); }
+    const out = await r.json();
+    const sum = (out.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim();
+    return json({ mode: 'summary', text: sum, model: out.model, usage: out.usage });
   }
 
   // Organizar as notas da reunião por temas, com próximos passos

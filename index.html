@@ -124,6 +124,7 @@ textarea.inp{resize:vertical;line-height:1.5}
 .seg.mini button{height:26px;padding:0 9px;font-size:12.5px;border-radius:7px;flex:none}
 .trnote{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink-2);background:var(--surface-2);border-radius:10px;padding:8px 10px;margin:0 0 8px}
 .trnote .btn{margin-left:auto}
+.fmtrow{margin:0 0 8px;overflow-x:auto;scrollbar-width:none}.fmtrow::-webkit-scrollbar{display:none}
 .trnote.stale{background:#fdecdc;color:#8a3f06}
 @media (prefers-color-scheme:dark){.trnote.stale{background:#3d2410;color:#f5c08f}}
 .search{position:relative}
@@ -615,10 +616,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.18.0';
+const APP_VERSION = '1.19.0';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.19.0', data: '21/10/2026', itens: ['Sumário executivo: na pré-visualização do Salesforce escolhe «Completo», «Sumário» ou «Sumário + completo». O Claude escreve um parágrafo curto com o essencial (em PT ou EN), que fica guardado na reunião.'] },
   { v: '1.18.0', data: '19/10/2026', itens: ['Definições arrumadas: em cima a conta, o teu nome e o aspeto; o resto em grupos que abres quando precisas (Agenda, Eventos, Temas, Salesforce, Diretório, IA, Dados).', 'Aspeto: Claro, Escuro ou Sistema (em Definições, só neste dispositivo).'] },
   { v: '1.17.0', data: '19/10/2026', itens: ['Organizar com IA: o Claude arruma as notas por temas e tira os próximos passos; revês e carregas em «Aplicar».', 'A reunião mostra primeiro o que interessa no momento: antes, a preparação; durante, as notas e fotos; depois, temas e campos do Salesforce. O resto fica em «Mais».', 'Filtros mais simples: Pendentes · Agenda · Por fazer · Feitas · Todas.', 'Cartão «Agora» no topo da lista: a reunião a decorrer, a que acabou sem notas ou a próxima de hoje.', 'Importação com o Data Loader escondida (sem acesso API ao Salesforce).'] },
   { v: '1.16.0', data: '19/10/2026', itens: ['Novidades: depois de cada atualização aparece este cartão. A lista completa fica em Definições → Novidades (ou tocando no número da versão).'] },
@@ -1519,17 +1521,57 @@ function descState(m) {
   const has = !!(m.descEN && m.descEN.text); const fresh = has && m.descEN.src === hashStr(pt);
   return { pt, en, has, fresh, stale: en && has && !fresh, text: en && has ? m.descEN.text : pt };
 }
+// Sumário executivo (escrito pelo Claude, na língua escolhida, guardado na reunião)
+function sumState(m) {
+  const pt = buildDescription(m); const lang = m.sfLang === 'en' ? 'en' : 'pt';
+  const x = m.sumx && m.sumx[lang]; const has = !!(x && x.text); const fresh = has && x.src === hashStr(pt);
+  return { lang, has, fresh, stale: has && !fresh, text: has ? x.text : '' };
+}
+const SUM_HEAD = { pt: 'SUMÁRIO EXECUTIVO', en: 'EXECUTIVE SUMMARY' };
+// Texto que vai para os Comments: completo, só o sumário, ou sumário + completo
+function commentsText(m) {
+  const f = m.sfFormat || 'full'; const d = descState(m); const full = d.en && !d.has ? d.pt : d.text;
+  if (f === 'full') return full;
+  const x = sumState(m); if (!x.has) return full;
+  return f === 'sum' ? x.text : `${SUM_HEAD[x.lang]}\n${x.text}\n\n${full}`;
+}
 // Para exportar (CSV): inglês só se a tradução corresponder às notas atuais
 function descFor(m) { const d = descState(m); return d.en && d.fresh ? d.text : d.pt; }
 function sfComments(m, copyAttr, copyLabel, pri) {
-  const d = descState(m);
-  const note = !d.en ? '' : TR.busy.has(m.id) ? `<div class="trnote">${ico('globe', 'sm')} A traduzir para inglês…</div>`
+  const d = descState(m); const f = m.sfFormat || 'full'; const x = sumState(m);
+  const sumNote = f === 'full' || !d.pt ? '' : SUM.busy.has(m.id) ? `<div class="trnote">${ico('list', 'sm')} A escrever o sumário…</div>`
+    : !x.has ? `<div class="trnote">${ico('list', 'sm')} Ainda sem sumário. <button class="btn sm" data-sum>Escrever sumário</button></div>`
+    : x.stale ? `<div class="trnote stale">${ico('list', 'sm')} As notas mudaram depois do sumário. <button class="btn sm" data-sum>Refazer sumário</button></div>`
+    : `<div class="trnote">${ico('list', 'sm')} Sumário do Claude · revê antes de gravar <button class="btn sm" data-sum>Refazer</button></div>`;
+  const fmt = `<div class="fmtrow"><span class="seg mini" role="group" aria-label="Formato dos Comments">${[['full', 'Completo'], ['sum', 'Sumário'], ['both', 'Sumário + completo']].map(([k, l]) => `<button data-fmt="${k}" class="${f === k ? 'on' : ''}">${l}</button>`).join('')}</span></div>`;
+  const note = !d.en || f === 'sum' ? '' : TR.busy.has(m.id) ? `<div class="trnote">${ico('globe', 'sm')} A traduzir para inglês…</div>`
     : !d.pt ? '' : !d.has ? `<div class="trnote">${ico('globe', 'sm')} Ainda sem tradução. <button class="btn sm" data-tr>Traduzir</button></div>`
     : d.stale ? `<div class="trnote stale">${ico('globe', 'sm')} As notas mudaram depois da tradução. <button class="btn sm" data-tr>Traduzir de novo</button></div>`
     : `<div class="trnote">${ico('globe', 'sm')} Traduzido pelo Claude · revê antes de gravar <button class="btn sm" data-tr>Traduzir de novo</button></div>`;
   return { head: `<span class="seg mini" role="group" aria-label="Língua dos Comments"><button data-lang="pt" class="${d.en ? '' : 'on'}">PT</button><button data-lang="en" class="${d.en ? 'on' : ''}">EN</button></span> <button class="btn sm${pri ? ' pri' : ''}" ${copyAttr}>${ico('copy', 'sm')} ${copyLabel}</button>`,
-    body: `${note}<pre class="sfprev">${esc(d.en && !d.has ? d.pt : d.text) || '<span class="faint">Os Comments aparecem aqui à medida que escreves.</span>'}</pre>`, text: d.en && !d.has ? d.pt : d.text };
+    body: `${fmt}${sumNote}${note}<pre class="sfprev">${esc(commentsText(m)) || '<span class="faint">Os Comments aparecem aqui à medida que escreves.</span>'}</pre>`, text: commentsText(m) };
 }
+const SUM = {
+  busy: new Set(),
+  async run(m, redraw) {
+    const pt = buildDescription(m); if (!pt) return toast('Ainda não há notas para resumir');
+    if (!Sync.on()) return toast('O sumário precisa de sessão iniciada');
+    if (!navigator.onLine) return toast('Sem rede — o sumário precisa de internet');
+    if (this.busy.has(m.id)) return;
+    const lang = m.sfLang === 'en' ? 'en' : 'pt';
+    this.busy.add(m.id); redraw();
+    try {
+      const { data, error } = await Sync.client().functions.invoke('debrief-ler', { body: { mode: 'summary', text: pt, lang, airline: m.airlineName || '' } });
+      if (error) { let info = {}; try { info = await error.context?.json?.(); } catch (e) {} throw new Error(info?.message || 'Sumário indisponível'); }
+      const text = String(data?.text || '').trim(); if (!text) throw new Error('O Claude não devolveu o sumário');
+      const wasClean = m.status === 'exported' && !changedAfterExport(m);
+      m.sumx = { ...(m.sumx || {}), [lang]: { src: hashStr(pt), text, at: Date.now() } }; touchMeeting(m);
+      if (wasClean) m.exportedAt = m.updatedAt;
+      toast('Sumário executivo pronto');
+    } catch (e) { toast(e.message || 'Sumário indisponível'); }
+    finally { this.busy.delete(m.id); redraw(); }
+  },
+};
 const TR = {
   busy: new Set(),
   async run(m, redraw) {
@@ -1556,10 +1598,23 @@ const TR = {
       const lang = l.dataset.lang === 'en' ? 'en' : 'pt';
       if ((m.sfLang || 'pt') !== lang) { const wasClean = m.status === 'exported' && !changedAfterExport(m); m.sfLang = lang; touchMeeting(m); if (wasClean) m.exportedAt = m.updatedAt; }
       redraw();
-      const d = descState(m); if (lang === 'en' && d.pt && !d.has) this.run(m, redraw);
+      const d = descState(m); const f = m.sfFormat || 'full';
+      if (lang === 'en' && d.pt && !d.has && f !== 'sum') this.run(m, redraw);
+      if (f !== 'full' && d.pt && !sumState(m).has) SUM.run(m, redraw);
       return true;
     }
     if (ev.target.closest('[data-tr]')) { this.run(m, redraw); return true; }
+    const fb = ev.target.closest('[data-fmt]');
+    if (fb) {
+      const f = ['full', 'sum', 'both'].includes(fb.dataset.fmt) ? fb.dataset.fmt : 'full';
+      if ((m.sfFormat || 'full') !== f) { const wasClean = m.status === 'exported' && !changedAfterExport(m); m.sfFormat = f; touchMeeting(m); if (wasClean) m.exportedAt = m.updatedAt; }
+      redraw();
+      const d = descState(m);
+      if (f !== 'full' && d.pt && !sumState(m).has) SUM.run(m, redraw);
+      if (f === 'both' && d.en && d.pt && !d.has) this.run(m, redraw);
+      return true;
+    }
+    if (ev.target.closest('[data-sum]')) { SUM.run(m, redraw); return true; }
     return false;
   },
 };
@@ -2120,7 +2175,7 @@ function viewMeeting(id) {
     if (t.closest('[data-del]')) return delMeetingFlow(m);
     if (t.closest('[data-menu]')) return meetingMenu(m);
     if (t.closest('#aside') && TR.click(m, e, () => { if (isDesk()) renderAside(m); })) return;
-    if (t.closest('[data-copydesc]')) { await copyText(descState(m).text); return toast(m.sfLang === 'en' ? 'Comments (EN) copiados' : 'Comments copiados'); }
+    if (t.closest('[data-copydesc]')) { await copyText(commentsText(m)); return toast(m.sfLang === 'en' ? 'Comments (EN) copiados' : 'Comments copiados'); }
   };
   async function removePhoto(mm, pid) { await DB.del('photos', pid); dropURL(pid); mm.photoIds = mm.photoIds.filter((x) => x !== pid); renderPhotos(mm); touchMeeting(mm); if (desk) renderAside(mm); }
   $$('textarea', view).forEach(grow);
@@ -2345,7 +2400,7 @@ function meetingMenu(m) {
 }
 function fullText(m) {
   const pc = primaryContact(m);
-  return `Subject: ${subjectOf(m)}\nName: ${pc ? contactName(pc) : '—'}\nRelated To: ${m.airlineName || '—'}\nDue Date: ${dueDate(m)}${m.flag ? '\nFlag: ' + m.flag : ''}${m.tradeshow ? '\nType of Tradeshow: ' + m.tradeshow : ''}\nGeographical Scope: ${scopeOf(m).join(', ') || '—'}\n\nComments:\n${descState(m).text}`;
+  return `Subject: ${subjectOf(m)}\nName: ${pc ? contactName(pc) : '—'}\nRelated To: ${m.airlineName || '—'}\nDue Date: ${dueDate(m)}${m.flag ? '\nFlag: ' + m.flag : ''}${m.tradeshow ? '\nType of Tradeshow: ' + m.tradeshow : ''}\nGeographical Scope: ${scopeOf(m).join(', ') || '—'}\n\nComments:\n${commentsText(m)}`;
 }
 
 /* ---------- escolher companhia */
@@ -2789,7 +2844,7 @@ function sfSheet(m, after) {
     const cp = ev.target.closest('[data-cp]'); if (cp) { await copyText(rows[cp.dataset.cp][1]); toast(`${rows[cp.dataset.cp][0]} copiado`); }
     const redraw = () => { const box = sh.el.querySelector('#sf-com'); if (box) { const c = sfComments(m, 'data-cpdesc', 'Copiar comments', true); box.innerHTML = `<h3>Comments <span class="r">${c.head}</span></h3>${c.body}`; } after && after(); };
     if (TR.click(m, ev, redraw)) return;
-    const desc = descState(m).text; const lg = m.sfLang === 'en' ? ' (EN)' : '';
+    const desc = commentsText(m); const lg = m.sfLang === 'en' ? ' (EN)' : '';
     if (ev.target.closest('[data-cpdesc]')) { await copyText(desc); toast(`Comments${lg} copiados`); }
     if (ev.target.closest('[data-sfopen]')) { copyText(desc).catch(() => {}); toast(`A abrir o Salesforce · Comments${lg} copiados`); return; }
     const reLink = () => { sh.el.querySelector('#sf-linkbox').innerHTML = sfLinkBox(m); };

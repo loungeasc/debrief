@@ -26,7 +26,7 @@ Abre uma vez com rede para descarregar o leitor de cartões (~12 MB). Depois fun
    - Fotos de notas em papel: abre a foto → **Texto** para extrair o texto (com IA quando há rede; ver abaixo), rever e juntar às notas. No iPhone/iPad também podes tocar e manter sobre o texto da foto (Texto ao Vivo).
    - O que ficar por organizar vai para os Comments como «Notas».
 2. No Salesforce: conta da companhia → **New Meeting Note**. No Debrief, toca em **Salesforce** e copia cada campo pela ordem do formulário (Subject, Name, Related To, Due Date, Flag, Type of Tradeshow, Geographical Scope, Comments).
-   Os **Comments** podem ir em português ou em inglês: no botão **PT | EN** (no Salesforce e na pré-visualização do portátil) escolhe EN e o Claude traduz as notas. A tradução fica guardada na reunião (o colega também a vê); se mudares as notas depois, aparece o aviso «Traduzir de novo». A escolha também vale para o CSV do Data Loader (só se a tradução estiver em dia).
+   Os **Comments** podem ir completos, só com um **sumário executivo** (um parágrafo curto escrito pelo Claude, guardado na reunião) ou com o sumário no topo e as notas completas a seguir — escolhe em «Completo · Sumário · Sumário + completo». Também podem ir em português ou em inglês: no botão **PT | EN** (no Salesforce e na pré-visualização do portátil) escolhe EN e o Claude traduz as notas. A tradução fica guardada na reunião (o colega também a vê); se mudares as notas depois, aparece o aviso «Traduzir de novo». A escolha também vale para o CSV do Data Loader (só se a tradução estiver em dia).
 3. **Já gravei — marcar exportada.**
 
 Subject automático: `Meeting_OPO_<código IATA>_<temas>` (prefixo e aeroporto em Definições).
