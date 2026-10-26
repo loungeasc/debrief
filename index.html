@@ -541,6 +541,66 @@ details.setgrp .setbody{padding:0 14px 14px;border-top:1px solid var(--line);pad
   .tbl .cellair{max-width:125px}
   .tbl th{letter-spacing:.02em}
 }
+/* Schedule */
+.schsearch{margin:2px 0 14px}
+.schsearch .inp{min-height:52px;font-size:17px;border-radius:14px;padding-left:44px}
+.schsearch .i{top:16px;left:14px}
+.schkpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 6px}
+.schkpis>div{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.schkpis b{font-size:21px;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.schkpis span{font-size:12px;color:var(--ink-3)}
+.schkpis.in{margin:14px 0 0}
+.schkpis.in>div{background:var(--surface-2);border:0}
+.schrow{align-items:center}
+.schrow .iata{flex:none;width:52px;height:40px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;font:700 14px/1 var(--mono);letter-spacing:.04em}
+.schrow .t{font-size:16px}
+.schlogos{display:flex;gap:4px;align-items:center;margin-top:6px}
+.schlogos .badge.sm{width:24px;height:24px;border-radius:7px;font-size:9px}
+.schlogos .more{font-size:12px;color:var(--ink-3);font-weight:600;margin-left:2px}
+.schn{flex:none;display:flex;flex-direction:column;align-items:flex-end;line-height:1.05}
+.schn b{font-size:24px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.schn span{font-size:11.5px;color:var(--ink-3)}
+.schn.pon span{font-size:12px;background:var(--surface-2);border-radius:99px;padding:4px 9px;color:var(--ink-2);font-weight:600}
+.schnone{text-align:center;padding:40px 18px;color:var(--ink-2)}
+.schnone .art{width:64px;height:64px;border-radius:18px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto;color:var(--ink-3)}
+.schnone h2{font-size:20px;color:var(--ink);margin:14px 0 6px}
+.schnone p{margin:0 auto 8px;max-width:340px}
+.schhero{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin:4px 0 4px}
+.schhero .ans{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.schhero .ans b{font-size:40px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em;margin-right:2px}
+.schbars-h{font-size:12px;color:var(--ink-3);margin:16px 0 6px}
+.schbars{display:flex;align-items:flex-end;gap:3px;height:74px;padding-bottom:16px}
+.schbars .bcol{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;position:relative;min-width:0}
+.schbars .bar{background:var(--accent);opacity:.85;border-radius:3px 3px 1px 1px;min-height:3px}
+.schbars .bcol span{position:absolute;left:0;bottom:-16px;font-size:10.5px;color:var(--ink-3);white-space:nowrap}
+.schleg{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.schleg span{display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-weight:500}
+.schleg .dot{width:10px;height:10px;border-radius:99px;display:inline-block;margin-left:6px}
+.schleg .dot.on{background:var(--accent)}
+.schleg .dot.some{border:1.5px dashed var(--accent)}
+.schcards{display:grid;gap:10px}
+@media (min-width:960px){.schcards{grid-template-columns:1fr 1fr}.schpage{max-width:980px}}
+.schcard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px}
+.schcard-h{display:flex;align-items:center;gap:12px}
+.schcard-h .grow{flex:1;min-width:0}
+.schcard-h .nm{font-weight:650;font-size:16px;line-height:1.2}
+.schcard-h .sb{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.schcard .big{display:flex;flex-direction:column;align-items:flex-end;line-height:1}
+.schcard .big b{font-size:34px;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.schcard .big span{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+.schdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:14px 0 4px}
+.schdays .dd{display:flex;flex-direction:column;align-items:center;gap:3px}
+.schdays .l{width:100%;max-width:40px;aspect-ratio:1;border-radius:99px;display:grid;place-items:center;font-weight:700;font-size:14px;background:var(--surface-2);color:var(--ink-3)}
+.schdays .on .l{background:var(--accent);color:var(--accent-ink)}
+.schdays .some .l{background:transparent;border:1.5px dashed var(--accent);color:var(--accent)}
+.schdays .c{font-size:11.5px;font-weight:700;color:var(--ink-2);height:14px;font-variant-numeric:tabular-nums}
+.schdl{margin:8px 0 0;display:grid;gap:6px}
+.schdl>div{display:flex;gap:10px;font-size:14px}
+.schdl dt{flex:none;width:68px;color:var(--ink-3)}
+.schdl dd{margin:0;min-width:0;font-variant-numeric:tabular-nums}
+.schfoot{display:flex;justify-content:space-between;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.schfoot b{color:var(--ink)}
+.schsrc{font-size:12px;margin:16px 2px 0}
 </style>
 <script>
 /* Aspeto: Claro, Escuro ou Sistema (só neste dispositivo). Ajusta as regras @media (prefers-color-scheme: dark) da folha de estilos. */
@@ -616,10 +676,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.19.1';
+const APP_VERSION = '1.20.0';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.20.0', data: '26/10/2026', itens: ['Schedule W26 (novo no menu): procura um aeroporto, cidade ou país e vês logo se há voos do Porto, que companhias voam, quantos voos por semana, em que dias, a que horas e o total da época.', 'Os dias aparecem em círculos (S T Q Q S S D): cheio é todas as semanas, tracejado é só algumas; ×2 quer dizer dois voos nesse dia.'] },
   { v: '1.19.1', data: '21/10/2026', itens: ['Subject das reuniões de um evento: Meeting_OPO_<código da companhia>_<evento>, por exemplo Meeting_OPO_EK_Routes World 2026. Sem evento, continua com os temas.'] },
   { v: '1.19.0', data: '21/10/2026', itens: ['Sumário executivo: na pré-visualização do Salesforce escolhe «Completo», «Sumário» ou «Sumário + completo». O Claude escreve um parágrafo curto com o essencial (em PT ou EN), que fica guardado na reunião.'] },
   { v: '1.18.0', data: '19/10/2026', itens: ['Definições arrumadas: em cima a conta, o teu nome e o aspeto; o resto em grupos que abres quando precisas (Agenda, Eventos, Temas, Salesforce, Diretório, IA, Dados).', 'Aspeto: Claro, Escuro ou Sistema (em Definições, só neste dispositivo).'] },
@@ -1236,7 +1297,7 @@ const SIMREF = {
     const old = !this.data || Date.now() - (this.data.obtido || 0) > 864e5;
     if ((force || old) && Sync.on() && navigator.onLine) {
       try {
-        const { data, error } = await Sync.client().from('crm_referencia').select('chave,versao,dados');
+        const { data, error } = await Sync.client().from('crm_referencia').select('chave,versao,dados').in('chave', ['tarifas', 'incentivos', 'aeronaves']);
         if (!error && data && data.length) {
           const o = { obtido: Date.now() }; for (const r of data) o[r.chave] = r.dados;
           if (o.tarifas && o.incentivos && o.aeronaves) { this.data = o; try { await DB.rawPut('kv', o, 'ref:sim'); } catch (e) {} }
@@ -1740,6 +1801,7 @@ function renderChrome(active) {
     <a class="nav ${active === 'm' ? 'on' : ''}" href="#/">${ico('list')} Reuniões <span class="count">${pending ? pending + ' por exportar' : ''}</span></a>
     <a class="nav ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users')} Contactos <span class="count">${S.contacts.length || ''}</span></a>
     <a class="nav ${active === 'q' ? 'on' : ''}" href="#/perguntar">${ico('chat')} Perguntar</a>
+    <a class="nav ${active === 'w' ? 'on' : ''}" href="#/schedule">${ico('plane')} Schedule ${esc(SCH.data?.season || '')}</a>
     <a class="nav ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send')} Exportar</a>
     <a class="nav ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders')} Definições</a>
     <div class="side-foot"><span class="syncst"></span>${Sync.on() ? `<span class="userrow"><span>${esc(Sync.userName || Sync.email)}</span><button class="ibtn sm" data-logout title="Terminar sessão" aria-label="Terminar sessão">${ico('logout', 'sm')}</button></span>` : `<span>Última cópia de segurança: ${ago(S.settings.lastBackupAt)}</span><span class="userrow"><span>Partilhar com o colega</span><button class="btn sm" data-gologin2>Entrar</button></span>`}<button class="verlink" data-novidades title="Novidades">v${APP_VERSION} · novidades</button></div>`;
@@ -1747,6 +1809,7 @@ function renderChrome(active) {
     <a class="tab ${active === 'm' ? 'on' : ''}" href="#/">${ico('list', 'lg')}Reuniões</a>
     <a class="tab ${active === 'c' ? 'on' : ''}" href="#/contactos">${ico('users', 'lg')}Contactos</a>
     <div class="tab-new"><button data-new aria-label="Nova reunião">${ico('plus')}</button></div>
+    <a class="tab ${active === 'w' ? 'on' : ''}" href="#/schedule">${ico('plane', 'lg')}Schedule</a>
     <a class="tab ${active === 'x' ? 'on' : ''}" href="#/exportar">${ico('send', 'lg')}Exportar</a>
     <a class="tab ${active === 's' ? 'on' : ''}" href="#/definicoes">${ico('sliders', 'lg')}Definições</a>`;
   $$('[data-new]').forEach((b) => (b.onclick = createMeeting));
@@ -1778,6 +1841,7 @@ function route() {
   if (a === 'exportar') return viewExport();
   if (a === 'definicoes') return viewSettings();
   if (a === 'perguntar') return viewChat(b);
+  if (a === 'schedule') return viewSchedule(b);
   return viewMeetings();
 }
 
@@ -2873,6 +2937,172 @@ function exportSet() {
     return true;
   }).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 }
+/* =====================================================================
+   SCHEDULE (época IATA): para onde voamos, quem voa, quantas vezes por semana
+   Os dados vêm do Supabase (crm_referencia, chave 'schedule'), só com login, e ficam guardados no dispositivo.
+   ===================================================================== */
+const DOW = [['S', 'Segunda'], ['T', 'Terça'], ['Q', 'Quarta'], ['Q', 'Quinta'], ['S', 'Sexta'], ['S', 'Sábado'], ['D', 'Domingo']];
+const SCH = {
+  data: null, idx: null, loading: null, checked: 0,
+  async load() {
+    if (this.data) return this.data;
+    if (!this.loading) this.loading = (async () => {
+      let k = null; try { k = await DB.get('kv', 'sched'); } catch (e) {}
+      if (k?.data) { this.set(k.data); this.checked = k.checked || 0; this.at = k.at || ''; }
+      return this.data;
+    })();
+    return this.loading;
+  },
+  // vai buscar ao Supabase quando há uma versão nova (vê no máximo de 6 em 6 horas, ou quando pedido)
+  async refresh(force = false) {
+    await this.load();
+    if (!Sync.on() || !navigator.onLine) return false;
+    if (!force && this.data && Date.now() - this.checked < 6 * 3600e3) return false;
+    const sb = Sync.client();
+    const top = await sb.from('crm_referencia').select('versao,atualizado_em').eq('chave', 'schedule').maybeSingle();
+    if (top.error) throw top.error;
+    if (!top.data) return false;
+    if (this.data && this.at === top.data.atualizado_em) { this.checked = Date.now(); await this.save(); return false; }
+    const { data, error } = await sb.from('crm_referencia').select('dados,atualizado_em').eq('chave', 'schedule').single();
+    if (error) throw error;
+    this.set(data.dados); this.at = data.atualizado_em; this.checked = Date.now(); await this.save(); return true;
+  },
+  async save() { try { await DB.rawPut('kv', { data: this.data, at: this.at, checked: this.checked }, 'sched'); } catch (e) {} },
+  set(d) {
+    this.data = d;
+    const by = {};
+    for (const r of d.r) (by[r.a] = by[r.a] || []).push(r);
+    const wk0 = new Date(d.wk0 + 'T12:00'); const from = d.from, to = d.to;
+    this.full = [...Array(d.nw).keys()].filter((w) => { const a = new Date(wk0); a.setDate(a.getDate() + 7 * w); const b = new Date(a); b.setDate(b.getDate() + 6); return ymd(a) >= from && ymd(b) <= to; });
+    this.idx = Object.entries(by).map(([a, rs]) => {
+      const [city, apt, extra, country] = d.ap[a] || [a, '', '', ''];
+      const reg = rs.filter((r) => !r.p).sort((x, y) => y.w - x.w || y.t - x.t);
+      const pon = rs.filter((r) => r.p);
+      const wk = Array(d.nw).fill(0); rs.forEach((r) => r.wk.forEach((v, i) => (wk[i] += v)));
+      return {
+        a, city, apt, country, reg, pon, wk,
+        w: reg.reduce((s, r) => s + r.w, 0), t: rs.reduce((s, r) => s + r.t, 0), seats: rs.reduce((s, r) => s + r.s, 0),
+        k: norm([a, city, apt, extra, country].join(' ')),
+      };
+    }).sort((x, y) => y.w - x.w || y.t - x.t);
+  },
+  al(c) { const x = this.data?.al?.[c]; return { name: x?.[0] || c, iata: x?.[1] || '' }; },
+  get(a) { return this.idx?.find((x) => x.a === a) || null; },
+  search(q) {
+    const toks = norm(q).split(/\s+/).filter(Boolean);
+    if (!toks.length) return this.idx || [];
+    const up = q.trim().toUpperCase();
+    return (this.idx || []).filter((x) => toks.every((t) => x.k.includes(t)))
+      .sort((x, y) => (y.a === up) - (x.a === up) || (norm(y.city).startsWith(toks[0])) - (norm(x.city).startsWith(toks[0])) || y.w - x.w || y.t - x.t);
+  },
+  season() { return this.data?.season || 'Schedule'; },
+};
+const dShort = (iso) => { const [, m, d] = String(iso).split('-'); return `${+d} ${MESES[+m - 1]}`; };
+const kNum = (n) => (n >= 1e6 ? (n / 1e6).toLocaleString('pt-PT', { maximumFractionDigits: 1 }) + ' M' : n >= 1e5 ? Math.round(n / 1e3) + ' mil' : n >= 1e4 ? (n / 1e3).toLocaleString('pt-PT', { maximumFractionDigits: 1 }) + ' mil' : n.toLocaleString('pt-PT'));
+function schLogos(rs, max = 3) {
+  const s = rs.slice(0, max).map((r) => badge(SCH.al(r.c).iata || r.c, true)).join('');
+  return `<span class="schlogos">${s}${rs.length > max ? `<span class="more">+${rs.length - max}</span>` : ''}</span>`;
+}
+function schDays(r) {
+  return `<div class="schdays" role="img" aria-label="${esc(DOW.map(([, n], i) => `${n}: ${r.d[i][0] >= 0.5 ? (r.d[i][1] > 1 ? r.d[i][1] + ' voos' : '1 voo') : r.d[i][0] > 0 ? 'algumas semanas' : 'não'}`).join(', '))}">${DOW.map(([l], i) => {
+    const [share, n] = r.d[i]; const cls = share >= 0.5 ? 'on' : share > 0 ? 'some' : '';
+    return `<span class="dd ${cls}"><span class="l">${l}</span><span class="c">${share > 0 ? (n > 1 ? '×' + n : '') : ''}</span></span>`;
+  }).join('')}</div>`;
+}
+function schBars(wk) {
+  const ws = SCH.full; const vals = ws.map((w) => wk[w]); const max = Math.max(1, ...vals);
+  const wk0 = new Date(SCH.data.wk0 + 'T12:00'); let lastM = -1, lastI = -9;
+  const cols = ws.map((w, i) => {
+    const d = new Date(wk0); d.setDate(d.getDate() + 7 * w); const m = d.getMonth();
+    const lab = m !== lastM && i - lastI >= 3 ? MESES[m] : ''; if (m !== lastM) { lastM = m; if (lab) lastI = i; }
+    return `<div class="bcol" title="Semana de ${d.getDate()} ${MESES[m]}: ${vals[i]} voos"><div class="bar" style="height:${Math.max(3, Math.round((vals[i] / max) * 100))}%"></div><span>${lab}</span></div>`;
+  }).join('');
+  return `<div class="schbars">${cols}</div>`;
+}
+function schRouteCard(r) {
+  const al = SCH.al(r.c); const d = SCH.data;
+  const allSeason = r.n >= SCH.full.length && r.f <= addDaysIso(d.from, 6) && r.l >= addDaysIso(d.to, -6);
+  const perDay = Math.max(...r.d.map((x) => x[1]));
+  const lines = [
+    [allSeason ? 'Toda a época' : `${dShort(r.f)} → ${dShort(r.l)}`, 'Período'],
+    r.lo !== r.hi ? [`entre ${r.lo} e ${r.hi} por semana`, 'Varia'] : null,
+    r.h.length && perDay <= 3 ? [r.h.join(' · '), r.arr ? 'Chegadas' : 'Partidas'] : perDay > 3 ? [`até ${perDay} por dia`, 'Voos'] : null,
+    [`${r.ac.join(', ')}${r.cap ? ` · ${r.cap} lugares` : ''}`, 'Avião'],
+    r.via ? [`com escala em ${(d.ap[r.via] || [r.via])[0]} (${r.via})`, 'Escala'] : null,
+  ].filter(Boolean);
+  return `<div class="schcard">
+    <div class="schcard-h">${badge(al.iata || r.c)}<div class="grow"><div class="nm">${esc(al.name)}</div><div class="sb">${esc([al.iata, r.ch ? 'charter' : ''].filter(Boolean).join(' · '))}</div></div>
+      <div class="big"><b>${r.w}</b><span>por semana</span></div></div>
+    ${schDays(r)}
+    <dl class="schdl">${lines.map(([v, k]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+    <div class="schfoot"><span><b>${r.t}</b> voos na época</span><span>${kNum(r.s)} lugares</span></div>
+  </div>`;
+}
+function addDaysIso(iso, n) { const x = new Date(iso + 'T12:00'); x.setDate(x.getDate() + n); return ymd(x); }
+function schRow(x) {
+  const sub = [x.apt, x.country].filter(Boolean).join(' · ');
+  const right = x.reg.length ? `<div class="schn"><b>${x.w}</b><span>/semana</span></div>` : `<div class="schn pon"><span>pontual</span></div>`;
+  return `<a class="row schrow" href="#/schedule/${x.a}"><span class="iata">${x.a}</span><div class="main"><div class="t">${esc(x.city)}</div><div class="s">${esc(sub)}</div>${schLogos(x.reg.length ? x.reg : x.pon)}</div>${right}</a>`;
+}
+async function viewSchedule(code) {
+  renderChrome('w');
+  S.sch = S.sch || { q: '' };
+  const desk = isDesk();
+  const paint = () => {
+    const d = SCH.data;
+    if (!d) {
+      const msg = !Sync.on() ? 'O schedule só está disponível com sessão iniciada (os dados ficam no Supabase, não no telemóvel de quem não tem acesso).' : SCH.loading || SCH._busy ? 'A carregar…' : 'Ainda não há schedule carregado.';
+      view.innerHTML = `<div class="page"><div class="top"><h1>Schedule</h1></div><div class="empty"><div class="art">${ico('plane', 'lg')}</div><h2>Schedule</h2><p>${esc(msg)}</p>${Sync.on() ? '<button class="btn" data-schref>Tentar outra vez</button>' : ''}</div></div>`;
+      return;
+    }
+    if (code) return paintDetail(SCH.get(code.toUpperCase()));
+    const regs = SCH.idx.filter((x) => x.reg.length);
+    const alls = new Set(d.r.filter((r) => !r.p).map((r) => r.c));
+    const wk = regs.reduce((s, x) => s + x.w, 0);
+    view.innerHTML = `<div class="page schpage"><div class="top"><h1>Schedule ${esc(d.season)}<small>${dShort(d.from)} ${d.from.slice(0, 4)} – ${dShort(d.to)} ${d.to.slice(0, 4)} · partidas do Porto</small></h1></div>
+      <div class="search schsearch">${ico('search')}<input class="inp" type="search" id="schq" placeholder="Aeroporto, cidade ou país (ex.: CDG, Londres)" value="${esc(S.sch.q)}" autocomplete="off" autocapitalize="characters" enterkeyhint="search"></div>
+      <div id="schres"></div></div>`;
+    const res = () => {
+      const q = S.sch.q.trim(); const list = SCH.search(q); const box = $('#schres');
+      if (!q) {
+        box.innerHTML = `<div class="schkpis"><div><b>${regs.length}</b><span>destinos</span></div><div><b>${alls.size}</b><span>companhias</span></div><div><b>${wk.toLocaleString('pt-PT')}</b><span>voos por semana</span></div></div>
+          <div class="group-h">Destinos · mais voos primeiro</div><div class="list">${SCH.idx.map(schRow).join('')}</div>`;
+      } else if (!list.length) {
+        box.innerHTML = `<div class="schnone"><div class="art">${ico('plane', 'lg')}</div><h2>Sem voos para «${esc(q)}»</h2><p>Nenhuma companhia voa do Porto para este destino no ${esc(d.season)}.</p><p class="faint">Procura pelo código do aeroporto (CDG), pela cidade (Paris) ou pelo país (França).</p></div>`;
+      } else {
+        box.innerHTML = `<div class="group-h">${plural(list.length, 'destino', 'destinos')}</div><div class="list">${list.map(schRow).join('')}</div>`;
+      }
+    };
+    res();
+    const inp = $('#schq');
+    inp.addEventListener('input', debounce(() => { S.sch.q = inp.value; res(); }, 120));
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const l = SCH.search(inp.value); if (l.length === 1) go('#/schedule/' + l[0].a); else inp.blur(); } });
+    if (desk && !S.sch.q) inp.focus();
+  };
+  const paintDetail = (x) => {
+    const d = SCH.data;
+    if (!x) { view.innerHTML = `<div class="page"><div class="top"><button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button><h1>${esc(code.toUpperCase())}</h1></div><div class="schnone"><div class="art">${ico('plane', 'lg')}</div><h2>Sem voos para ${esc(code.toUpperCase())}</h2><p>Nenhuma companhia voa do Porto para este aeroporto no ${esc(d.season)}.</p></div></div>`; return; }
+    const answer = x.reg.length ? `<b>${x.w}</b> ${x.w === 1 ? 'voo' : 'voos'} por semana` : 'Só voos pontuais';
+    view.innerHTML = `<div class="page schpage"><div class="top"><button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button><h1>${esc(x.city)}<small>${esc([x.a, x.apt, x.country].filter(Boolean).join(' · '))}</small></h1></div>
+      <div class="schhero"><div class="ans">${answer}</div>
+        <div class="schkpis in"><div><b>${x.reg.length || x.pon.length}</b><span>${(x.reg.length || x.pon.length) === 1 ? 'companhia' : 'companhias'}</span></div><div><b>${x.t.toLocaleString('pt-PT')}</b><span>voos na época</span></div><div><b>${kNum(x.seats)}</b><span>lugares</span></div></div>
+        ${x.reg.length ? `<div class="schbars-h">Voos por semana ao longo do ${esc(d.season)}</div>${schBars(x.wk)}` : ''}</div>
+      ${x.reg.length ? `<div class="group-h schleg">Companhias <span><i class="dot on"></i>todas as semanas <i class="dot some"></i>algumas</span></div><div class="schcards">${x.reg.map(schRouteCard).join('')}</div>` : ''}
+      ${x.pon.length ? `<div class="group-h">Voos pontuais</div><div class="list">${x.pon.map((r) => { const al = SCH.al(r.c); return `<div class="row">${badge(al.iata || r.c, true)}<div class="main"><div class="t">${esc(al.name)}</div><div class="s">${esc(r.dt.map(dShort).join(', '))}${r.ch ? ' · charter' : ''}</div></div><div class="schn"><b>${r.t}</b><span>${r.t === 1 ? 'voo' : 'voos'}</span></div></div>`; }).join('')}</div>` : ''}
+      <p class="faint schsrc">Contagem por partidas do Porto (ida e volta = 1 voo). Fonte: ${esc(d.file || 'Schedule Report')}.</p></div>`;
+  };
+  view.onclick = (e) => {
+    if (e.target.closest('[data-back]')) return goBack('#/schedule');
+    if (e.target.closest('[data-schref]')) { SCH._busy = true; paint(); SCH.refresh(true).catch((er) => toast(er.message || 'Sem ligação')).finally(() => { SCH._busy = false; paint(); }); }
+  };
+  await SCH.load();
+  paint();
+  if (Sync.on() && navigator.onLine) {
+    const first = !SCH.data; if (first) { SCH._busy = true; paint(); }
+    SCH.refresh(first).then((ch) => { if ((ch || first) && location.hash.startsWith('#/schedule')) { SCH._busy = false; const q = $('#schq'); const focused = q && document.activeElement === q; paint(); if (focused) $('#schq')?.focus(); } }).catch((er) => { console.warn('schedule', er); SCH._busy = false; if (first) paint(); });
+  }
+}
+
 function viewExport() {
   renderChrome('x');
   const set = exportSet(); const noContact = set.filter((m) => !m.contactIds.length).length;

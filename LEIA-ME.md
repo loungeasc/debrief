@@ -48,6 +48,12 @@ Cópia de todos os contactos do Salesforce, só para consulta e separada dos teu
 
 Montar uma vez: corre `supabase/06_diretorio.sql` no SQL Editor do Supabase do Portal. Depois, e sempre que quiseres atualizar: no Salesforce, relatório «Contactos para o Debrief» (Contacts & Accounts, todos os contactos, colunas Contact ID, First/Last Name, Account Name, Account ID, Title, Email, Phone, Mobile, BU, Last Modified Date) → Export → Details Only → CSV; no Debrief, Definições → Diretório Salesforce → **Importar CSV**. A importação substitui o diretório para os dois. Os dados ficam no Supabase (só com login) e no dispositivo; nunca neste repositório.
 
+## Schedule (época IATA)
+
+Menu **Schedule W26** (no telemóvel, separador «Schedule»): procura um aeroporto, cidade ou país e vês se há voos do Porto, as companhias, quantos voos por semana, em que dias (círculos S T Q Q S S D: cheio = todas as semanas, tracejado = algumas, ×2 = dois voos no dia), as horas de partida, o avião, o período e o total da época. Sem pesquisa, a lista mostra os destinos com mais voos primeiro. Conta-se por partidas do Porto (ida e volta = 1 voo); os voos pontuais e charters aparecem à parte.
+
+Os dados vêm do relatório «Schedule Report By Day» (xlsx) e são resumidos com `tools/schedule.py` para a tabela `crm_referencia` (chave `schedule`), só com login; ficam guardados no dispositivo para funcionar sem rede. Nunca ficam neste repositório. Para uma época nova: `python3 -I tools/schedule.py relatorio.xlsx S27 2027-03-28 2027-10-30 > schedule.json` e grava o JSON em `crm_referencia` (chave `schedule`).
+
 ## Definições
 
 Em cima: a conta (sincronizar, sair), o teu nome e o **Aspeto** (Claro, Escuro ou Sistema; guardado só neste dispositivo). O resto está em grupos que abres quando precisas: Agenda, Eventos, Temas das reuniões, Salesforce (endereço, Subject, Scope e contas das companhias), Diretório Salesforce, Inteligência artificial e Dados e cópias.
