@@ -3096,6 +3096,7 @@ async function viewSchedule(code) {
     if (e.target.closest('[data-schref]')) { SCH._busy = true; paint(); SCH.refresh(true).catch((er) => toast(er.message || 'Sem ligação')).finally(() => { SCH._busy = false; paint(); }); }
   };
   await SCH.load();
+  if (SCH.data) renderChrome('w');
   paint();
   if (Sync.on() && navigator.onLine) {
     const first = !SCH.data; if (first) { SCH._busy = true; paint(); }
