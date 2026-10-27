@@ -676,10 +676,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.20.1';
+const APP_VERSION = '1.20.2';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.20.2', data: '27/10/2026', itens: ['«Alterada após exportação» só aparece quando muda o que vai para o Salesforce (assunto, notas, contactos, data). A agenda, as traduções e a sincronização já não contam.'] },
   { v: '1.20.1', data: '26/10/2026', itens: ['Correção: a atualização da agenda já não marca como «Alterada após exportação» as reuniões que já estão no Salesforce.'] },
   { v: '1.20.0', data: '26/10/2026', itens: ['Schedule W26 (novo no menu): procura um aeroporto, cidade ou país e vês logo se há voos do Porto, que companhias voam, quantos voos por semana, em que dias, a que horas e o total da época.', 'Os dias aparecem em círculos (S T Q Q S S D): cheio é todas as semanas, tracejado é só algumas; ×2 quer dizer dois voos nesse dia.'] },
   { v: '1.19.1', data: '21/10/2026', itens: ['Subject das reuniões de um evento: Meeting_OPO_<código da companhia>_<evento>, por exemplo Meeting_OPO_EK_Routes World 2026. Sem evento, continua com os temas.'] },
@@ -1032,7 +1033,11 @@ async function saveSettings() {
 const getM = (id) => S.meetings.find((x) => x.id === id);
 const getC = (id) => S.contacts.find((x) => x.id === id);
 const contactName = (c) => [c?.firstName, c?.lastName].filter(Boolean).join(' ') || c?.email || 'Sem nome';
-const changedAfterExport = (m) => m.status === 'exported' && m.exportedAt && m.updatedAt > m.exportedAt + 1500;
+// «Alterada após exportação»: compara o conteúdo que vai para o Salesforce (assunto, comments, contactos, data…) com o que foi exportado.
+// Mexidas que não mudam esse conteúdo (agenda, tradução, sincronização) não contam. Reuniões antigas sem assinatura: compara as datas.
+function sfSig(m) { try { return hashStr(JSON.stringify([subjectOf(m), buildDescription(m), [...(m.contactIds || [])].sort(), m.airlineName || '', m.airlineCode || '', m.flag || '', scopeOf(m), m.tradeshow || '', (m.start || '').slice(0, 10)])); } catch (e) { return ''; } }
+const changedAfterExport = (m) => m.status === 'exported' && !!m.exportedAt && (m.exportSig ? sfSig(m) !== m.exportSig : m.updatedAt > m.exportedAt + 1500);
+function markExported(m, now = Date.now()) { m.status = 'exported'; m.updatedAt = now; m.exportedAt = now; m.exportSig = sfSig(m); }
 
 let persistAsked = false;
 async function askPersist() {
@@ -1076,7 +1081,7 @@ const EV = {
       const wasClean = m.status === 'exported' && !changedAfterExport(m);
       if (e) { m.eventId = e.id; if (e.tradeshow && !m.tradeshow && m.status !== 'exported') m.tradeshow = e.tradeshow; } else delete m.eventId;
       if (m._unsaved) continue;
-      touchMeeting(m); if (wasClean) m.exportedAt = m.updatedAt; // associar a um evento não conta como «alterada após exportar»
+      touchMeeting(m); if (wasClean) { m.exportedAt = m.updatedAt; m.exportSig = sfSig(m); } // associar a um evento não conta como «alterada após exportar»
     }
   },
   async save(e) { const l = this.list(); const i = l.findIndex((x) => x.id === e.id); if (i >= 0) l[i] = e; else l.push(e); S.settings.events = [...l]; await saveSettings(); },
@@ -1631,7 +1636,7 @@ const SUM = {
       const text = String(data?.text || '').trim(); if (!text) throw new Error('O Claude não devolveu o sumário');
       const wasClean = m.status === 'exported' && !changedAfterExport(m);
       m.sumx = { ...(m.sumx || {}), [lang]: { src: hashStr(pt), text, at: Date.now() } }; touchMeeting(m);
-      if (wasClean) m.exportedAt = m.updatedAt;
+      if (wasClean) { m.exportedAt = m.updatedAt; m.exportSig = sfSig(m); }
       toast('Sumário executivo pronto');
     } catch (e) { toast(e.message || 'Sumário indisponível'); }
     finally { this.busy.delete(m.id); redraw(); }
@@ -1651,7 +1656,7 @@ const TR = {
       const text = String(data?.text || '').trim(); if (!text) throw new Error('O Claude não devolveu a tradução');
       const wasClean = m.status === 'exported' && !changedAfterExport(m);
       m.descEN = { src: hashStr(pt), text, at: Date.now() }; touchMeeting(m);
-      if (wasClean) m.exportedAt = m.updatedAt; // traduzir não conta como «alterada após exportar»
+      if (wasClean) { m.exportedAt = m.updatedAt; m.exportSig = sfSig(m); } // traduzir não conta como «alterada após exportar»
       toast('Comments traduzidos para inglês');
     } catch (e) { toast(e.message || 'Tradução indisponível'); }
     finally { this.busy.delete(m.id); redraw(); }
@@ -1661,7 +1666,7 @@ const TR = {
     const l = ev.target.closest('[data-lang]');
     if (l) {
       const lang = l.dataset.lang === 'en' ? 'en' : 'pt';
-      if ((m.sfLang || 'pt') !== lang) { const wasClean = m.status === 'exported' && !changedAfterExport(m); m.sfLang = lang; touchMeeting(m); if (wasClean) m.exportedAt = m.updatedAt; }
+      if ((m.sfLang || 'pt') !== lang) { const wasClean = m.status === 'exported' && !changedAfterExport(m); m.sfLang = lang; touchMeeting(m); if (wasClean) { m.exportedAt = m.updatedAt; m.exportSig = sfSig(m); } }
       redraw();
       const d = descState(m); const f = m.sfFormat || 'full';
       if (lang === 'en' && d.pt && !d.has && f !== 'sum') this.run(m, redraw);
@@ -1672,7 +1677,7 @@ const TR = {
     const fb = ev.target.closest('[data-fmt]');
     if (fb) {
       const f = ['full', 'sum', 'both'].includes(fb.dataset.fmt) ? fb.dataset.fmt : 'full';
-      if ((m.sfFormat || 'full') !== f) { const wasClean = m.status === 'exported' && !changedAfterExport(m); m.sfFormat = f; touchMeeting(m); if (wasClean) m.exportedAt = m.updatedAt; }
+      if ((m.sfFormat || 'full') !== f) { const wasClean = m.status === 'exported' && !changedAfterExport(m); m.sfFormat = f; touchMeeting(m); if (wasClean) { m.exportedAt = m.updatedAt; m.exportSig = sfSig(m); } }
       redraw();
       const d = descState(m);
       if (f !== 'full' && d.pt && !sumState(m).has) SUM.run(m, redraw);
@@ -2063,7 +2068,7 @@ async function bulkAction(kind) {
   if (kind === 'export') return exportNotes(ms, { mark: true });
   if (kind === 'event') return eventPicker(ms, () => viewMeetings());
   if (kind === 'ready' || kind === 'exported') {
-    for (const m of ms) { m.status = kind; if (kind === 'exported') { m.updatedAt = Date.now(); m.exportedAt = m.updatedAt; } else m.updatedAt = Date.now(); await DB.put('meetings', m); }
+    for (const m of ms) { if (kind === 'exported') markExported(m); else { m.status = kind; m.updatedAt = Date.now(); } await DB.put('meetings', m); }
     toast(kind === 'ready' ? 'Marcadas como concluídas' : 'Marcadas como exportadas'); return viewMeetings();
   }
   if (kind === 'delete') {
@@ -2446,7 +2451,7 @@ async function toggleStatus(m, after) {
   } else if (m.status === 'ready') { m.status = 'draft'; touchMeeting(m); }
   else {
     const ok = await confirmSheet('Voltar a «Concluída»?', `Esta reunião foi marcada como exportada em ${fmtTs(m.exportedAt)}. Se a voltares a marcar como concluída, volta a entrar na próxima exportação.`, 'Marcar como concluída', false);
-    if (!ok) return; m.status = 'ready'; m.exportedAt = 0; touchMeeting(m);
+    if (!ok) return; m.status = 'ready'; m.exportedAt = 0; delete m.exportSig; touchMeeting(m);
   }
   after && after();
 }
@@ -2921,7 +2926,7 @@ function sfSheet(m, after) {
     if (ev.target.closest('[data-sfacc]')) { const v = sh.el.querySelector('#sf-acc').value; const r = sfParse(v); const id = r.acc || (SF_ID('001').test(v.trim()) ? v.trim() : ''); if (!id) return toast('Não encontro um ID de conta (001…)'); const k = airlineKey({ code: m.airlineCode, name: m.airlineName }); S.settings.airlineSf = { ...(S.settings.airlineSf || {}), [k]: { name: S.settings.airlineSf?.[k]?.name || m.airlineName, id } }; if (r.dom && !S.settings.sfDomain) S.settings.sfDomain = r.dom; await saveSettings(); toast('Conta ligada'); return reLink(); }
     if (ev.target.closest('[data-sfcon]')) { const v = sh.el.querySelector('#sf-con').value; const r = sfParse(v); const id = r.con || (SF_ID('003').test(v.trim()) ? v.trim() : ''); if (!id) return toast('Não encontro um ID de contacto (003…)'); const c = primaryContact(m); if (!c) return; c.sfId = id; c.updatedAt = Date.now(); await DB.put('contacts', c); toast('Contacto ligado'); return reLink(); }
     if (ev.target.closest('[data-sfrt]')) { const v = sh.el.querySelector('#sf-rt').value; const r = sfParse(v); const id = r.rt || (SF_ID('012').test(v.trim()) ? v.trim() : ''); if (!id) return toast('Não encontro um ID de tipo de registo (012…)'); S.settings.sfRecordTypeId = id; await saveSettings(); toast('Tipo de registo guardado'); return reLink(); }
-    if (ev.target.closest('[data-markexp]')) { m.status = 'exported'; m.updatedAt = Date.now(); m.exportedAt = m.updatedAt; await DB.put('meetings', m); sh.close(); toast('Marcada como exportada'); after && after(); }
+    if (ev.target.closest('[data-markexp]')) { markExported(m); await DB.put('meetings', m); sh.close(); toast('Marcada como exportada'); after && after(); }
   };
 }
 
@@ -3168,7 +3173,7 @@ const stamp = () => { const d = new Date(); return `${ymd(d)}_${pad(d.getHours()
 async function exportNotes(ms, { mark = true } = {}) {
   if (!ms.length) return;
   const ok = await saveFile(`salesforce_meeting_notes_${stamp()}.csv`, notesCSV(ms), 'text/csv;charset=utf-8'); if (!ok) return;
-  if (mark) { const now = Date.now(); for (const m of ms) { m.status = 'exported'; m.updatedAt = now; m.exportedAt = now; await DB.put('meetings', m); } }
+  if (mark) { const now = Date.now(); for (const m of ms) { markExported(m, now); await DB.put('meetings', m); } }
   toast(mark ? 'Ficheiro criado e reuniões marcadas como exportadas' : 'Ficheiro criado');
   S.list.sel.clear(); rerenderKeep();
 }
