@@ -676,11 +676,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.20.2';
+const APP_VERSION = '1.20.3';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
-  { v: '1.20.2', data: '27/10/2026', itens: ['«Alterada após exportação» só aparece quando muda o que vai para o Salesforce (assunto, notas, contactos, data). A agenda, as traduções e a sincronização já não contam.'] },
+  { v: '1.20.3', data: '27/10/2026', itens: ['«Alterada após exportação» só aparece quando muda o que vai para o Salesforce (assunto, notas, contactos, data). A agenda, as traduções e a sincronização já não contam.'] },
   { v: '1.20.1', data: '26/10/2026', itens: ['Correção: a atualização da agenda já não marca como «Alterada após exportação» as reuniões que já estão no Salesforce.'] },
   { v: '1.20.0', data: '26/10/2026', itens: ['Schedule W26 (novo no menu): procura um aeroporto, cidade ou país e vês logo se há voos do Porto, que companhias voam, quantos voos por semana, em que dias, a que horas e o total da época.', 'Os dias aparecem em círculos (S T Q Q S S D): cheio é todas as semanas, tracejado é só algumas; ×2 quer dizer dois voos nesse dia.'] },
   { v: '1.19.1', data: '21/10/2026', itens: ['Subject das reuniões de um evento: Meeting_OPO_<código da companhia>_<evento>, por exemplo Meeting_OPO_EK_Routes World 2026. Sem evento, continua com os temas.'] },
@@ -813,6 +813,7 @@ const Sync = {
       const changed = await this.pull();
       this.state = 'idle'; this.error = ''; this.lastOk = Date.now(); this.save();
       if (changed) await onRemoteChanges();
+      healExportSigs().catch((e) => console.warn('exportSig', e));
       syncCalendar();
       DIR.refresh().catch((e) => console.warn('diretorio', e));
     } catch (e) {
@@ -1037,6 +1038,16 @@ const contactName = (c) => [c?.firstName, c?.lastName].filter(Boolean).join(' ')
 // Mexidas que não mudam esse conteúdo (agenda, tradução, sincronização) não contam. Reuniões antigas sem assinatura: compara as datas.
 function sfSig(m) { try { return hashStr(JSON.stringify([subjectOf(m), buildDescription(m), [...(m.contactIds || [])].sort(), m.airlineName || '', m.airlineCode || '', m.flag || '', scopeOf(m), m.tradeshow || '', (m.start || '').slice(0, 10)])); } catch (e) { return ''; } }
 const changedAfterExport = (m) => m.status === 'exported' && !!m.exportedAt && (m.exportSig ? sfSig(m) !== m.exportSig : m.updatedAt > m.exportedAt + 1500);
+// Reuniões exportadas antes da 1.20.2 (sem assinatura) e ainda «limpas»: guarda a assinatura uma vez, depois de receber as do colega.
+async function healExportSigs() {
+  const now = Date.now(); let n = 0;
+  for (const m of S.meetings) {
+    if (m.status !== 'exported' || !m.exportedAt || m.exportSig || m.updatedAt > m.exportedAt + 1500) continue;
+    const sig = sfSig(m); if (!sig) continue;
+    m.exportSig = sig; m.updatedAt = now; m.exportedAt = now; await DB.put('meetings', m); n++;
+  }
+  if (n) Sync.schedule(1500);
+}
 function markExported(m, now = Date.now()) { m.status = 'exported'; m.updatedAt = now; m.exportedAt = now; m.exportSig = sfSig(m); }
 
 let persistAsked = false;
