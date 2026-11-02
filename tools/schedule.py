@@ -30,6 +30,10 @@ AIRLINES = {
     'TSC': ('Air Transat', 'TS'), 'TVF': ('Transavia France', 'TO'), 'TVS': ('Smartwings', 'QS'),
     'UAL': ('United Airlines', 'UA'), 'VLG': ('Vueling', 'VY'), 'VOE': ('Volotea', 'V7'),
     'WMT': ('Wizz Air Malta', 'W4'), 'WZZ': ('Wizz Air', 'W6'),
+    'ASL': ('Air Serbia', 'JU'), 'AUA': ('Austrian Airlines', 'OS'), 'AXE': ('AirExplore', 'ED'), 'BGH': ('BH Air', '8H'),
+    'BTI': ('airBaltic', 'BT'), 'CND': ('Corendon Dutch Airlines', 'CD'), 'HFY': ('Hi Fly', '5K'), 'JTD': ('Jettime', 'JP'),
+    'NOZ': ('Norwegian', 'DY'), 'OAE': ('Omni Air International', 'X9'), 'RYS': ('Buzz (Ryanair)', 'RR'),
+    'SXS': ('SunExpress', 'XQ'), 'TDR': ('Trade Air', 'C3'), 'VKG': ('Sunclass Airlines', 'DK'),
 }
 # Aeroportos: IATA → (cidade, aeroporto quando a cidade tem mais do que um, nomes extra para a pesquisa)
 AIRPORTS = {
@@ -73,6 +77,14 @@ AIRPORTS = {
     'VIE': ('Viena', '', 'Vienna Wien'), 'VLC': ('Valência', '', 'Valencia'), 'VXE': ('São Vicente', '', 'Cabo Verde Mindelo'),
     'WAW': ('Varsóvia', 'Chopin', 'Warsaw'), 'WMI': ('Varsóvia', 'Modlin', 'Warsaw'), 'WRO': ('Wroclaw', '', 'Wrocław'),
     'XCR': ('Paris', 'Vatry', ''), 'YYZ': ('Toronto', '', ''), 'ZAG': ('Zagreb', '', ''), 'ZRH': ('Zurique', '', 'Zurich'),
+    'ACE': ('Lanzarote', '', 'Canárias'), 'ADB': ('Esmirna', '', 'Izmir'), 'BEG': ('Belgrado', '', 'Belgrade'),
+    'BLL': ('Billund', '', ''), 'CAG': ('Cagliari', '', 'Sardenha'), 'CUN': ('Cancún', '', 'Cancun'),
+    'EMA': ('East Midlands', '', 'Nottingham'), 'FEZ': ('Fez', '', ''), 'FUE': ('Fuerteventura', '', 'Canárias'),
+    'GRQ': ('Groningen', '', ''), 'LGG': ('Liège', '', 'Liege'), 'LJU': ('Liubliana', '', 'Ljubljana'),
+    'LPA': ('Gran Canária', '', 'Las Palmas Canárias'), 'LRH': ('La Rochelle', '', ''), 'MCZ': ('Maceió', '', 'Maceio'),
+    'MMX': ('Malmö', '', 'Malmo'), 'OSL': ('Oslo', 'Gardermoen', ''), 'PXO': ('Porto Santo', '', 'Madeira'),
+    'RDZ': ('Rodez', '', ''), 'RIX': ('Riga', '', ''), 'SNN': ('Shannon', '', ''), 'SPC': ('La Palma', '', 'Canárias'),
+    'SSA': ('Salvador', '', 'Bahia'), 'TRF': ('Oslo', 'Torp', 'Sandefjord'), 'ZAZ': ('Saragoça', '', 'Zaragoza'),
 }
 COUNTRIES = {
     'Angola': 'Angola', 'Armenia': 'Arménia', 'Austria': 'Áustria', 'Belgium': 'Bélgica', 'Brazil': 'Brasil',
@@ -82,7 +94,8 @@ COUNTRIES = {
     'Italy': 'Itália', 'Luxembourg': 'Luxemburgo', 'Malta': 'Malta', 'Morocco': 'Marrocos', 'Netherlands': 'Países Baixos',
     'Norway': 'Noruega', 'Poland': 'Polónia', 'Portugal': 'Portugal', 'Romania': 'Roménia', 'Spain': 'Espanha',
     'Sweden': 'Suécia', 'Switzerland': 'Suíça', 'Turkey': 'Turquia', 'United Kingdom': 'Reino Unido',
-    'United States of America': 'Estados Unidos',
+    'United States of America': 'Estados Unidos', 'Latvia': 'Letónia', 'Mexico': 'México', 'Serbia': 'Sérvia',
+    'Slovenia': 'Eslovénia',
 }
 COUNTRY_FIX = {'LWN': 'Armenia'}
 
@@ -103,7 +116,7 @@ def main(path, season, d0, d1):
         day = day.date()
         if day < d0 or day > d1: continue
         ap = (r[ix['Origin/Destination']] or '').strip(); al = (r[ix['Airline']] or '').strip()
-        if not ap or not al: continue
+        if not ap or not al or ap == 'OPO': continue          # OPO = regresso ao Porto (divergência)
         t = r[ix['STA/STD']]; hhmm = t.strftime('%H:%M') if isinstance(t, (dt.datetime, dt.time)) else ''
         country.setdefault(ap, r[ix['Country']] or COUNTRY_FIX.get(ap, ''))
         mov[(ap, al)][(r[ix['Mov Type']] or 'D')[0]].append({

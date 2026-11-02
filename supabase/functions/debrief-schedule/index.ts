@@ -1,4 +1,4 @@
-// Debrief — grava o resumo do Schedule (época IATA) em crm_referencia (chave 'schedule').
+// Debrief — grava o resumo do Schedule de uma época IATA em crm_referencia (chave 'schedule:<época>', ex.: schedule:W25).
 // Só quem tem a permissão «reunioes_companhias». O resumo é feito com tools/schedule.py a partir do relatório
 // «Schedule Report By Day»; os dados nunca ficam no repositório público.
 
@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/crm_referencia?on_conflict=chave`, {
     method: 'POST',
     headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify({ chave: 'schedule', versao: d.season, dados: d, atualizado_em: new Date().toISOString() }),
+    body: JSON.stringify({ chave: 'schedule:' + d.season, versao: d.season, dados: d, atualizado_em: new Date().toISOString() }),
   });
   if (!r.ok) { console.error('gravar', r.status, (await r.text()).slice(0, 400)); return json({ error: 'gravar', message: 'Não foi possível gravar.' }, 502); }
   return json({ ok: true, season: d.season, rotas: d.r.length });

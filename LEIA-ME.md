@@ -48,11 +48,18 @@ Cópia de todos os contactos do Salesforce, só para consulta e separada dos teu
 
 Montar uma vez: corre `supabase/06_diretorio.sql` no SQL Editor do Supabase do Portal. Depois, e sempre que quiseres atualizar: no Salesforce, relatório «Contactos para o Debrief» (Contacts & Accounts, todos os contactos, colunas Contact ID, First/Last Name, Account Name, Account ID, Title, Email, Phone, Mobile, BU, Last Modified Date) → Export → Details Only → CSV; no Debrief, Definições → Diretório Salesforce → **Importar CSV**. A importação substitui o diretório para os dois. Os dados ficam no Supabase (só com login) e no dispositivo; nunca neste repositório.
 
-## Schedule (época IATA)
+## Schedule (épocas IATA)
 
-Menu **Schedule W26** (no telemóvel, separador «Schedule»): procura um aeroporto, cidade ou país e vês se há voos do Porto, as companhias, quantos voos por semana, em que dias (círculos S T Q Q S S D: cheio = todas as semanas, tracejado = algumas, ×2 = dois voos no dia), as horas de partida, o avião, o período e o total da época. Sem pesquisa, a lista mostra os destinos com mais voos primeiro. Conta-se por partidas do Porto (ida e volta = 1 voo); os voos pontuais e charters aparecem à parte.
+Menu **Schedule** (no telemóvel, separador «Schedule»). Em cima escolhes a época (W25, W26) ou a comparação «W26 vs W25».
 
-Os dados vêm do relatório «Schedule Report By Day» (xlsx) e são resumidos com `tools/schedule.py` para a tabela `crm_referencia` (chave `schedule`), só com login; ficam guardados no dispositivo para funcionar sem rede. Nunca ficam neste repositório. Para uma época nova: `python3 -I tools/schedule.py relatorio.xlsx S27 2027-03-28 2027-10-30 > schedule.json` e grava o JSON em `crm_referencia` (chave `schedule`).
+- **Pesquisa**: aeroporto (CDG), cidade (Londres), país (França) ou companhia pelo código IATA (FR) ou ICAO (RYR) ou pelo nome. Um código de companhia mostra só a companhia.
+- **Destino**: se há voos do Porto, as companhias, voos por semana, dias (círculos S T Q Q S S D: cheio = todas as semanas, tracejado = algumas, ×2 = dois voos no dia), horas de partida, avião, período e total da época.
+- **Companhia**: para onde voa, com os dias e os voos por semana de cada destino.
+- **Comparação**: totais com a variação, filtros Novos · Mais voos · Menos voos · Terminaram, e em cada destino/companhia as duas épocas lado a lado (dias, voos por semana e na época, gráfico semana a semana).
+
+Conta-se por partidas do Porto (ida e volta = 1 voo); voos pontuais e charters aparecem à parte. A comparação junta a época mais recente com a anterior do mesmo tipo (W26 com W25; S27 com S26).
+
+Os dados vêm do relatório «Schedule Report By Day» (xlsx), resumidos com `tools/schedule.py` e gravados em `crm_referencia` (chave `schedule:<época>`) pela função `debrief-schedule`, só com login; ficam guardados no dispositivo para funcionar sem rede. Nunca ficam neste repositório. Para uma época nova: `python3 -I tools/schedule.py relatorio.xlsx S27 2027-03-28 2027-10-30 > s27.json` e envia o JSON para `debrief-schedule`.
 
 ## Definições
 
