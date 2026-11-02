@@ -50,7 +50,7 @@ Montar uma vez: corre `supabase/06_diretorio.sql` no SQL Editor do Supabase do P
 
 ## Schedule (épocas IATA)
 
-Menu **Schedule** (no telemóvel, separador «Schedule»). Em cima escolhes a época (W25, W26) ou a comparação «W26 vs W25».
+Menu **Schedule** (no telemóvel, separador «Schedule»). Em cima escolhes a época ou a comparação: uma linha para o inverno (W25 · W26 · W25 vs W26) e outra para o verão (S26 · S27 · S26 vs S27). Uma época que ainda não tem dados aparece desligada e liga-se sozinha quando for carregada.
 
 - **Pesquisa**: aeroporto (CDG), cidade (Londres), país (França) ou companhia pelo código IATA (FR) ou ICAO (RYR) ou pelo nome. Um código de companhia mostra só a companhia.
 - **Destino**: se há voos do Porto, as companhias, voos por semana, dias (círculos S T Q Q S S D: cheio = todas as semanas, tracejado = algumas, ×2 = dois voos no dia), horas de partida, avião, período e total da época.

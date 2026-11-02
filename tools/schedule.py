@@ -34,6 +34,10 @@ AIRLINES = {
     'BTI': ('airBaltic', 'BT'), 'CND': ('Corendon Dutch Airlines', 'CD'), 'HFY': ('Hi Fly', '5K'), 'JTD': ('Jettime', 'JP'),
     'NOZ': ('Norwegian', 'DY'), 'OAE': ('Omni Air International', 'X9'), 'RYS': ('Buzz (Ryanair)', 'RR'),
     'SXS': ('SunExpress', 'XQ'), 'TDR': ('Trade Air', 'C3'), 'VKG': ('Sunclass Airlines', 'DK'),
+    'ACA': ('Air Canada', 'AC'), 'AVA': ('Avianca', 'AV'), 'BAW': ('British Airways', 'BA'), 'FPO': ('ASL Airlines France', '5O'),
+    'JBU': ('JetBlue', 'B6'), 'KLJ': ('Klasjet', ''), 'LAV': ('AlbaStar', 'AP'), 'LBT': ('Nouvelair', 'BJ'),
+    'LZB': ('Bulgaria Air', 'FB'), 'MMZ': ('euroAtlantic airways', 'YU'), 'MSC': ('Air Cairo', 'SM'), 'NSZ': ('Norwegian', 'D8'),
+    'OCN': ('Discover Airlines', '4Y'), 'SDR': ('Sundair', 'SR'), 'TUI': ('TUIfly', 'X3'),
 }
 # Aeroportos: IATA → (cidade, aeroporto quando a cidade tem mais do que um, nomes extra para a pesquisa)
 AIRPORTS = {
@@ -85,6 +89,18 @@ AIRPORTS = {
     'MMX': ('Malmö', '', 'Malmo'), 'OSL': ('Oslo', 'Gardermoen', ''), 'PXO': ('Porto Santo', '', 'Madeira'),
     'RDZ': ('Rodez', '', ''), 'RIX': ('Riga', '', ''), 'SNN': ('Shannon', '', ''), 'SPC': ('La Palma', '', 'Canárias'),
     'SSA': ('Salvador', '', 'Bahia'), 'TRF': ('Oslo', 'Torp', 'Sandefjord'), 'ZAZ': ('Saragoça', '', 'Zaragoza'),
+    'AGA': ('Agadir', '', ''), 'BDS': ('Brindisi', '', ''), 'BES': ('Brest', '', ''), 'BRI': ('Bari', '', ''),
+    'CAI': ('Cairo', '', ''), 'CCF': ('Carcassonne', '', ''), 'CDT': ('Castellón', '', 'Castellon'), 'CFU': ('Corfu', '', 'Kerkyra'),
+    'DBB': ('El Alamein', '', 'Dabaa'), 'DJE': ('Djerba', '', ''), 'DSS': ('Dacar', '', 'Dakar'), 'EGS': ('Egilsstaðir', '', 'Egilsstadir'),
+    'FMO': ('Münster/Osnabrück', '', 'Munster'), 'FNI': ('Nîmes', '', 'Nimes'), 'HAJ': ('Hanôver', '', 'Hannover Hanover'),
+    'HRG': ('Hurghada', '', ''), 'IBZ': ('Ibiza', '', ''), 'KEF': ('Reiquiavique', 'Keflavík', 'Reykjavik Keflavik'),
+    'LEI': ('Almería', '', 'Almeria'), 'LHR': ('Londres', 'Heathrow', 'London'), 'MAH': ('Menorca', '', 'Minorca Mahón'),
+    'MIR': ('Monastir', '', ''), 'NAP': ('Nápoles', '', 'Naples Napoli'), 'NBE': ('Enfidha', '', 'Hammamet'),
+    'OLB': ('Olbia', '', 'Sardenha'), 'OST': ('Ostende', '', 'Oostende Bruges'), 'OUD': ('Oujda', '', ''),
+    'PDV': ('Plovdiv', '', ''), 'PGF': ('Perpignan', '', ''), 'PMO': ('Palermo', '', 'Sicília'), 'REU': ('Reus', '', 'Tarragona'),
+    'RNS': ('Rennes', '', ''), 'SCQ': ('Santiago de Compostela', '', 'Galiza'), 'SOF': ('Sófia', '', 'Sofia'),
+    'SPU': ('Split', '', ''), 'TIA': ('Tirana', '', ''), 'TPS': ('Trapani', '', 'Sicília'), 'VIT': ('Vitória', '', 'Vitoria Gasteiz'),
+    'VRN': ('Verona', '', ''), 'YUL': ('Montreal', '', 'Montréal'),
 }
 COUNTRIES = {
     'Angola': 'Angola', 'Armenia': 'Arménia', 'Austria': 'Áustria', 'Belgium': 'Bélgica', 'Brazil': 'Brasil',
@@ -95,7 +111,7 @@ COUNTRIES = {
     'Norway': 'Noruega', 'Poland': 'Polónia', 'Portugal': 'Portugal', 'Romania': 'Roménia', 'Spain': 'Espanha',
     'Sweden': 'Suécia', 'Switzerland': 'Suíça', 'Turkey': 'Turquia', 'United Kingdom': 'Reino Unido',
     'United States of America': 'Estados Unidos', 'Latvia': 'Letónia', 'Mexico': 'México', 'Serbia': 'Sérvia',
-    'Slovenia': 'Eslovénia',
+    'Slovenia': 'Eslovénia', 'Albania': 'Albânia', 'Bulgaria': 'Bulgária', 'Senegal': 'Senegal', 'Tunisia': 'Tunísia',
 }
 COUNTRY_FIX = {'LWN': 'Armenia'}
 

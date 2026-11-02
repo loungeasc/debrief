@@ -627,6 +627,9 @@ details.setgrp .setbody{padding:0 14px 14px;border-top:1px solid var(--line);pad
 .wasdots .schdots i.some{border-color:var(--ink-3);color:var(--ink-3)}
 .schrow .t .apt{font-weight:500;color:var(--ink-3);font-size:13px}
 .schseg{margin:0 0 12px}
+.schsegs{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.schsegs .schseg{margin:0}
+.schseg button.off{opacity:.38;cursor:not-allowed}
 .schseg button{font-variant-numeric:tabular-nums}
 .schtabs{margin:14px 0 10px}
 .schf{margin:0 0 10px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
@@ -748,10 +751,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.21.1';
+const APP_VERSION = '1.22.0';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.22.0', data: '02/11/2026', itens: ['Schedule de verão: nova linha S26 · S27 · S26 vs S27, por baixo do inverno. O S27 e a comparação ficam prontos e ligam-se sozinhos quando houver dados do S27.'] },
   { v: '1.21.1', data: '02/11/2026', itens: ['Na comparação de épocas, toca num quadrado (destinos, companhias, voos por semana, voos na época, lugares) para ver as diferenças: quem entrou, quem saiu, o que aumentou e o que diminuiu. Também nos quadrados de cada destino e de cada companhia.'] },
   { v: '1.21.0', data: '02/11/2026', itens: ['Schedule com duas épocas: escolhe W25, W26 ou «W26 vs W25». Na comparação vês o que cresceu, o que caiu, os destinos novos e os que terminaram, destino a destino e companhia a companhia.', 'Pesquisa por companhia: escreve o código IATA (FR) ou ICAO (RYR), ou o nome, e vês para onde voa, quantas vezes por semana e em que dias.'] },
   { v: '1.20.3', data: '27/10/2026', itens: ['«Alterada após exportação» só aparece quando muda o que vai para o Salesforce (assunto, notas, contactos, data). A agenda, as traduções e a sincronização já não contam.'] },
@@ -3095,9 +3099,20 @@ const SCH = {
   latest() { const l = this.seasons(); return l[l.length - 1] || null; },
   // a época anterior do mesmo tipo (W26 → W25, S27 → S26)
   prev(ds) { if (!ds) return null; const t = ds.season[0]; return this.seasons().filter((x) => x.season[0] === t && x.data.from < ds.data.from).pop() || null; },
-  pair() { const a = this.latest(); const b = this.prev(a); return a && b ? [a, b] : null; },
-  mode() { const m = S.sch?.mode; if (m === 'cmp' && this.pair()) return 'cmp'; return this.S[m] ? m : this.latest()?.season; },
-  cur() { const m = this.mode(); return m === 'cmp' ? this.latest() : this.S[m]; },
+  ofType(t) { return this.seasons().filter((x) => x.season[0] === t); },
+  // comparação de um tipo (W = inverno, S = verão): a época mais recente com a anterior
+  pair(t = 'W') { const l = this.ofType(t); const a = l[l.length - 1]; const b = this.prev(a); return a && b ? [a, b] : null; },
+  mode() { const m = S.sch?.mode || ''; if (m.startsWith('cmp:') && this.pair(m[4])) return m; return this.S[m] ? m : this.latest()?.season; },
+  cur() { const m = this.mode(); return m.startsWith('cmp:') ? this.pair(m[4])[0] : this.S[m]; },
+  ctx() { const m = this.mode(); if (m.startsWith('cmp:')) { const [A, B] = this.pair(m[4]); return { cmp: true, A, B }; } return { cmp: false, A: this.S[m], B: null }; },
+  // botões de cada tipo: as duas últimas épocas e a comparação; a época seguinte aparece já, sem dados (fica desligada)
+  slots(t) {
+    const l = this.ofType(t); if (!l.length) return [];
+    const next = (x) => t + String(+x.slice(1) + 1).padStart(2, '0');
+    if (l.length === 1) { const a = l[0].season, b = next(a); return [{ k: a, l: a, on: true }, { k: '', l: b, on: false }, { k: '', l: `${a} vs ${b}`, on: false }]; }
+    const a = l[l.length - 2].season, b = l[l.length - 1].season;
+    return [{ k: a, l: a, on: true }, { k: b, l: b, on: true }, { k: 'cmp:' + t, l: `${a} vs ${b}`, on: true }];
+  },
   al(c, ds) { for (const x of [ds, ...this.seasons().reverse()]) { const a = x?.data?.al?.[c]; if (a) return { name: a[0] || c, iata: a[1] || '' }; } return { name: c, iata: '' }; },
   apInfo(a) { for (const x of this.seasons().reverse()) { const p = x.data.ap[a]; if (p) return { city: p[0], apt: p[1], extra: p[2], country: p[3] }; } return { city: a, apt: '', extra: '', country: '' }; },
   // pesquisa: companhias (código IATA ou ICAO, ou nome) e destinos (código, cidade, aeroporto, país)
@@ -3219,9 +3234,10 @@ async function viewSchedule(code, code2) {
   S.sch = S.sch || { q: '', tab: 'dest', f: 'all' };
   const desk = isDesk();
   const seg = () => {
-    const l = SCH.seasons(); const p = SCH.pair(); if (l.length < 2) return '';
     const m = SCH.mode();
-    return `<div class="seg schseg">${l.map((x) => `<button data-schmode="${x.season}" class="${m === x.season ? 'on' : ''}">${x.season}</button>`).join('')}${p ? `<button data-schmode="cmp" class="${m === 'cmp' ? 'on' : ''}">${p[0].season} vs ${p[1].season}</button>` : ''}</div>`;
+    const rows = ['W', 'S'].map((t) => SCH.slots(t)).filter((r) => r.length);
+    if (!rows.length || (rows.length === 1 && rows[0].filter((x) => x.on).length < 2)) return '';
+    return `<div class="schsegs">${rows.map((r) => `<div class="seg schseg">${r.map((x) => x.on ? `<button data-schmode="${x.k}" class="${m === x.k ? 'on' : ''}">${x.l}</button>` : `<button class="off" data-schsoon="${esc(x.l)}" aria-disabled="true" title="Ainda sem dados">${x.l}</button>`).join('')}</div>`).join('')}</div>`;
   };
   const top = (title, sub, back) => `<div class="top">${back ? `<button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button>` : ''}<h1>${title}<small>${sub}</small></h1></div>${seg()}`;
   const none = (title, txt) => `<div class="schnone"><div class="art">${ico('plane', 'lg')}</div><h2>${title}</h2><p>${txt}</p></div>`;
@@ -3239,9 +3255,9 @@ async function viewSchedule(code, code2) {
   };
 
   const paintList = () => {
-    const m = SCH.mode(); const cmp = m === 'cmp'; const [A, B] = cmp ? SCH.pair() : [SCH.cur(), null];
-    const title = cmp ? `${A.season} vs ${B.season}` : `Schedule ${A.season}`;
-    view.innerHTML = `<div class="page schpage">${top(title, cmp ? 'comparação das duas épocas de inverno · partidas do Porto' : `${schSpan(A)} · partidas do Porto`)}
+    const { cmp, A, B } = SCH.ctx();
+    const title = cmp ? `${B.season} vs ${A.season}` : `Schedule ${A.season}`;
+    view.innerHTML = `<div class="page schpage">${top(title, cmp ? `comparação das duas épocas de ${A.season[0] === 'S' ? 'verão' : 'inverno'} · partidas do Porto` : `${schSpan(A)} · partidas do Porto`)}
       <div class="search schsearch">${ico('search')}<input class="inp" type="search" id="schq" placeholder="Destino ou companhia (CDG, Londres, FR, RYR)" value="${esc(S.sch.q)}" autocomplete="off" autocapitalize="characters" enterkeyhint="search"></div>
       <div id="schres"></div>${src(A)}</div>`;
     const res = () => {
@@ -3268,11 +3284,11 @@ async function viewSchedule(code, code2) {
       const iAl = () => schItemsAl(A, B), iAp = () => schItemsAp(A, B);
       const dims = () => [{ label: 'Por companhia', items: iAl(), one: 'companhia', many: 'companhias' }, { label: 'Por destino', items: iAp(), one: 'destino', many: 'destinos' }];
       S._schk = {
-        dest: () => schDiffSheet({ title: `Destinos · ${A.season} vs ${B.season}`, A, B, kind: 'set', labels: ['Destinos novos', 'Destinos que terminaram', 'novos', 'terminaram'], dims: [{ items: iAp() }] }),
-        al: () => schDiffSheet({ title: `Companhias · ${A.season} vs ${B.season}`, A, B, kind: 'set', labels: ['Começaram a voar', 'Deixaram de voar', 'entraram', 'saíram'], dims: [{ items: iAl() }] }),
-        w: () => schDiffSheet({ title: `Voos por semana · ${A.season} vs ${B.season}`, A, B, kind: 'delta', metric: 'w', dims: dims() }),
-        t: () => schDiffSheet({ title: `Voos na época · ${A.season} vs ${B.season}`, A, B, kind: 'delta', metric: 't', dims: dims() }),
-        s: () => schDiffSheet({ title: `Lugares · ${A.season} vs ${B.season}`, A, B, kind: 'delta', metric: 's', dims: dims() }),
+        dest: () => schDiffSheet({ title: `Destinos · ${B.season} vs ${A.season}`, A, B, kind: 'set', labels: ['Destinos novos', 'Destinos que terminaram', 'novos', 'terminaram'], dims: [{ items: iAp() }] }),
+        al: () => schDiffSheet({ title: `Companhias · ${B.season} vs ${A.season}`, A, B, kind: 'set', labels: ['Começaram a voar', 'Deixaram de voar', 'entraram', 'saíram'], dims: [{ items: iAl() }] }),
+        w: () => schDiffSheet({ title: `Voos por semana · ${B.season} vs ${A.season}`, A, B, kind: 'delta', metric: 'w', dims: dims() }),
+        t: () => schDiffSheet({ title: `Voos na época · ${B.season} vs ${A.season}`, A, B, kind: 'delta', metric: 't', dims: dims() }),
+        s: () => schDiffSheet({ title: `Lugares · ${B.season} vs ${A.season}`, A, B, kind: 'delta', metric: 's', dims: dims() }),
       };
       const more = `<span class="more">${ico('chev', 'sm')}</span>`;
       box.innerHTML = `<div class="schkpis cmp">
@@ -3298,7 +3314,7 @@ async function viewSchedule(code, code2) {
   };
 
   const paintAirport = (a) => {
-    const m = SCH.mode(); const cmp = m === 'cmp'; const [A, B] = cmp ? SCH.pair() : [SCH.cur(), null];
+    const { cmp, A, B } = SCH.ctx();
     const x = A.idx.find((y) => y.a === a); const y = B?.idx.find((z) => z.a === a); const p = SCH.apInfo(a);
     const sub = esc([a, p.apt, p.country].filter(Boolean).join(' · '));
     if (!x && !y) { view.innerHTML = `<div class="page schpage">${top(esc(p.city || a), sub, true)}${none(`Sem voos para ${esc(a)}`, `Nenhuma companhia voa do Porto para este aeroporto no ${esc(cmp ? A.season + ' nem no ' + B.season : A.season)}.`)}</div>`; return; }
@@ -3329,7 +3345,7 @@ async function viewSchedule(code, code2) {
   };
 
   const paintAirline = (c0) => {
-    const m = SCH.mode(); const cmp = m === 'cmp'; const [A, B] = cmp ? SCH.pair() : [SCH.cur(), null];
+    const { cmp, A, B } = SCH.ctx();
     // aceita o código IATA ou ICAO
     const all = SCH.seasons(); let c = c0;
     if (!all.some((ds) => ds.data.al[c])) { for (const ds of all) { const hit = Object.entries(ds.data.al).find(([, v]) => v[1] === c0); if (hit) { c = hit[0]; break; } } }
@@ -3366,6 +3382,7 @@ async function viewSchedule(code, code2) {
     const sm = e.target.closest('[data-schmode]'); if (sm) { S.sch.mode = sm.dataset.schmode; return paint(); }
     const tb = e.target.closest('[data-schtab]'); if (tb) { S.sch.tab = tb.dataset.schtab; return paint(); }
     const fb = e.target.closest('[data-schf]'); if (fb) { S.sch.f = fb.dataset.schf; return paint(); }
+    const so = e.target.closest('[data-schsoon]'); if (so) return toast(`${so.dataset.schsoon}: ainda não há dados desta época`);
     const kb = e.target.closest('[data-schk]'); if (kb) return S._schk?.[kb.dataset.schk]?.();
     if (e.target.closest('[data-schref]')) { SCH._busy = true; paint(); SCH.refresh(true).catch((er) => toast(er.message || 'Sem ligação')).finally(() => { SCH._busy = false; paint(); }); }
   };
