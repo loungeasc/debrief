@@ -751,10 +751,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.22.0';
+const APP_VERSION = '1.22.1';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.22.1', data: '02/11/2026', itens: ['Schedule: as épocas novas (como o S26) aparecem logo que abres o Schedule, sem esperar.'] },
   { v: '1.22.0', data: '02/11/2026', itens: ['Schedule de verão: nova linha S26 · S27 · S26 vs S27, por baixo do inverno. O S27 e a comparação ficam prontos e ligam-se sozinhos quando houver dados do S27.'] },
   { v: '1.21.1', data: '02/11/2026', itens: ['Na comparação de épocas, toca num quadrado (destinos, companhias, voos por semana, voos na época, lugares) para ver as diferenças: quem entrou, quem saiu, o que aumentou e o que diminuiu. Também nos quadrados de cada destino e de cada companhia.'] },
   { v: '1.21.0', data: '02/11/2026', itens: ['Schedule com duas épocas: escolhe W25, W26 ou «W26 vs W25». Na comparação vês o que cresceu, o que caiu, os destinos novos e os que terminaram, destino a destino e companhia a companhia.', 'Pesquisa por companhia: escreve o código IATA (FR) ou ICAO (RYR), ou o nome, e vês para onde voa, quantas vezes por semana e em que dias.'] },
@@ -3076,17 +3077,17 @@ const SCH = {
     if (old && (old.at || '') > (at || '')) return;
     this.S[d.season] = { ...schBuild(d), key, at: at || '' };
   },
-  // vai buscar ao Supabase as épocas novas ou atualizadas (vê no máximo de 6 em 6 horas, ou quando pedido)
+  // vai buscar ao Supabase as épocas novas ou atualizadas (vê sempre que se abre o Schedule, no máximo de 2 em 2 minutos)
   async refresh(force = false) {
     await this.load();
     if (!Sync.on() || !navigator.onLine) return false;
-    if (!force && this.has() && Date.now() - this.checked < 6 * 3600e3) return false;
+    if (!force && this.has() && Date.now() - this.checked < 2 * 60e3 && this.ver === APP_VERSION) return false; // a verificação é leve (só datas)
     const sb = Sync.client();
     const top = await sb.from('crm_referencia').select('chave,versao,atualizado_em').or('chave.eq.schedule,chave.like.schedule:*');
     if (top.error) throw top.error;
     const known = new Map(Object.values(this.S).map((x) => [x.key, x.at]));
     const need = (top.data || []).filter((r) => known.get(r.chave) !== r.atualizado_em).map((r) => r.chave);
-    this.checked = Date.now();
+    this.checked = Date.now(); this.ver = APP_VERSION;
     if (!need.length) { await this.save(); return false; }
     const { data, error } = await sb.from('crm_referencia').select('chave,dados,atualizado_em').in('chave', need);
     if (error) throw error;
