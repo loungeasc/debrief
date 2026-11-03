@@ -135,12 +135,13 @@ def main(path, season, d0, d1):
         if not ap or not al or ap == 'OPO': continue          # OPO = regresso ao Porto (divergência)
         t = r[ix['STA/STD']]; hhmm = t.strftime('%H:%M') if isinstance(t, (dt.datetime, dt.time)) else ''
         country.setdefault(ap, r[ix['Country']] or COUNTRY_FIX.get(ap, ''))
-        mov[(ap, al)][(r[ix['Mov Type']] or 'D')[0]].append({
+        st = (r[ix['Service Type']] or 'J').strip().upper()[:1] or 'J'   # J regular · C charter · G desdobramento
+        mov[(ap, al, st)][(r[ix['Mov Type']] or 'D')[0]].append({
             'd': day, 'h': hhmm, 'ac': r[ix['AC']] or '', 'cap': int(r[ix['Capacity']] or 0),
             'st': r[ix['Service Type']] or '', 'via': (r[ix['Stop/Via']] or '').strip(),
         })
     routes = []
-    for (ap, al), m in mov.items():
+    for (ap, al, k), m in mov.items():
         fl = m['D'] or m['A']                                 # conta as partidas; se só houver chegadas, as chegadas
         wkc = [0] * nw; per = collections.defaultdict(lambda: [0] * 7)
         for f in fl:
@@ -160,7 +161,6 @@ def main(path, season, d0, d1):
         times = sorted([t for t, c in hc.most_common(4) if c >= 0.3 * top])
         acc = collections.Counter(f['ac'] for f in fl if f['ac'])
         capc = collections.Counter(f['cap'] for f in fl if f['cap'])
-        st = collections.Counter(f['st'] for f in fl)
         via = collections.Counter(f['via'] for f in fl if f['via'])
         r = {
             'a': ap, 'c': al, 'w': mode(tot), 'lo': min(tot), 'hi': max(tot), 'd': days, 'n': len(opw),
@@ -170,13 +170,14 @@ def main(path, season, d0, d1):
         }
         if not m['D']: r['arr'] = 1
         if len(opw) < 3: r['p'] = 1; r['dt'] = sorted({f['d'].isoformat() for f in fl})
-        if st.get('C', 0) + st.get('G', 0) > len(fl) / 2: r['ch'] = 1
+        r['k'] = k
+        if k == 'C': r['ch'] = 1
         if via: r['via'] = via.most_common(1)[0][0]
         routes.append(r)
-    routes.sort(key=lambda r: (r['a'], -r['t']))
+    routes.sort(key=lambda r: (r['a'], r['c'], r['k'], -r['t']))
     used_al = {r['c'] for r in routes}; used_ap = {r['a'] for r in routes}
     out = {
-        'v': 1, 'season': season, 'from': d0.isoformat(), 'to': d1.isoformat(), 'wk0': wk0.isoformat(), 'nw': nw,
+        'v': 1, 'k': 1, 'season': season, 'from': d0.isoformat(), 'to': d1.isoformat(), 'wk0': wk0.isoformat(), 'nw': nw,
         'file': path.rsplit('/', 1)[-1], 'at': dt.datetime.now().isoformat(timespec='seconds'),
         'al': {c: list(AIRLINES.get(c, (c, ''))) for c in sorted(used_al)},
         'ap': {a: [*AIRPORTS.get(a, (a, '', '')), COUNTRIES.get(country.get(a, ''), country.get(a, ''))] for a in sorted(used_ap)},

@@ -57,7 +57,7 @@ Menu **Schedule** (no telemóvel, separador «Schedule»). Em cima escolhes a é
 - **Companhia**: para onde voa, com os dias e os voos por semana de cada destino.
 - **Comparação**: totais com a variação, filtros Novos · Mais voos · Menos voos · Terminaram, e em cada destino/companhia as duas épocas lado a lado (dias, voos por semana e na época, gráfico semana a semana).
 
-Conta-se por partidas do Porto (ida e volta = 1 voo); voos pontuais e charters aparecem à parte. A comparação junta a época mais recente com a anterior do mesmo tipo (W26 com W25; S27 com S26).
+Conta-se por partidas do Porto (ida e volta = 1 voo); voos pontuais aparecem à parte. Cada voo tem a classe do relatório — **Regular** (J), **Charter** (C) ou **Desdobramento** (G) — que aparece em etiqueta e serve de filtro (por baixo das épocas: liga e desliga cada uma; fica guardado no dispositivo). A comparação junta a época mais recente com a anterior do mesmo tipo (W26 com W25; S27 com S26).
 
 Os dados vêm do relatório «Schedule Report By Day» (xlsx), resumidos com `tools/schedule.py` e gravados em `crm_referencia` (chave `schedule:<época>`) pela função `debrief-schedule`, só com login; ficam guardados no dispositivo para funcionar sem rede. Nunca ficam neste repositório. Para uma época nova: `python3 -I tools/schedule.py relatorio.xlsx S27 2027-03-28 2027-10-30 > s27.json` e envia o JSON para `debrief-schedule`.
 
