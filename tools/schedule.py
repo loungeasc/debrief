@@ -38,6 +38,8 @@ AIRLINES = {
     'JBU': ('JetBlue', 'B6'), 'KLJ': ('Klasjet', ''), 'LAV': ('AlbaStar', 'AP'), 'LBT': ('Nouvelair', 'BJ'),
     'LZB': ('Bulgaria Air', 'FB'), 'MMZ': ('euroAtlantic airways', 'YU'), 'MSC': ('Air Cairo', 'SM'), 'NSZ': ('Norwegian', 'D8'),
     'OCN': ('Discover Airlines', '4Y'), 'SDR': ('Sundair', 'SR'), 'TUI': ('TUIfly', 'X3'),
+    'AAL': ('American Airlines', 'AA'), 'CFG': ('Condor', 'DE'), 'FHY': ('Freebird Airlines', 'FH'), 'FIN': ('Finnair', 'AY'),
+    'ICE': ('Icelandair', 'FI'), 'LMU': ('AlMasria Universal Airlines', 'UJ'),
 }
 # Aeroportos: IATA → (cidade, aeroporto quando a cidade tem mais do que um, nomes extra para a pesquisa)
 AIRPORTS = {
@@ -101,6 +103,10 @@ AIRPORTS = {
     'RNS': ('Rennes', '', ''), 'SCQ': ('Santiago de Compostela', '', 'Galiza'), 'SOF': ('Sófia', '', 'Sofia'),
     'SPU': ('Split', '', ''), 'TIA': ('Tirana', '', ''), 'TPS': ('Trapani', '', 'Sicília'), 'VIT': ('Vitória', '', 'Vitoria Gasteiz'),
     'VRN': ('Verona', '', ''), 'YUL': ('Montreal', '', 'Montréal'),
+    'ATL': ('Atlanta', '', ''), 'AYT': ('Antália', '', 'Antalya'), 'BOH': ('Bournemouth', '', ''), 'CMF': ('Chambéry', '', 'Chambery'),
+    'DOL': ('Deauville', '', 'Normandia'), 'DTM': ('Dortmund', '', ''), 'EXT': ('Exeter', '', ''), 'FDH': ('Friedrichshafen', '', ''),
+    'HEL': ('Helsínquia', '', 'Helsinki'), 'IAD': ('Washington', 'Dulles', ''), 'KLU': ('Klagenfurt', '', ''),
+    'PHL': ('Filadélfia', '', 'Philadelphia'), 'TRS': ('Trieste', '', ''),
 }
 COUNTRIES = {
     'Angola': 'Angola', 'Armenia': 'Arménia', 'Austria': 'Áustria', 'Belgium': 'Bélgica', 'Brazil': 'Brasil',
@@ -111,35 +117,111 @@ COUNTRIES = {
     'Norway': 'Noruega', 'Poland': 'Polónia', 'Portugal': 'Portugal', 'Romania': 'Roménia', 'Spain': 'Espanha',
     'Sweden': 'Suécia', 'Switzerland': 'Suíça', 'Turkey': 'Turquia', 'United Kingdom': 'Reino Unido',
     'United States of America': 'Estados Unidos', 'Latvia': 'Letónia', 'Mexico': 'México', 'Serbia': 'Sérvia',
-    'Slovenia': 'Eslovénia', 'Albania': 'Albânia', 'Bulgaria': 'Bulgária', 'Senegal': 'Senegal', 'Tunisia': 'Tunísia',
+    'Slovenia': 'Eslovénia', 'Finland': 'Finlândia', 'Albania': 'Albânia', 'Bulgaria': 'Bulgária', 'Senegal': 'Senegal', 'Tunisia': 'Tunísia',
 }
 COUNTRY_FIX = {'LWN': 'Armenia'}
+OCS_COUNTRY = {
+    'ATL': 'United States of America', 'IAD': 'United States of America', 'PHL': 'United States of America', 'AYT': 'Turkey',
+    'BOH': 'United Kingdom', 'EXT': 'United Kingdom', 'CMF': 'France', 'DOL': 'France', 'DTM': 'Germany', 'FDH': 'Germany',
+    'HEL': 'Finland', 'KLU': 'Austria', 'TRS': 'Italy',
+}
 
 
-def main(path, season, d0, d1):
-    d0 = dt.date.fromisoformat(d0); d1 = dt.date.fromisoformat(d1)
-    wk0 = d0 - dt.timedelta(days=d0.weekday())          # segunda-feira da semana do início
-    nw = (d1 - wk0).days // 7 + 1
-    full = [w for w in range(nw) if wk0 + dt.timedelta(days=7 * w) >= d0 and wk0 + dt.timedelta(days=7 * w + 6) <= d1]
+# Relatório OCS (pedidos/atribuição de slots, CSV): companhia em IATA ("VY 54") ou ICAO ("EJU1743")
+IATA2ICAO = {
+    '4Y': 'OCN', 'A0': 'EFW', 'A3': 'AEE', 'AA': 'AAL', 'AC': 'ACA', 'AD': 'AZU', 'AF': 'AFR', 'AT': 'RAM', 'AY': 'FIN',
+    'BJ': 'LBT', 'BT': 'BTI', 'CS': 'CSW', 'D8': 'NSZ', 'DE': 'CFG', 'DL': 'DAL', 'DY': 'NOZ', 'ET': 'ETH', 'EW': 'EWG',
+    'FH': 'FHY', 'FI': 'ICE', 'FR': 'RYR', 'HV': 'TRA', 'IB': 'IBE', 'JU': 'ASL', 'KL': 'KLM', 'LG': 'LGL', 'LH': 'DLH',
+    'LO': 'LOT', 'LS': 'EXS', 'LX': 'SWR', 'LY': 'ELY', 'NE': 'NMA', 'OS': 'AUA', 'QS': 'TVS', 'RK': 'RUK', 'S4': 'RZO',
+    'SK': 'SAS', 'SM': 'MSC', 'SN': 'BEL', 'TK': 'THY', 'TO': 'TVF', 'TP': 'TAP', 'UA': 'UAL', 'UJ': 'LMU', 'UX': 'AEA',
+    'VY': 'VLG', 'W4': 'WMT', 'W6': 'WZZ', 'X3': 'TUI', 'YW': 'ANE', 'U2': 'EZY', 'EC': 'EJU', 'DS': 'EZS', 'BA': 'BAW',
+}
+# tipos de avião: código IATA → ICAO (como no Schedule Report By Day)
+AC_IATA = {
+    '73H': 'B738', '32A': 'A320', '32Q': 'A21N', '320': 'A320', '7M8': 'B38M', '32N': 'A20N', '321': 'A321', '319': 'A319',
+    'CRK': 'CRJX', '339': 'A339', '7S8': 'B38M', '76W': 'B763', 'E90': 'E190', '223': 'BCS3', '75W': 'B752', '332': 'A332',
+    '734': 'B734', 'E95': 'E195', '73W': 'B737', '789': 'B789', '32B': 'A321', '295': 'E295', 'ER4': 'E145', 'E7W': 'E75L',
+    '221': 'BCS1', '738': 'B738', '359': 'A359', '333': 'A333', '788': 'B788', '763': 'B763', 'AT7': 'AT76',
+}
+MON = {m: i + 1 for i, m in enumerate(['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'])}
+
+
+def ocs_date(s):
+    s = s.strip(); return dt.date(2000 + int(s[5:7]), MON[s[2:5]], int(s[:2]))
+
+
+def read_ocs(path, d0, d1):
+    import csv
+    for r in csv.DictReader(open(path, encoding='utf-8-sig')):
+        sn = (r.get('SERVICE NUMBER') or '').strip()
+        if not sn: continue
+        al = IATA2ICAO.get(sn[:2], sn[:2]) if (len(sn) > 2 and sn[2] == ' ') or sn[2:3].isdigit() else sn[:3]
+        st = (r.get('TY OP') or 'J').strip().upper()[:1]
+        if st not in 'JCG': continue                       # só regulares, charters e desdobramentos (sem carga nem posicionamento)
+        t = (r.get('TIME') or '').strip()
+        if not t or t == '9999': t = (r.get('REQ TIME') or '').strip()     # sem slot atribuído: hora pedida
+        hhmm = f'{t[:2]}:{t[2:4]}' if len(t) == 4 and t.isdigit() else ''
+        a, b = ocs_date(r['START DATE']), ocs_date(r['END DATE'])
+        freq = (r.get('FREQ') or '').strip()
+        ac = (r.get('AC') or '').strip()
+        base = {'al': al, 'ap': (r.get('O/D') or '').strip(), 'mov': (r.get('A/D') or 'D').strip()[:1], 'h': hhmm,
+                'ac': AC_IATA.get(ac, ac), 'cap': int((r.get('SEAT') or '0').strip() or 0), 'st': st,
+                'via': '' if (r.get('L/N') or '').strip() == (r.get('O/D') or '').strip() else (r.get('L/N') or '').strip(), 'country': ''}
+        day = max(a, d0)
+        while day <= min(b, d1):
+            if str(day.isoweekday()) in freq: yield {**base, 'd': day}
+            day += dt.timedelta(days=1)
+
+
+def ocs_slots(path, d0, d1):
+    # partidas por estado do slot: confirmado (OK), hora alternativa proposta, ainda sem slot (9999)
+    import csv
+    c = {'ok': 0, 'alt': 0, 'none': 0}
+    for r in csv.DictReader(open(path, encoding='utf-8-sig')):
+        if (r.get('TY OP') or '').strip()[:1] not in ('J', 'C', 'G') or (r.get('A/D') or '').strip() != 'D': continue
+        a, b = ocs_date(r['START DATE']), ocs_date(r['END DATE']); day = max(a, d0); n = 0
+        while day <= min(b, d1):
+            if str(day.isoweekday()) in (r.get('FREQ') or ''): n += 1
+            day += dt.timedelta(days=1)
+        k = 'ok' if (r.get('CLEAR CODE') or '').strip() == 'OK' else 'none' if (r.get('TIME') or '').strip() == '9999' else 'alt'
+        c[k] += n
+    return c
+
+
+def read_xlsx(path, d0, d1):
     wb = openpyxl.load_workbook(path, read_only=True)
-    rows = list(wb.active.iter_rows(values_only=True))
-    h = rows[0]; ix = {k: i for i, k in enumerate(h)}
-    mov = collections.defaultdict(lambda: {'D': [], 'A': []})
-    country = {}
-    for r in rows[1:]:
+    rows = wb.active.iter_rows(values_only=True)
+    h = next(rows); ix = {k: i for i, k in enumerate(h)}
+    for r in rows:
         day = r[ix['DOP']]
         if not isinstance(day, dt.datetime): continue
         day = day.date()
         if day < d0 or day > d1: continue
-        ap = (r[ix['Origin/Destination']] or '').strip(); al = (r[ix['Airline']] or '').strip()
+        t = r[ix['STA/STD']]
+        yield {'al': (r[ix['Airline']] or '').strip(), 'ap': (r[ix['Origin/Destination']] or '').strip(),
+               'mov': (r[ix['Mov Type']] or 'D')[0], 'd': day, 'h': t.strftime('%H:%M') if isinstance(t, (dt.datetime, dt.time)) else '',
+               'ac': r[ix['AC']] or '', 'cap': int(r[ix['Capacity']] or 0),
+               'st': (r[ix['Service Type']] or 'J').strip().upper()[:1] or 'J', 'via': (r[ix['Stop/Via']] or '').strip(),
+               'country': r[ix['Country']] or ''}
+
+
+def main(path, season, d0, d1, *refs):
+    d0 = dt.date.fromisoformat(d0); d1 = dt.date.fromisoformat(d1)
+    wk0 = d0 - dt.timedelta(days=d0.weekday())          # segunda-feira da semana do início
+    nw = (d1 - wk0).days // 7 + 1
+    full = [w for w in range(nw) if wk0 + dt.timedelta(days=7 * w) >= d0 and wk0 + dt.timedelta(days=7 * w + 6) <= d1]
+    mov = collections.defaultdict(lambda: {'D': [], 'A': []})
+    country = {}
+    # países conhecidos de épocas anteriores (JSON já resumidos), para o OCS, que não traz o país
+    known = {}
+    for ref in refs:
+        for a, v in json.load(open(ref)).get('ap', {}).items(): known.setdefault(a, v[3])
+    src = read_ocs(path, d0, d1) if path.lower().endswith('.csv') else read_xlsx(path, d0, d1)
+    for f in src:
+        ap, al = f['ap'], f['al']
         if not ap or not al or ap == 'OPO': continue          # OPO = regresso ao Porto (divergência)
-        t = r[ix['STA/STD']]; hhmm = t.strftime('%H:%M') if isinstance(t, (dt.datetime, dt.time)) else ''
-        country.setdefault(ap, r[ix['Country']] or COUNTRY_FIX.get(ap, ''))
-        st = (r[ix['Service Type']] or 'J').strip().upper()[:1] or 'J'   # J regular · C charter · G desdobramento
-        mov[(ap, al, st)][(r[ix['Mov Type']] or 'D')[0]].append({
-            'd': day, 'h': hhmm, 'ac': r[ix['AC']] or '', 'cap': int(r[ix['Capacity']] or 0),
-            'st': r[ix['Service Type']] or '', 'via': (r[ix['Stop/Via']] or '').strip(),
-        })
+        country.setdefault(ap, f['country'] or COUNTRY_FIX.get(ap, '') or OCS_COUNTRY.get(ap, ''))
+        mov[(ap, al, f['st'])][f['mov']].append({'d': f['d'], 'h': f['h'], 'ac': f['ac'], 'cap': f['cap'], 'via': f['via']})
     routes = []
     for (ap, al, k), m in mov.items():
         fl = m['D'] or m['A']                                 # conta as partidas; se só houver chegadas, as chegadas
@@ -180,13 +262,14 @@ def main(path, season, d0, d1):
         'v': 1, 'k': 1, 'season': season, 'from': d0.isoformat(), 'to': d1.isoformat(), 'wk0': wk0.isoformat(), 'nw': nw,
         'file': path.rsplit('/', 1)[-1], 'at': dt.datetime.now().isoformat(timespec='seconds'),
         'al': {c: list(AIRLINES.get(c, (c, ''))) for c in sorted(used_al)},
-        'ap': {a: [*AIRPORTS.get(a, (a, '', '')), COUNTRIES.get(country.get(a, ''), country.get(a, ''))] for a in sorted(used_ap)},
+        'ap': {a: [*AIRPORTS.get(a, (a, '', '')), COUNTRIES.get(country.get(a, ''), country.get(a, '')) or known.get(a, '')] for a in sorted(used_ap)},
         'r': routes,
     }
+    if path.lower().endswith('.csv'): out['prov'] = 1; out['src'] = 'OCS'; out['slots'] = ocs_slots(path, d0, d1)
     missing = sorted(used_al - AIRLINES.keys()) + sorted(used_ap - AIRPORTS.keys())
     if missing: print('sem nome:', missing, file=sys.stderr)
     json.dump(out, sys.stdout, ensure_ascii=False, separators=(',', ':'))
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:5])
+    main(*sys.argv[1:])

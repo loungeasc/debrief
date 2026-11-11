@@ -640,6 +640,8 @@ details.setgrp .setbody{padding:0 14px 14px;border-top:1px solid var(--line);pad
 .kpills .kpill{margin-left:0}
 .kpill.kC{background:var(--warn-soft);color:var(--warn)}
 .kpill.kG{background:var(--accent-soft);color:var(--accent)}
+.schprov{font-size:12.5px;line-height:1.45;color:var(--ink-2);background:var(--warn-soft);border-radius:12px;padding:9px 12px;margin:0 0 12px}
+.schprov b{color:var(--warn)}
 .schsegs{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
 .schsegs .schseg{margin:0}
 .schseg button.off{opacity:.38;cursor:not-allowed}
@@ -764,10 +766,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.23.0';
+const APP_VERSION = '1.23.1';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.23.1', data: '11/11/2026', itens: ['S27 provisório: com base nos pedidos de slots do OCS. Liga a S27 e a comparação S26 vs S27; um aviso mostra quantos voos já têm slot confirmado.'] },
   { v: '1.23.0', data: '03/11/2026', itens: ['Schedule por tipo de voo: cada companhia mostra se é Regular, Charter ou Desdobramento.', 'Filtro por baixo das épocas: liga e desliga Regular, Charter e Desdobramento (por exemplo, só charters ou tudo menos charters). Vale para a lista, os destinos, as companhias e a comparação.'] },
   { v: '1.22.1', data: '02/11/2026', itens: ['Schedule: as épocas novas (como o S26) aparecem logo que abres o Schedule, sem esperar.'] },
   { v: '1.22.0', data: '02/11/2026', itens: ['Schedule de verão: nova linha S26 · S27 · S26 vs S27, por baixo do inverno. O S27 e a comparação ficam prontos e ligam-se sozinhos quando houver dados do S27.'] },
@@ -3150,7 +3153,9 @@ const SCH = {
   ofType(t) { return this.seasons().filter((x) => x.season[0] === t); },
   // comparação de um tipo (W = inverno, S = verão): a época mais recente com a anterior
   pair(t = 'W') { const l = this.ofType(t); const a = l[l.length - 1]; const b = this.prev(a); return a && b ? [a, b] : null; },
-  mode() { const m = S.sch?.mode || ''; if (m.startsWith('cmp:') && this.pair(m[4])) return m; return this.R[m] ? m : this.latest()?.season; },
+  mode() { const m = S.sch?.mode || ''; if (m.startsWith('cmp:') && this.pair(m[4])) return m; return this.R[m] ? m : this.current()?.season; },
+  // a época em curso (ou a última que já começou); só se nenhuma começou, a mais recente
+  current() { const t = ymd(new Date()); const l = this.seasons(); return l.find((x) => x.data.from <= t && t <= x.data.to) || l.filter((x) => x.data.from <= t).pop() || l[l.length - 1] || null; },
   cur() { const m = this.mode(); return m.startsWith('cmp:') ? this.pair(m[4])[0] : this.view(m); },
   ctx() { const m = this.mode(); if (m.startsWith('cmp:')) { const [A, B] = this.pair(m[4]); return { cmp: true, A, B }; } return { cmp: false, A: this.view(m), B: null }; },
   // botões de cada tipo: as duas últimas épocas e a comparação; a época seguinte aparece já, sem dados (fica desligada)
@@ -3298,9 +3303,12 @@ async function viewSchedule(code, code2) {
     const c = schCls(); const A = SCH.cur(); const n = A ? SCH.clsCount(A.season) : {};
     return `<div class="chips schcls" role="group" aria-label="Tipo de voo">${['J', 'C', 'G'].map((k) => `<button class="chip k${k} ${c.includes(k) ? 'on' : ''}" data-schcls="${k}" aria-pressed="${c.includes(k)}">${c.includes(k) ? ico('check', 'sm') : ''}${SCH_K[k]}${n[k] != null ? ` <small>${kNum(n[k])}</small>` : ''}</button>`).join('')}</div>${c !== 'JCG' ? `<p class="schclsnote">A mostrar só: ${[...c].map((k) => SCH_K[k].toLowerCase()).join(', ')}. <button class="linkbtn" data-schcls="all">Mostrar tudo</button></p>` : ''}`;
   };
-  const top = (title, sub, back) => `<div class="top">${back ? `<button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button>` : ''}<h1>${title}<small>${sub}</small></h1></div>${seg()}${clsChips()}`;
+  const top = (title, sub, back) => `<div class="top">${back ? `<button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button>` : ''}<h1>${title}<small>${sub}</small></h1></div>${seg()}${clsChips()}${(() => { const c = SCH.ctx(); return prov(c.A, c.B); })()}`;
   const none = (title, txt) => `<div class="schnone"><div class="art">${ico('plane', 'lg')}</div><h2>${title}</h2><p>${txt}</p></div>`;
-  const src = (ds) => `<p class="faint schsrc">Contagem por partidas do Porto (ida e volta = 1 voo). Fonte: ${esc(ds.data.file || 'Schedule Report')}.</p>`;
+  const src = (ds) => `<p class="faint schsrc">Contagem por partidas do Porto (ida e volta = 1 voo). Fonte: ${esc(ds.data.file || 'Schedule Report')}${ds.data.src === 'OCS' ? ' (OCS, pedidos de slots)' : ''}.</p>`;
+  // época provisória (pedidos de slots no OCS): aviso com o estado dos slots
+  const prov = (...dss) => dss.filter((x) => x?.data?.prov).map((x) => { const sl = x.data.slots || {}; const t = (sl.ok || 0) + (sl.alt || 0) + (sl.none || 0) || 1; const pc = (v) => Math.round(((v || 0) / t) * 100);
+    return `<div class="schprov"><b>${x.season} provisório</b> · pedidos de slots no OCS (${esc((x.data.file || '').replace(/\.csv$/i, ''))}). ${pc(sl.ok)}% com slot confirmado, ${pc(sl.alt)}% com hora alternativa proposta, ${pc(sl.none)}% ainda sem slot. Vai mudar até ao início da época.</div>`; }).join('');
 
   const paint = () => {
     if (!SCH.has()) {
