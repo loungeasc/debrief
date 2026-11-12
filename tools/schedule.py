@@ -224,13 +224,13 @@ def main(path, season, d0, d1, *refs):
         mov[(ap, al, f['st'])][f['mov']].append({'d': f['d'], 'h': f['h'], 'ac': f['ac'], 'cap': f['cap'], 'via': f['via']})
     routes = []
     for (ap, al, k), m in mov.items():
-        fl = m['D'] or m['A']                                 # dias e horas: pelas partidas (se só houver chegadas, as chegadas)
-        mv = m['D'] + m['A']                                  # contagens: movimentos (chegadas + partidas) e os lugares de ambos
-        wkc = [0] * nw; per = collections.defaultdict(lambda: [0] * 7)
+        fl = m['D'] or m['A']                                 # WF (frequências semanais), dias e horas: pelas partidas (só chegadas: as chegadas)
+        mv = m['D'] + m['A']                                  # movimentos (chegadas + partidas) e os lugares de ambos os sentidos
+        wkc = [0] * nw; wkm = [0] * nw; per = collections.defaultdict(lambda: [0] * 7)
         for f in mv:
-            wkc[(f['d'] - wk0).days // 7] += 1
+            wkm[(f['d'] - wk0).days // 7] += 1
         for f in fl:
-            per[(f['d'] - wk0).days // 7][f['d'].weekday()] += 1
+            w = (f['d'] - wk0).days // 7; wkc[w] += 1; per[w][f['d'].weekday()] += 1
         opw = [w for w in range(nw) if wkc[w]]
         base = [w for w in opw if w in full] or opw
         def mode(vals):
@@ -249,12 +249,12 @@ def main(path, season, d0, d1, *refs):
         via = collections.Counter(f['via'] for f in fl if f['via'])
         r = {
             'a': ap, 'c': al, 'w': mode(tot), 'lo': min(tot), 'hi': max(tot), 'd': days, 'n': len(opw),
-            't': len(mv), 's': sum(f['cap'] for f in mv), 'f': min(f['d'] for f in mv).isoformat(),
+            'm': mode([wkm[w] for w in base]), 'tq': len(fl), 't': len(mv), 's': sum(f['cap'] for f in mv), 'f': min(f['d'] for f in mv).isoformat(),
             'l': max(f['d'] for f in mv).isoformat(), 'wk': wkc, 'h': times,
             'ac': [a for a, _ in acc.most_common(3)], 'cap': capc.most_common(1)[0][0] if capc else 0,
         }
         if not m['D']: r['arr'] = 1
-        if len(opw) < 3: r['p'] = 1; r['dt'] = sorted({f['d'].isoformat() for f in mv})
+        if len(opw) < 3: r['p'] = 1; r['dt'] = sorted({f['d'].isoformat() for f in fl})
         r['k'] = k
         if k == 'C': r['ch'] = 1
         if via: r['via'] = via.most_common(1)[0][0]
@@ -262,7 +262,7 @@ def main(path, season, d0, d1, *refs):
     routes.sort(key=lambda r: (r['a'], r['c'], r['k'], -r['t']))
     used_al = {r['c'] for r in routes}; used_ap = {r['a'] for r in routes}
     out = {
-        'v': 1, 'k': 1, 'mov': 1, 'season': season, 'from': d0.isoformat(), 'to': d1.isoformat(), 'wk0': wk0.isoformat(), 'nw': nw,
+        'v': 1, 'k': 1, 'mov': 2, 'season': season, 'from': d0.isoformat(), 'to': d1.isoformat(), 'wk0': wk0.isoformat(), 'nw': nw,
         'file': path.rsplit('/', 1)[-1], 'at': dt.datetime.now().isoformat(timespec='seconds'),
         'al': {c: list(AIRLINES.get(c, (c, ''))) for c in sorted(used_al)},
         'ap': {a: [*AIRPORTS.get(a, (a, '', '')), COUNTRIES.get(country.get(a, ''), country.get(a, '')) or known.get(a, '')] for a in sorted(used_ap)},

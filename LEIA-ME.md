@@ -53,11 +53,11 @@ Montar uma vez: corre `supabase/06_diretorio.sql` no SQL Editor do Supabase do P
 Menu **Schedule** (no telemóvel, separador «Schedule»). Em cima escolhes a época ou a comparação: uma linha para o inverno (W25 · W26 · W25 vs W26) e outra para o verão (S26 · S27 · S26 vs S27). Uma época que ainda não tem dados aparece desligada e liga-se sozinha quando for carregada.
 
 - **Pesquisa**: aeroporto (CDG), cidade (Londres), país (França) ou companhia pelo código IATA (FR) ou ICAO (RYR) ou pelo nome. Um código de companhia mostra só a companhia.
-- **Destino**: se há voos do Porto, as companhias, movs por semana, dias (círculos S T Q Q S S D: cheio = todas as semanas, tracejado = algumas, ×2 = duas partidas no dia), horas de partida, avião, período e total da época.
-- **Companhia**: para onde voa, com os dias e os movs por semana de cada destino.
-- **Comparação**: totais com a variação, filtros Novos · Mais movs · Menos movs · Terminaram, e em cada destino/companhia as duas épocas lado a lado (dias, movs por semana e na época, gráfico semana a semana).
+- **Destino**: se há voos do Porto, as companhias, frequências semanais (WF), dias (círculos S T Q Q S S D: cheio = todas as semanas, tracejado = algumas, ×2 = duas partidas no dia), horas de partida, avião, período e total da época.
+- **Companhia**: para onde voa, com os dias e as WF de cada destino.
+- **Comparação**: totais com a variação, filtros Novos · Mais WF · Menos WF · Terminaram, e em cada destino/companhia as duas épocas lado a lado (dias, WF, movs na época, gráfico semana a semana).
 
-Conta-se em movimentos (movs): chegadas + partidas, e os lugares dos dois sentidos; os dias e as horas são os das partidas. Voos pontuais aparecem à parte. Cada voo tem a classe do relatório — **Regular** (J), **Charter** (C) ou **Desdobramento** (G) — que aparece em etiqueta e serve de filtro (por baixo das épocas: liga e desliga cada uma; fica guardado no dispositivo). A comparação junta a época mais recente com a anterior do mesmo tipo (W26 com W25; S27 com S26).
+Nos destinos, companhias e voos conta-se a frequência semanal (WF, partidas do Porto). Os totais (quadrados) contam movimentos (movs: chegadas + partidas) e os lugares dos dois sentidos. Voos pontuais aparecem à parte. Cada voo tem a classe do relatório — **Regular** (J), **Charter** (C) ou **Desdobramento** (G) — que aparece em etiqueta e serve de filtro (por baixo das épocas: liga e desliga cada uma; fica guardado no dispositivo). A comparação junta a época mais recente com a anterior do mesmo tipo (W26 com W25; S27 com S26).
 
 Os dados vêm do relatório «Schedule Report By Day» (xlsx), resumidos com `tools/schedule.py` e gravados em `crm_referencia` (chave `schedule:<época>`) pela função `debrief-schedule`, só com login; ficam guardados no dispositivo para funcionar sem rede. Nunca ficam neste repositório. Para uma época nova: `python3 -I tools/schedule.py relatorio.xlsx S27 2027-03-28 2027-10-30 > s27.json` e envia o JSON para `debrief-schedule`.
 
