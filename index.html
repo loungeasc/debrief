@@ -766,10 +766,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.23.1';
+const APP_VERSION = '1.24.0';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.24.0', data: '12/11/2026', itens: ['Schedule: as contagens passam a ser em movimentos (movs) — chegadas + partidas — em todas as épocas (W25, W26, S26 e S27). Os lugares somam também os dois sentidos.', 'Os pontos dos dias da semana e as horas continuam a ser os das partidas.'] },
   { v: '1.23.1', data: '11/11/2026', itens: ['S27 provisório: com base nos pedidos de slots do OCS. Liga a S27 e a comparação S26 vs S27; um aviso mostra quantos voos já têm slot confirmado.'] },
   { v: '1.23.0', data: '03/11/2026', itens: ['Schedule por tipo de voo: cada companhia mostra se é Regular, Charter ou Desdobramento.', 'Filtro por baixo das épocas: liga e desliga Regular, Charter e Desdobramento (por exemplo, só charters ou tudo menos charters). Vale para a lista, os destinos, as companhias e a comparação.'] },
   { v: '1.22.1', data: '02/11/2026', itens: ['Schedule: as épocas novas (como o S26) aparecem logo que abres o Schedule, sem esperar.'] },
@@ -3200,7 +3201,7 @@ function schLogos(rs, ds, max = 3) {
 }
 function schDays(r, cls = '') {
   if (!r) return `<div class="schdays ${cls}">${DOW.map(([l]) => `<span class="dd"><span class="l">${l}</span><span class="c"></span></span>`).join('')}</div>`;
-  return `<div class="schdays ${cls}" role="img" aria-label="${esc(DOW.map(([, n], i) => `${n}: ${r.d[i][0] >= 0.5 ? (r.d[i][1] > 1 ? r.d[i][1] + ' voos' : '1 voo') : r.d[i][0] > 0 ? 'algumas semanas' : 'não'}`).join(', '))}">${DOW.map(([l], i) => {
+  return `<div class="schdays ${cls}" role="img" aria-label="${esc(DOW.map(([, n], i) => `${n}: ${r.d[i][0] >= 0.5 ? (r.d[i][1] > 1 ? r.d[i][1] + ' partidas' : '1 partida') : r.d[i][0] > 0 ? 'algumas semanas' : 'não'}`).join(', '))}">${DOW.map(([l], i) => {
     const [share, n] = r.d[i]; const c = share >= 0.5 ? 'on' : share > 0 ? 'some' : '';
     return `<span class="dd ${c}"><span class="l">${l}</span><span class="c">${share > 0 ? (n > 1 ? '×' + n : '') : ''}</span></span>`;
   }).join('')}</div>`;
@@ -3214,13 +3215,13 @@ function schBars(ds, wk, wkB, dsB) {
     const d = new Date(wk0); d.setDate(d.getDate() + 7 * w); const m = d.getMonth();
     const lab = m !== lastM && i - lastI >= 3 ? MESES[m] : ''; if (m !== lastM) { lastM = m; if (lab) lastI = i; }
     const h = (v) => Math.max(v ? 3 : 0, Math.round((v / max) * 100));
-    return `<div class="bcol" title="Semana de ${d.getDate()} ${MESES[m]}: ${vals[i]} voos${valsB ? ` (${dsB.season}: ${valsB[i]})` : ''}">${valsB ? `<div class="bar b" style="height:${h(valsB[i])}%"></div>` : ''}<div class="bar" style="height:${h(vals[i])}%"></div><span>${lab}</span></div>`;
+    return `<div class="bcol" title="Semana de ${d.getDate()} ${MESES[m]}: ${vals[i]} movs${valsB ? ` (${dsB.season}: ${valsB[i]})` : ''}">${valsB ? `<div class="bar b" style="height:${h(valsB[i])}%"></div>` : ''}<div class="bar" style="height:${h(vals[i])}%"></div><span>${lab}</span></div>`;
   }).join('');
   return `<div class="schbars ${valsB ? 'two' : ''}">${cols}</div>`;
 }
 // etiquetas das classes (Regular, Charter, Desdobramento); onlyX: só as que não são regulares
 function schKs(ks, onlyX = false) { return (ks || []).filter((k) => !onlyX || k !== 'J').map((k) => `<span class="kpill k${k}">${SCH_K[k] || k}</span>`).join(''); }
-const schXp = (r) => (r.xp ? [`+${r.xp} ${r.xp === 1 ? 'voo pontual' : 'voos pontuais'} (${r.xdt.slice(0, 4).map(dShort).join(', ')}${r.xdt.length > 4 ? '…' : ''})`, 'Extra'] : null);
+const schXp = (r) => (r.xp ? [`+${r.xp} ${r.xp === 1 ? 'mov pontual' : 'movs pontuais'} (${r.xdt.slice(0, 4).map(dShort).join(', ')}${r.xdt.length > 4 ? '…' : ''})`, 'Extra'] : null);
 function schRouteLines(r, ds) {
   const d = ds.data;
   const allSeason = r.n >= ds.full.length && r.f <= addDaysIso(d.from, 6) && r.l >= addDaysIso(d.to, -6);
@@ -3228,7 +3229,7 @@ function schRouteLines(r, ds) {
   return [
     [allSeason ? 'Toda a época' : `${dShort(r.f)} → ${dShort(r.l)}`, 'Período'],
     r.lo !== r.hi ? [`entre ${r.lo} e ${r.hi} por semana`, 'Varia'] : null,
-    r.h.length && perDay <= 3 ? [r.h.join(' · '), r.arr ? 'Chegadas' : 'Partidas'] : perDay > 3 ? [`até ${perDay} por dia`, 'Voos'] : null,
+    r.h.length && perDay <= 3 ? [r.h.join(' · '), r.arr ? 'Chegadas' : 'Partidas'] : perDay > 3 ? [`até ${perDay} por dia`, 'Partidas'] : null,
     [`${r.ac.join(', ')}${r.cap ? ` · ${r.cap} lugares` : ''}`, 'Avião'],
     r.via ? [`com escala em ${SCH.apInfo(r.via).city} (${r.via})`, 'Escala'] : null,
     schXp(r),
@@ -3239,9 +3240,9 @@ function schRouteCard(r, ds) {
   const al = SCH.al(r.c, ds);
   return `<div class="schcard">
     <div class="schcard-h">${badge(al.iata || r.c)}<div class="grow"><div class="nm">${esc(al.name)}</div><div class="sb">${esc([al.iata, r.c].filter(Boolean).join(' · '))}</div><div class="kpills">${schKs(r.ks)}</div></div>
-      <div class="big"><b>${r.w}</b><span>por semana</span></div></div>
+      <div class="big"><b>${r.w}</b><span>movs/semana</span></div></div>
     ${schDays(r)}${schDl(schRouteLines(r, ds))}
-    <div class="schfoot"><span><b>${r.t}</b> voos na época</span><span>${kNum(r.s)} lugares</span></div>
+    <div class="schfoot"><span><b>${r.t}</b> movs na época</span><span>${kNum(r.s)} lugares</span></div>
   </div>`;
 }
 // cartão de comparação: a mesma companhia (num destino) nas duas épocas
@@ -3255,7 +3256,7 @@ function schCmpCard(title, sub, logo, a, b, A, B, href) {
     ${status ? `<div class="schstatus">${status}</div>` : ''}
     <div class="schdrow"><span class="sl">${A.season}</span>${schDays(a, 'sm')}</div>
     <div class="schdrow was"><span class="sl">${B.season}</span>${schDays(b, 'sm')}</div>
-    ${schDl([[`${wb} no ${B.season} → ${wa} no ${A.season}`, 'Por semana'], [`${(b?.t || 0).toLocaleString('pt-PT')} → ${(a?.t || 0).toLocaleString('pt-PT')} voos`, 'Na época'], ...lines.filter(([, k]) => k !== 'Período' || a)].slice(0, 5))}
+    ${schDl([[`${wb} no ${B.season} → ${wa} no ${A.season}`, 'Por semana'], [`${(b?.t || 0).toLocaleString('pt-PT')} → ${(a?.t || 0).toLocaleString('pt-PT')} movs`, 'Na época'], ...lines.filter(([, k]) => k !== 'Período' || a)].slice(0, 5))}
   </div>`;
 }
 function schRow(x, ds) {
@@ -3305,7 +3306,7 @@ async function viewSchedule(code, code2) {
   };
   const top = (title, sub, back) => `<div class="top">${back ? `<button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button>` : ''}<h1>${title}<small>${sub}</small></h1></div>${seg()}${clsChips()}${(() => { const c = SCH.ctx(); return prov(c.A, c.B); })()}`;
   const none = (title, txt) => `<div class="schnone"><div class="art">${ico('plane', 'lg')}</div><h2>${title}</h2><p>${txt}</p></div>`;
-  const src = (ds) => `<p class="faint schsrc">Contagem por partidas do Porto (ida e volta = 1 voo). Fonte: ${esc(ds.data.file || 'Schedule Report')}${ds.data.src === 'OCS' ? ' (OCS, pedidos de slots)' : ''}.</p>`;
+  const src = (ds) => `<p class="faint schsrc">Movimentos (movs) = chegadas + partidas; lugares de ambos os sentidos. Os dias e as horas são os das partidas. Fonte: ${esc(ds.data.file || 'Schedule Report')}${ds.data.src === 'OCS' ? ' (OCS, pedidos de slots)' : ''}.</p>`;
   // época provisória (pedidos de slots no OCS): aviso com o estado dos slots
   const prov = (...dss) => dss.filter((x) => x?.data?.prov).map((x) => { const sl = x.data.slots || {}; const t = (sl.ok || 0) + (sl.alt || 0) + (sl.none || 0) || 1; const pc = (v) => Math.round(((v || 0) / t) * 100);
     return `<div class="schprov"><b>${x.season} provisório</b> · pedidos de slots no OCS (${esc((x.data.file || '').replace(/\.csv$/i, ''))}). ${pc(sl.ok)}% com slot confirmado, ${pc(sl.alt)}% com hora alternativa proposta, ${pc(sl.none)}% ainda sem slot. Vai mudar até ao início da época.</div>`; }).join('');
@@ -3324,7 +3325,7 @@ async function viewSchedule(code, code2) {
   const paintList = () => {
     const { cmp, A, B } = SCH.ctx();
     const title = cmp ? `${B.season} vs ${A.season}` : `Schedule ${A.season}`;
-    view.innerHTML = `<div class="page schpage">${top(title, cmp ? `comparação das duas épocas de ${A.season[0] === 'S' ? 'verão' : 'inverno'} · partidas do Porto` : `${schSpan(A)} · partidas do Porto`)}
+    view.innerHTML = `<div class="page schpage">${top(title, cmp ? `comparação das duas épocas de ${A.season[0] === 'S' ? 'verão' : 'inverno'} · movimentos no Porto` : `${schSpan(A)} · movimentos no Porto`)}
       <div class="search schsearch">${ico('search')}<input class="inp" type="search" id="schq" placeholder="Destino ou companhia (CDG, Londres, FR, RYR)" value="${esc(S.sch.q)}" autocomplete="off" autocapitalize="characters" enterkeyhint="search"></div>
       <div id="schres"></div>${src(A)}</div>`;
     const res = () => {
@@ -3340,12 +3341,12 @@ async function viewSchedule(code, code2) {
       const tabs = `<div class="chips schtabs"><button class="chip ${S.sch.tab !== 'al' ? 'on' : ''}" data-schtab="dest">Destinos</button><button class="chip ${S.sch.tab === 'al' ? 'on' : ''}" data-schtab="al">Companhias</button></div>`;
       if (!cmp) {
         const t = A.tot;
-        box.innerHTML = `<div class="schkpis"><div><b>${t.dest}</b><span>destinos</span></div><div><b>${t.al}</b><span>companhias</span></div><div><b>${t.w.toLocaleString('pt-PT')}</b><span>voos por semana</span></div></div>${tabs}
+        box.innerHTML = `<div class="schkpis"><div><b>${t.dest}</b><span>destinos</span></div><div><b>${t.al}</b><span>companhias</span></div><div><b>${t.w.toLocaleString('pt-PT')}</b><span>movs por semana</span></div></div>${tabs}
           ${S.sch.tab === 'al' ? `<div class="list">${A.als.map((x) => schAlRow(x.c, A)).join('')}</div>` : `<div class="list">${A.idx.map((x) => schRow(x, A)).join('')}</div>`}`;
         return;
       }
       const ta = A.tot, tb = B.tot; const g = schCmpGroups(A, B); const f = g[S.sch.f] ? S.sch.f : 'all';
-      const F = [['all', 'Todos'], ['novo', 'Novos'], ['up', 'Mais voos'], ['down', 'Menos voos'], ['fim', 'Terminaram']];
+      const F = [['all', 'Todos'], ['novo', 'Novos'], ['up', 'Mais movs'], ['down', 'Menos movs'], ['fim', 'Terminaram']];
       const alsAll = [...new Set([...A.als, ...B.als].filter((x) => x.reg.length).map((x) => x.c))]
         .map((c) => ({ c, wa: A.als.find((x) => x.c === c)?.w || 0, wb: B.als.find((x) => x.c === c)?.w || 0 })).sort((p, q) => q.wa - p.wa || q.wb - p.wb);
       const iAl = () => schItemsAl(A, B), iAp = () => schItemsAp(A, B);
@@ -3353,16 +3354,16 @@ async function viewSchedule(code, code2) {
       S._schk = {
         dest: () => schDiffSheet({ title: `Destinos · ${B.season} vs ${A.season}`, A, B, kind: 'set', labels: ['Destinos novos', 'Destinos que terminaram', 'novos', 'terminaram'], dims: [{ items: iAp() }] }),
         al: () => schDiffSheet({ title: `Companhias · ${B.season} vs ${A.season}`, A, B, kind: 'set', labels: ['Começaram a voar', 'Deixaram de voar', 'entraram', 'saíram'], dims: [{ items: iAl() }] }),
-        w: () => schDiffSheet({ title: `Voos por semana · ${B.season} vs ${A.season}`, A, B, kind: 'delta', metric: 'w', dims: dims() }),
-        t: () => schDiffSheet({ title: `Voos na época · ${B.season} vs ${A.season}`, A, B, kind: 'delta', metric: 't', dims: dims() }),
+        w: () => schDiffSheet({ title: `Movs por semana · ${B.season} vs ${A.season}`, A, B, kind: 'delta', metric: 'w', dims: dims() }),
+        t: () => schDiffSheet({ title: `Movs na época · ${B.season} vs ${A.season}`, A, B, kind: 'delta', metric: 't', dims: dims() }),
         s: () => schDiffSheet({ title: `Lugares · ${B.season} vs ${A.season}`, A, B, kind: 'delta', metric: 's', dims: dims() }),
       };
       const more = `<span class="more">${ico('chev', 'sm')}</span>`;
       box.innerHTML = `<div class="schkpis cmp">
           <button data-schk="dest">${more}<b>${ta.dest}</b>${schDelta(ta.dest, tb.dest, { word: false })}<span>destinos</span></button>
           <button data-schk="al">${more}<b>${ta.al}</b>${schDelta(ta.al, tb.al, { word: false })}<span>companhias</span></button>
-          <button data-schk="w">${more}<b>${ta.w.toLocaleString('pt-PT')}</b>${schDelta(ta.w, tb.w, { word: false })}<span>voos por semana</span></button></div>
-        <div class="schkpis cmp two"><button data-schk="t">${more}<b>${ta.t.toLocaleString('pt-PT')}</b>${schDelta(ta.t, tb.t, { pct: true })}<span>voos na época (${tb.t.toLocaleString('pt-PT')} no ${B.season})</span></button><button data-schk="s">${more}<b>${kNum(ta.seats)}</b>${schDelta(ta.seats, tb.seats, { pct: true })}<span>lugares (${kNum(tb.seats)} no ${B.season})</span></button></div>
+          <button data-schk="w">${more}<b>${ta.w.toLocaleString('pt-PT')}</b>${schDelta(ta.w, tb.w, { word: false })}<span>movs por semana</span></button></div>
+        <div class="schkpis cmp two"><button data-schk="t">${more}<b>${ta.t.toLocaleString('pt-PT')}</b>${schDelta(ta.t, tb.t, { pct: true })}<span>movs na época (${tb.t.toLocaleString('pt-PT')} no ${B.season})</span></button><button data-schk="s">${more}<b>${kNum(ta.seats)}</b>${schDelta(ta.seats, tb.seats, { pct: true })}<span>lugares (${kNum(tb.seats)} no ${B.season})</span></button></div>
         <p class="faint schtip">Toca num quadrado para ver as diferenças.</p>
         ${tabs}
         ${S.sch.tab === 'al' ? `<div class="list">${alsAll.map((x) => schAlRow(x.c, A, B)).join('')}</div>`
@@ -3386,11 +3387,11 @@ async function viewSchedule(code, code2) {
     const sub = esc([a, p.apt, p.country].filter(Boolean).join(' · '));
     if (!x && !y) { view.innerHTML = `<div class="page schpage">${top(esc(p.city || a), sub, true)}${none(`Sem voos para ${esc(a)}`, `Nenhuma companhia voa do Porto para este aeroporto no ${esc(cmp ? A.season + ' nem no ' + B.season : A.season)}.`)}</div>`; return; }
     if (!cmp) {
-      const answer = x.reg.length ? `<b>${x.w}</b> ${x.w === 1 ? 'voo' : 'voos'} por semana` : 'Só voos pontuais';
+      const answer = x.reg.length ? `<b>${x.w}</b> ${x.w === 1 ? 'mov' : 'movs'} por semana` : 'Só voos pontuais';
       view.innerHTML = `<div class="page schpage">${top(esc(x.city), sub, true)}
         <div class="schhero"><div class="ans">${answer}</div>
-          <div class="schkpis in"><div><b>${x.reg.length || x.pon.length}</b><span>${(x.reg.length || x.pon.length) === 1 ? 'companhia' : 'companhias'}</span></div><div><b>${x.t.toLocaleString('pt-PT')}</b><span>voos na época</span></div><div><b>${kNum(x.seats)}</b><span>lugares</span></div></div>
-          ${x.reg.length ? `<div class="schbars-h">Voos por semana ao longo do ${esc(A.season)}</div>${schBars(A, x.wk)}` : ''}</div>
+          <div class="schkpis in"><div><b>${x.reg.length || x.pon.length}</b><span>${(x.reg.length || x.pon.length) === 1 ? 'companhia' : 'companhias'}</span></div><div><b>${x.t.toLocaleString('pt-PT')}</b><span>movs na época</span></div><div><b>${kNum(x.seats)}</b><span>lugares</span></div></div>
+          ${x.reg.length ? `<div class="schbars-h">Movs por semana ao longo do ${esc(A.season)}</div>${schBars(A, x.wk)}` : ''}</div>
         ${x.reg.length ? `<div class="group-h schleg">Companhias <span><i class="dot on"></i>todas as semanas <i class="dot some"></i>algumas</span></div><div class="schcards">${x.reg.map((r) => schRouteCard(r, A)).join('')}</div>` : ''}
         ${schPontuais(x.pon, A)}${src(A)}</div>`;
       return;
@@ -3399,14 +3400,14 @@ async function viewSchedule(code, code2) {
     { const rsA = [...(x?.reg || []), ...(x?.pon || [])], rsB = [...(y?.reg || []), ...(y?.pon || [])]; const it = () => schItemsRoutes(rsA, rsB, 'c', A); const ttl = (t) => `${t} · ${p.city} (${a})`;
       S._schk = {
         al: () => schDiffSheet({ title: ttl('Companhias'), A, B, kind: 'set', labels: ['Começaram a voar', 'Deixaram de voar', 'entraram', 'saíram'], dims: [{ items: it() }] }),
-        t: () => schDiffSheet({ title: ttl('Voos na época'), A, B, kind: 'delta', metric: 't', dims: [{ items: it(), one: 'companhia', many: 'companhias' }] }),
+        t: () => schDiffSheet({ title: ttl('Movs na época'), A, B, kind: 'delta', metric: 't', dims: [{ items: it(), one: 'companhia', many: 'companhias' }] }),
         s: () => schDiffSheet({ title: ttl('Lugares'), A, B, kind: 'delta', metric: 's', dims: [{ items: it(), one: 'companhia', many: 'companhias' }] }),
       }; }
     const cs = [...new Set([...(x?.reg || []), ...(y?.reg || [])].map((r) => r.c))].map((c) => ({ c, ra: x?.reg.find((r) => r.c === c), rb: y?.reg.find((r) => r.c === c) })).sort((p1, q1) => (q1.ra?.w || 0) - (p1.ra?.w || 0) || (q1.rb?.w || 0) - (p1.rb?.w || 0));
     view.innerHTML = `<div class="page schpage">${top(esc(p.city), sub, true)}
-      <div class="schhero"><div class="ans"><b>${wa}</b> ${wa === 1 ? 'voo' : 'voos'} por semana ${schDelta(wa, wb)}</div><div class="was">${B.season}: ${wb} por semana</div>
-        <div class="schkpis in cmp"><button data-schk="al"><span class="more">${ico('chev', 'sm')}</span><b>${cs.filter((z) => z.ra).length}</b><span>companhias (${cs.filter((z) => z.rb).length} no ${B.season})</span></button><button data-schk="t"><span class="more">${ico('chev', 'sm')}</span><b>${(x?.t || 0).toLocaleString('pt-PT')}</b>${schDelta(x?.t || 0, y?.t || 0, { pct: true })}<span>voos na época</span></button><button data-schk="s"><span class="more">${ico('chev', 'sm')}</span><b>${kNum(x?.seats || 0)}</b>${schDelta(x?.seats || 0, y?.seats || 0, { pct: true })}<span>lugares</span></button></div>
-        <div class="schbars-h">Voos por semana · <i class="lg a"></i>${A.season} <i class="lg b"></i>${B.season}</div>${schBars(A, x?.wk || Array(A.data.nw).fill(0), y?.wk || Array(B.data.nw).fill(0), B)}</div>
+      <div class="schhero"><div class="ans"><b>${wa}</b> ${wa === 1 ? 'mov' : 'movs'} por semana ${schDelta(wa, wb)}</div><div class="was">${B.season}: ${wb} por semana</div>
+        <div class="schkpis in cmp"><button data-schk="al"><span class="more">${ico('chev', 'sm')}</span><b>${cs.filter((z) => z.ra).length}</b><span>companhias (${cs.filter((z) => z.rb).length} no ${B.season})</span></button><button data-schk="t"><span class="more">${ico('chev', 'sm')}</span><b>${(x?.t || 0).toLocaleString('pt-PT')}</b>${schDelta(x?.t || 0, y?.t || 0, { pct: true })}<span>movs na época</span></button><button data-schk="s"><span class="more">${ico('chev', 'sm')}</span><b>${kNum(x?.seats || 0)}</b>${schDelta(x?.seats || 0, y?.seats || 0, { pct: true })}<span>lugares</span></button></div>
+        <div class="schbars-h">Movs por semana · <i class="lg a"></i>${A.season} <i class="lg b"></i>${B.season}</div>${schBars(A, x?.wk || Array(A.data.nw).fill(0), y?.wk || Array(B.data.nw).fill(0), B)}</div>
       ${cs.length ? `<div class="group-h schleg">Companhias <span><i class="dot on"></i>todas as semanas <i class="dot some"></i>algumas</span></div><div class="schcards">${cs.map((z) => { const al = SCH.al(z.c, A); return schCmpCard(al.name, [al.iata, z.c].filter(Boolean).join(' · '), badge(al.iata || z.c), z.ra, z.rb, A, B, '#/schedule/c/' + z.c); }).join('')}</div>` : ''}
       ${schPontuais([...(x?.pon || []).map((r) => ({ ...r, _s: A.season })), ...(y?.pon || []).map((r) => ({ ...r, _s: B.season }))], A)}${src(A)}</div>`;
   };
@@ -3423,8 +3424,8 @@ async function viewSchedule(code, code2) {
     if (!cmp) {
       const n = x.reg.length;
       view.innerHTML = `<div class="page schpage">${top(esc(al.name), sub, true)}
-        <div class="schhero">${head()}<div class="ans">${n ? `<b>${x.w}</b> ${x.w === 1 ? 'voo' : 'voos'} por semana` : 'Só voos pontuais'}</div>
-          <div class="schkpis in"><div><b>${n || x.pon.length}</b><span>${(n || x.pon.length) === 1 ? 'destino' : 'destinos'}</span></div><div><b>${x.t.toLocaleString('pt-PT')}</b><span>voos na época</span></div><div><b>${kNum(x.seats)}</b><span>lugares</span></div></div></div>
+        <div class="schhero">${head()}<div class="ans">${n ? `<b>${x.w}</b> ${x.w === 1 ? 'mov' : 'movs'} por semana` : 'Só voos pontuais'}</div>
+          <div class="schkpis in"><div><b>${n || x.pon.length}</b><span>${(n || x.pon.length) === 1 ? 'destino' : 'destinos'}</span></div><div><b>${x.t.toLocaleString('pt-PT')}</b><span>movs na época</span></div><div><b>${kNum(x.seats)}</b><span>lugares</span></div></div></div>
         ${n ? `<div class="group-h schleg">Destinos <span><i class="dot on"></i>todas as semanas <i class="dot some"></i>algumas</span></div><div class="list">${x.reg.map((r) => schDestRow(r.a, r)).join('')}</div>` : ''}
         ${schPontuais(x.pon, A, true)}${src(A)}</div>`;
       return;
@@ -3433,13 +3434,13 @@ async function viewSchedule(code, code2) {
     { const rsA = [...(x?.reg || []), ...(x?.pon || [])], rsB = [...(y?.reg || []), ...(y?.pon || [])]; const it = () => schItemsRoutes(rsA, rsB, 'a', A); const ttl = (t) => `${t} · ${al.name}`;
       S._schk = {
         dest: () => schDiffSheet({ title: ttl('Destinos'), A, B, kind: 'set', labels: ['Destinos novos', 'Destinos que terminaram', 'novos', 'terminaram'], dims: [{ items: it() }] }),
-        t: () => schDiffSheet({ title: ttl('Voos na época'), A, B, kind: 'delta', metric: 't', dims: [{ items: it(), one: 'destino', many: 'destinos' }] }),
+        t: () => schDiffSheet({ title: ttl('Movs na época'), A, B, kind: 'delta', metric: 't', dims: [{ items: it(), one: 'destino', many: 'destinos' }] }),
         s: () => schDiffSheet({ title: ttl('Lugares'), A, B, kind: 'delta', metric: 's', dims: [{ items: it(), one: 'destino', many: 'destinos' }] }),
       }; }
     const ds = [...new Set([...(x?.reg || []), ...(y?.reg || [])].map((r) => r.a))].map((a) => ({ a, ra: x?.reg.find((r) => r.a === a), rb: y?.reg.find((r) => r.a === a) })).sort((p1, q1) => (q1.ra?.w || 0) - (p1.ra?.w || 0) || (q1.rb?.w || 0) - (p1.rb?.w || 0));
     view.innerHTML = `<div class="page schpage">${top(esc(al.name), sub, true)}
-      <div class="schhero">${head()}<div class="ans"><b>${wa}</b> ${wa === 1 ? 'voo' : 'voos'} por semana ${schDelta(wa, wb)}</div><div class="was">${B.season}: ${wb} por semana</div>
-        <div class="schkpis in cmp"><button data-schk="dest"><span class="more">${ico('chev', 'sm')}</span><b>${x?.reg.length || 0}</b><span>destinos (${y?.reg.length || 0} no ${B.season})</span></button><button data-schk="t"><span class="more">${ico('chev', 'sm')}</span><b>${(x?.t || 0).toLocaleString('pt-PT')}</b>${schDelta(x?.t || 0, y?.t || 0, { pct: true })}<span>voos na época</span></button><button data-schk="s"><span class="more">${ico('chev', 'sm')}</span><b>${kNum(x?.seats || 0)}</b>${schDelta(x?.seats || 0, y?.seats || 0, { pct: true })}<span>lugares</span></button></div></div>
+      <div class="schhero">${head()}<div class="ans"><b>${wa}</b> ${wa === 1 ? 'mov' : 'movs'} por semana ${schDelta(wa, wb)}</div><div class="was">${B.season}: ${wb} por semana</div>
+        <div class="schkpis in cmp"><button data-schk="dest"><span class="more">${ico('chev', 'sm')}</span><b>${x?.reg.length || 0}</b><span>destinos (${y?.reg.length || 0} no ${B.season})</span></button><button data-schk="t"><span class="more">${ico('chev', 'sm')}</span><b>${(x?.t || 0).toLocaleString('pt-PT')}</b>${schDelta(x?.t || 0, y?.t || 0, { pct: true })}<span>movs na época</span></button><button data-schk="s"><span class="more">${ico('chev', 'sm')}</span><b>${kNum(x?.seats || 0)}</b>${schDelta(x?.seats || 0, y?.seats || 0, { pct: true })}<span>lugares</span></button></div></div>
       ${ds.length ? `<div class="group-h schleg">Destinos <span><i class="dot on"></i>todas as semanas <i class="dot some"></i>algumas</span></div><div class="list">${ds.map((z) => schDestRow(z.a, z.ra, z.rb, B)).join('')}</div>` : ''}
       ${schPontuais([...(x?.pon || []).map((r) => ({ ...r, _s: A.season })), ...(y?.pon || []).map((r) => ({ ...r, _s: B.season }))], A, true)}${src(A)}</div>`;
   };
@@ -3483,7 +3484,7 @@ function schItemsRoutes(rsA, rsB, by, A) {
   });
 }
 const schFmt = (m, v) => (m === 's' ? kNum(v) : v.toLocaleString('pt-PT'));
-const schUnit = { w: 'voos por semana', t: 'voos na época', s: 'lugares' };
+const schUnit = { w: 'movs por semana', t: 'movs na época', s: 'lugares' };
 // cfg: { title, A, B, kind: 'set' | 'delta', metric, labels: [novos, terminaram], dims: [{ label, items }] }
 function schDiffSheet(cfg) {
   const { A, B } = cfg; let di = 0;
@@ -3520,7 +3521,7 @@ function schDiffSheet(cfg) {
 }
 // linha compacta de um destino de uma companhia: dias da semana em pontos e voos por semana (e a variação, na comparação)
 function schDots(r) {
-  return `<span class="schdots" role="img" aria-label="${r ? esc(DOW.map(([, n], i) => `${n}: ${r.d[i][0] >= 0.5 ? (r.d[i][1] > 1 ? r.d[i][1] + ' voos' : '1 voo') : r.d[i][0] > 0 ? 'algumas semanas' : 'não'}`).join(', ')) : 'não voa'}">${DOW.map(([l], i) => { const sh = r ? r.d[i][0] : 0; const n = r ? r.d[i][1] : 0; return `<i class="${sh >= 0.5 ? 'on' : sh > 0 ? 'some' : ''}">${l}${sh > 0 && n > 1 ? `<sup>${n}</sup>` : ''}</i>`; }).join('')}</span>`;
+  return `<span class="schdots" role="img" aria-label="${r ? esc(DOW.map(([, n], i) => `${n}: ${r.d[i][0] >= 0.5 ? (r.d[i][1] > 1 ? r.d[i][1] + ' partidas' : '1 partida') : r.d[i][0] > 0 ? 'algumas semanas' : 'não'}`).join(', ')) : 'não voa'}">${DOW.map(([l], i) => { const sh = r ? r.d[i][0] : 0; const n = r ? r.d[i][1] : 0; return `<i class="${sh >= 0.5 ? 'on' : sh > 0 ? 'some' : ''}">${l}${sh > 0 && n > 1 ? `<sup>${n}</sup>` : ''}</i>`; }).join('')}</span>`;
 }
 function schDestRow(a, r, rb, B) {
   const p = SCH.apInfo(a); const w = r?.w || 0;
@@ -3534,7 +3535,7 @@ function schPontuais(list, ds, byDest = false) {
     const al = SCH.al(r.c, ds); const p = SCH.apInfo(r.a);
     const left = byDest ? `<span class="iata sm">${r.a}</span>` : badge(al.iata || r.c, true);
     const t = byDest ? p.city : al.name;
-    return `<a class="row" href="${byDest ? '#/schedule/' + r.a : '#/schedule/c/' + r.c}">${left}<div class="main"><div class="t">${esc(t)}${schKs(r.ks, true)}</div><div class="s">${esc([r._s, r.dt.map(dShort).join(', ')].filter(Boolean).join(' · '))}</div></div><div class="schn"><b>${r.t}</b><span>${r.t === 1 ? 'voo' : 'voos'}</span></div></a>`;
+    return `<a class="row" href="${byDest ? '#/schedule/' + r.a : '#/schedule/c/' + r.c}">${left}<div class="main"><div class="t">${esc(t)}${schKs(r.ks, true)}</div><div class="s">${esc([r._s, r.dt.map(dShort).join(', ')].filter(Boolean).join(' · '))}</div></div><div class="schn"><b>${r.t}</b><span>${r.t === 1 ? 'mov' : 'movs'}</span></div></a>`;
   }).join('')}</div>`;
 }
 
