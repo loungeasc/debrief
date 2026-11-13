@@ -129,7 +129,12 @@ textarea.inp{resize:vertical;line-height:1.5}
 @media (prefers-color-scheme:dark){.trnote.stale{background:#3d2410;color:#f5c08f}}
 .search{position:relative}
 .search .i{position:absolute;left:12px;top:12px;color:var(--ink-3)}
-.search .inp{padding-left:40px}
+.search .inp{padding-left:40px;padding-right:44px}
+.search input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none}
+.search .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--ink-3);display:grid;place-items:center;cursor:pointer;padding:0}
+.search .clr:hover{background:var(--line);color:var(--ink)}
+.search .clr .i,.schsearch .clr .i{position:static;top:auto;left:auto}
+.search .clr[hidden]{display:none}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
 .chip{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:500;color:var(--ink)}
 .chip.add{border-style:dashed;color:var(--ink-2);background:transparent}
@@ -767,10 +772,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.24.1';
+const APP_VERSION = '1.25.0';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.25.0', data: '13/11/2026', itens: ['Schedule: novo separador «Países» ao lado de Destinos e Companhias, com a página de cada país (WF, destinos, companhias, movs e lugares; e a comparação entre épocas).', 'Nas diferenças da comparação (ao tocar nos quadrados) há também «Por país».', 'A pesquisa encontra países (ex.: Espanha) e as caixas de pesquisa têm uma cruz para limpar o texto.'] },
   { v: '1.24.1', data: '12/11/2026', itens: ['Schedule: nos destinos, companhias e voos o número por semana volta a ser a frequência semanal (WF, partidas do Porto). Os totais lá em cima continuam em movs (chegadas + partidas) e lugares dos dois sentidos.'] },
   { v: '1.24.0', data: '12/11/2026', itens: ['Schedule: as contagens passam a ser em movimentos (movs) — chegadas + partidas — em todas as épocas (W25, W26, S26 e S27). Os lugares somam também os dois sentidos.', 'Os pontos dos dias da semana e as horas continuam a ser os das partidas.'] },
   { v: '1.23.1', data: '11/11/2026', itens: ['S27 provisório: com base nos pedidos de slots do OCS. Liga a S27 e a comparação S26 vs S27; um aviso mostra quantos voos já têm slot confirmado.'] },
@@ -1279,6 +1285,19 @@ function touchMeeting(m) {
 }
 function setSaved(busy) { $$('.saved').forEach((el) => { el.classList.toggle('busy', busy); el.textContent = busy ? 'A guardar…' : 'Guardado'; }); }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSaves(); });
+// cruz para limpar as caixas de pesquisa: aparece quando há texto; limpar dispara o mesmo «input» da escrita
+const clrSync = () => document.querySelectorAll('.search > input[type=search]').forEach((inp) => {
+  let b = inp.parentElement.querySelector(':scope > .clr');
+  if (!b) { b = document.createElement('button'); b.type = 'button'; b.className = 'clr'; b.setAttribute('aria-label', 'Limpar pesquisa'); b.innerHTML = ico('x', 'sm'); inp.after(b); }
+  b.hidden = !inp.value;
+});
+let clrRaf = 0; new MutationObserver(() => { if (!clrRaf) clrRaf = requestAnimationFrame(() => { clrRaf = 0; clrSync(); }); }).observe(document.body, { childList: true, subtree: true });
+document.addEventListener('input', (e) => { if (e.target.matches?.('.search > input[type=search]')) { const b = e.target.parentElement.querySelector(':scope > .clr'); if (b) b.hidden = !e.target.value; } }, true);
+document.addEventListener('click', (e) => {
+  const b = e.target.closest?.('.search > .clr'); if (!b) return;
+  e.preventDefault(); e.stopPropagation(); const inp = b.parentElement.querySelector('input'); inp.value = ''; b.hidden = true;
+  inp.dispatchEvent(new Event('input', { bubbles: true })); inp.focus();
+}, true);
 window.addEventListener('pagehide', () => flushSaves());
 
 const hasContent = (m) => !!((m.raw || '').trim() || m.topics.some((t) => (t.text || '').trim()) || m.photoIds.length);
@@ -3279,6 +3298,46 @@ function schCmpRow(a, A, B) {
   const wa = x?.w || 0, wb = y?.w || 0;
   return `<a class="row schrow" href="#/schedule/${a}"><span class="iata">${a}</span><div class="main"><div class="t">${esc(p.city)}</div><div class="s">${esc([p.apt, p.country].filter(Boolean).join(' · '))}</div>${schLogos((x?.reg.length ? x.reg : y?.reg) || [], A)}</div><div class="schn"><b class="${wa ? '' : 'z'}">${wa}</b>${schDelta(wa, wb)}<span class="was">${B.season}: ${wb}</span></div></a>`;
 }
+// Países: agrupa os destinos de uma época pelo país (código ISO de 2 letras na caixa à esquerda)
+const SCH_ISO = { 'Albânia': 'AL', 'Alemanha': 'DE', 'Angola': 'AO', 'Arménia': 'AM', 'Argélia': 'DZ', 'Arábia Saudita': 'SA', 'Brasil': 'BR', 'Bulgária': 'BG', 'Bélgica': 'BE', 'Bósnia e Herzegovina': 'BA', 'Cabo Verde': 'CV', 'Canadá': 'CA', 'Catar': 'QA', 'Chipre': 'CY', 'Chéquia': 'CZ', 'China': 'CN', 'Colômbia': 'CO', 'Croácia': 'HR', 'Dinamarca': 'DK', 'Egito': 'EG', 'Emirados Árabes Unidos': 'AE', 'Eslováquia': 'SK', 'Eslovénia': 'SI', 'Espanha': 'ES', 'Estados Unidos': 'US', 'Estónia': 'EE', 'Etiópia': 'ET', 'Finlândia': 'FI', 'França': 'FR', 'Geórgia': 'GE', 'Grécia': 'GR', 'Guiné-Bissau': 'GW', 'Hungria': 'HU', 'Irlanda': 'IE', 'Islândia': 'IS', 'Israel': 'IL', 'Itália': 'IT', 'Jordânia': 'JO', 'Kosovo': 'XK', 'Letónia': 'LV', 'Lituânia': 'LT', 'Luxemburgo': 'LU', 'Macedónia do Norte': 'MK', 'Malta': 'MT', 'Marrocos': 'MA', 'Moldávia': 'MD', 'Montenegro': 'ME', 'Moçambique': 'MZ', 'México': 'MX', 'Noruega': 'NO', 'Países Baixos': 'NL', 'Polónia': 'PL', 'Portugal': 'PT', 'Reino Unido': 'GB', 'Roménia': 'RO', 'São Tomé e Príncipe': 'ST', 'Senegal': 'SN', 'Suécia': 'SE', 'Suíça': 'CH', 'Sérvia': 'RS', 'Tunísia': 'TN', 'Turquia': 'TR', 'Ucrânia': 'UA', 'Venezuela': 'VE', 'Áustria': 'AT' };
+const schIso = (k) => SCH_ISO[k] || norm(k).replace(/[^a-z]/g, '').slice(0, 2).toUpperCase() || '?';
+const schAgg = (rs) => { const reg = rs.filter((r) => !r.p); return { reg, pon: rs.filter((r) => r.p), w: reg.reduce((a, r) => a + r.w, 0), m: reg.reduce((a, r) => a + (r.m ?? r.w), 0), t: rs.reduce((a, r) => a + r.t, 0), tq: rs.reduce((a, r) => a + (r.tq ?? r.t), 0), seats: rs.reduce((a, r) => a + r.s, 0) }; };
+const schUniqC = (rs) => { const seen = new Set(); return rs.filter((r) => !seen.has(r.c) && seen.add(r.c)); };
+function schCountries(ds) {
+  if (!ds) return [];
+  if (ds._cty) return ds._cty;
+  const by = new Map(); for (const x of ds.idx) { const k = x.country || 'Sem país'; if (!by.has(k)) by.set(k, []); by.get(k).push(x); }
+  return (ds._cty = [...by].map(([country, aps]) => {
+    const rs = aps.flatMap((x) => [...x.reg, ...x.pon]); const g = schAgg(rs);
+    const wk = Array(ds.data.nw).fill(0); aps.forEach((x) => x.wk.forEach((v, i) => (wk[i] += v)));
+    return { country, aps, rs, wk, ...g, nd: aps.filter((x) => x.reg.length).length, nal: new Set(g.reg.map((r) => r.c)).size };
+  }).sort((p, q) => q.w - p.w || q.t - p.t));
+}
+// países das duas épocas, lado a lado (all: inclui os que só têm voos pontuais)
+function schCtyPairs(A, B, all) {
+  const ca = schCountries(A), cb = schCountries(B);
+  return [...new Set([...ca, ...cb].map((x) => x.country))].map((k) => ({ k, a: ca.find((x) => x.country === k), b: cb.find((x) => x.country === k) }))
+    .filter((x) => all || x.a?.w || x.b?.w).sort((p, q) => (q.a?.w || 0) - (p.a?.w || 0) || (q.b?.w || 0) - (p.b?.w || 0) || (q.a?.t || 0) - (p.a?.t || 0));
+}
+function schCtyRow(k, A, B) {
+  const x = schCountries(A).find((o) => o.country === k); const y = B ? schCountries(B).find((o) => o.country === k) : null; const o = x || y;
+  const w = x?.w || 0, wb = y?.w || 0;
+  const sub = x?.nd ? `${plural(x.nd, 'destino', 'destinos')} · ${plural(x.nal, 'companhia', 'companhias')}` : x?.pon.length ? 'só voos pontuais' : B ? `sem voos no ${A.season}` : '';
+  const right = B ? `<div class="schn"><b class="${w ? '' : 'z'}">${w}</b>${schDelta(w, wb)}<span class="was">${B.season}: ${wb}</span></div>` : x?.nd ? `<div class="schn"><b>${w}</b><span>WF</span></div>` : '<div class="schn pon"><span>pontual</span></div>';
+  return `<a class="row schrow" href="#/schedule/p/${encodeURIComponent(k)}"><span class="iata">${esc(schIso(k))}</span><div class="main"><div class="t">${esc(k)}</div><div class="s">${esc(sub)}</div>${schLogos(schUniqC(o.reg.length ? o.reg : o.pon), A)}</div>${right}</a>`;
+}
+function schItemsCty(A, B) {
+  return schCtyPairs(A, B, true).map(({ k, a, b }) => ({ name: k, sub: a?.nd ? plural(a.nd, 'destino', 'destinos') : b?.nd ? `${plural(b.nd, 'destino', 'destinos')} no ${B.season}` : '', href: '#/schedule/p/' + encodeURIComponent(k), logo: `<span class="iata sm">${esc(schIso(k))}</span>`, a: schV(a), b: schV(b) }));
+}
+// companhias que voam para um país (WF e totais só desse país)
+function schItemsCtyAl(xa, xb, A) {
+  const rsA = xa?.rs || [], rsB = xb?.rs || [];
+  return [...new Set([...rsA, ...rsB].map((r) => r.c))].map((c) => {
+    const al = SCH.al(c, A); const fa = rsA.filter((r) => r.c === c), fb = rsB.filter((r) => r.c === c);
+    const ga = fa.length ? schAgg(fa) : null, gb = fb.length ? schAgg(fb) : null;
+    return { c, nd: new Set((ga?.reg || []).map((r) => r.a)).size, name: al.name, sub: [al.iata, c].filter(Boolean).join(' · '), href: '#/schedule/c/' + c, logo: badge(al.iata || c, true), a: schV(ga), b: schV(gb) };
+  }).sort((p, q) => q.a.w - p.a.w || q.b.w - p.b.w || q.a.t - p.a.t);
+}
 // lista dos destinos na comparação, com filtro
 function schCmpGroups(A, B) {
   const all = [...new Set([...A.idx, ...B.idx].map((x) => x.a))].map((a) => { const x = A.idx.find((y) => y.a === a); const y = B.idx.find((z) => z.a === a); return { a, wa: x?.w || 0, wb: y?.w || 0 }; }).filter((x) => x.wa || x.wb);
@@ -3320,6 +3379,7 @@ async function viewSchedule(code, code2) {
       return;
     }
     if (code === 'c' && code2) return paintAirline(code2.toUpperCase());
+    if (code === 'p' && code2) { let k = code2; try { k = decodeURIComponent(code2); } catch (er) {} return paintCountry(k); }
     if (code) return paintAirport(code.toUpperCase());
     return paintList();
   };
@@ -3328,31 +3388,35 @@ async function viewSchedule(code, code2) {
     const { cmp, A, B } = SCH.ctx();
     const title = cmp ? `${B.season} vs ${A.season}` : `Schedule ${A.season}`;
     view.innerHTML = `<div class="page schpage">${top(title, cmp ? `comparação das duas épocas de ${A.season[0] === 'S' ? 'verão' : 'inverno'} · movimentos no Porto` : `${schSpan(A)} · movimentos no Porto`)}
-      <div class="search schsearch">${ico('search')}<input class="inp" type="search" id="schq" placeholder="Destino ou companhia (CDG, Londres, FR, RYR)" value="${esc(S.sch.q)}" autocomplete="off" autocapitalize="characters" enterkeyhint="search"></div>
+      <div class="search schsearch">${ico('search')}<input class="inp" type="search" id="schq" placeholder="Destino, país ou companhia (CDG, Londres, Espanha, FR)" value="${esc(S.sch.q)}" autocomplete="off" autocapitalize="characters" enterkeyhint="search"></div>
       <div id="schres"></div>${src(A)}</div>`;
     const res = () => {
       const q = S.sch.q.trim(); const box = $('#schres');
       if (q) {
         const r = SCH.search(q, cmp ? [A, B] : [A]);
-        if (!r.als.length && !r.aps.length) { box.innerHTML = none(`Sem resultados para «${esc(q)}»`, `Nenhuma companhia voa do Porto para este destino no ${esc(cmp ? A.season + ' nem no ' + B.season : A.season)}.<br><span class="faint">Procura por aeroporto (CDG), cidade (Paris), país (França) ou companhia (FR, RYR, Ryanair).</span>`); return; }
+        const toks = norm(q).split(/\s+/).filter(Boolean);
+        const ctys = q.length >= 3 ? schCtyPairs(A, cmp ? B : null, true).map((x) => x.k).filter((k) => toks.every((t) => norm(k).includes(t))) : [];
+        const ctyH = ctys.length ? `<div class="group-h">${plural(ctys.length, 'país', 'países')}</div><div class="list">${ctys.map((k) => schCtyRow(k, A, cmp ? B : null)).join('')}</div>` : '';
+        if (!r.als.length && !r.aps.length && !ctys.length) { box.innerHTML = none(`Sem resultados para «${esc(q)}»`, `Nenhuma companhia voa do Porto para este destino no ${esc(cmp ? A.season + ' nem no ' + B.season : A.season)}.<br><span class="faint">Procura por aeroporto (CDG), cidade (Paris), país (França) ou companhia (FR, RYR, Ryanair).</span>`); return; }
         const alsH = r.als.length ? `<div class="group-h">${plural(r.als.length, 'companhia', 'companhias')}</div><div class="list">${r.als.map((x) => schAlRow(x.c, A, B)).join('')}</div>` : '';
         const apsH = r.aps.length ? `<div class="group-h">${plural(r.aps.length, 'destino', 'destinos')}</div><div class="list">${(cmp ? r.aps.map((a) => schCmpRow(a, A, B)) : r.aps.map((a) => A.idx.find((x) => x.a === a)).sort((x, y) => y.w - x.w || y.t - x.t).map((x) => schRow(x, A))).join('')}</div>` : '';
         const codeHit = r.als.some((x) => x.c === q.toUpperCase() || x.iata === q.toUpperCase()) && !r.exact;
-        box.innerHTML = codeHit ? alsH : r.exact ? apsH + alsH : alsH + apsH; return;
+        box.innerHTML = codeHit ? alsH : r.exact ? apsH + alsH + ctyH : ctyH + alsH + apsH; return;
       }
-      const tabs = `<div class="chips schtabs"><button class="chip ${S.sch.tab !== 'al' ? 'on' : ''}" data-schtab="dest">Destinos</button><button class="chip ${S.sch.tab === 'al' ? 'on' : ''}" data-schtab="al">Companhias</button></div>`;
+      const tab = ['al', 'pais'].includes(S.sch.tab) ? S.sch.tab : 'dest';
+      const tabs = `<div class="chips schtabs">${[['dest', 'Destinos'], ['al', 'Companhias'], ['pais', 'Países']].map(([k, l]) => `<button class="chip ${tab === k ? 'on' : ''}" data-schtab="${k}">${l}</button>`).join('')}</div>`;
       if (!cmp) {
         const t = A.tot;
         box.innerHTML = `<div class="schkpis"><div><b>${t.dest}</b><span>destinos</span></div><div><b>${t.al}</b><span>companhias</span></div><div><b>${t.w.toLocaleString('pt-PT')}</b><span>movs por semana</span></div></div>${tabs}
-          ${S.sch.tab === 'al' ? `<div class="list">${A.als.map((x) => schAlRow(x.c, A)).join('')}</div>` : `<div class="list">${A.idx.map((x) => schRow(x, A)).join('')}</div>`}`;
+          ${tab === 'al' ? `<div class="list">${A.als.map((x) => schAlRow(x.c, A)).join('')}</div>` : tab === 'pais' ? `<div class="list">${schCountries(A).map((x) => schCtyRow(x.country, A)).join('')}</div>` : `<div class="list">${A.idx.map((x) => schRow(x, A)).join('')}</div>`}`;
         return;
       }
       const ta = A.tot, tb = B.tot; const g = schCmpGroups(A, B); const f = g[S.sch.f] ? S.sch.f : 'all';
       const F = [['all', 'Todos'], ['novo', 'Novos'], ['up', 'Mais WF'], ['down', 'Menos WF'], ['fim', 'Terminaram']];
       const alsAll = [...new Set([...A.als, ...B.als].filter((x) => x.reg.length).map((x) => x.c))]
         .map((c) => ({ c, wa: A.als.find((x) => x.c === c)?.w || 0, wb: B.als.find((x) => x.c === c)?.w || 0 })).sort((p, q) => q.wa - p.wa || q.wb - p.wb);
-      const iAl = () => schItemsAl(A, B), iAp = () => schItemsAp(A, B);
-      const dims = () => [{ label: 'Por companhia', items: iAl(), one: 'companhia', many: 'companhias' }, { label: 'Por destino', items: iAp(), one: 'destino', many: 'destinos' }];
+      const iAl = () => schItemsAl(A, B), iAp = () => schItemsAp(A, B), iCt = () => schItemsCty(A, B);
+      const dims = () => [{ label: 'Por companhia', items: iAl(), one: 'companhia', many: 'companhias' }, { label: 'Por destino', items: iAp(), one: 'destino', many: 'destinos' }, { label: 'Por país', items: iCt(), one: 'país', many: 'países' }];
       S._schk = {
         dest: () => schDiffSheet({ title: `Destinos · ${B.season} vs ${A.season}`, A, B, kind: 'set', labels: ['Destinos novos', 'Destinos que terminaram', 'novos', 'terminaram'], dims: [{ items: iAp() }] }),
         al: () => schDiffSheet({ title: `Companhias · ${B.season} vs ${A.season}`, A, B, kind: 'set', labels: ['Começaram a voar', 'Deixaram de voar', 'entraram', 'saíram'], dims: [{ items: iAl() }] }),
@@ -3368,7 +3432,7 @@ async function viewSchedule(code, code2) {
         <div class="schkpis cmp two"><button data-schk="t">${more}<b>${ta.t.toLocaleString('pt-PT')}</b>${schDelta(ta.t, tb.t, { pct: true })}<span>movs na época (${tb.t.toLocaleString('pt-PT')} no ${B.season})</span></button><button data-schk="s">${more}<b>${kNum(ta.seats)}</b>${schDelta(ta.seats, tb.seats, { pct: true })}<span>lugares (${kNum(tb.seats)} no ${B.season})</span></button></div>
         <p class="faint schtip">Toca num quadrado para ver as diferenças.</p>
         ${tabs}
-        ${S.sch.tab === 'al' ? `<div class="list">${alsAll.map((x) => schAlRow(x.c, A, B)).join('')}</div>`
+        ${tab === 'al' ? `<div class="list">${alsAll.map((x) => schAlRow(x.c, A, B)).join('')}</div>` : tab === 'pais' ? `<div class="list">${schCtyPairs(A, B).map((x) => schCtyRow(x.k, A, B)).join('')}</div>`
           : `<div class="chips schf">${F.map(([k, l]) => `<button class="chip ${f === k ? 'on' : ''}" data-schf="${k}">${l}${k !== 'all' ? ` <small>${g[k].length}</small>` : ''}</button>`).join('')}</div>
             <div class="list">${g[f].map((x) => schCmpRow(x.a, A, B)).join('') || '<div class="empty"><p>Nenhum.</p></div>'}</div>`}`;
     };
@@ -3378,6 +3442,9 @@ async function viewSchedule(code, code2) {
     inp.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       const r = SCH.search(inp.value, cmp ? [A, B] : [A]);
+      const toks = norm(inp.value).split(/\s+/).filter(Boolean);
+      const ctys = inp.value.trim().length >= 3 ? schCtyPairs(A, cmp ? B : null, true).map((x) => x.k).filter((k) => toks.every((t) => norm(k).includes(t))) : [];
+      if (ctys.length === 1 && ctys.some((k) => norm(k) === norm(inp.value))) return go('#/schedule/p/' + encodeURIComponent(ctys[0]));
       if (r.aps.length + r.als.length === 1) go(r.aps.length ? '#/schedule/' + r.aps[0] : '#/schedule/c/' + r.als[0].c); else inp.blur();
     });
     if (desk && !S.sch.q) inp.focus();
@@ -3412,6 +3479,46 @@ async function viewSchedule(code, code2) {
         <div class="schbars-h">Frequências semanais (WF) · <i class="lg a"></i>${A.season} <i class="lg b"></i>${B.season}</div>${schBars(A, x?.wk || Array(A.data.nw).fill(0), y?.wk || Array(B.data.nw).fill(0), B)}</div>
       ${cs.length ? `<div class="group-h schleg">Companhias <span><i class="dot on"></i>todas as semanas <i class="dot some"></i>algumas</span></div><div class="schcards">${cs.map((z) => { const al = SCH.al(z.c, A); return schCmpCard(al.name, [al.iata, z.c].filter(Boolean).join(' · '), badge(al.iata || z.c), z.ra, z.rb, A, B, '#/schedule/c/' + z.c); }).join('')}</div>` : ''}
       ${schPontuais([...(x?.pon || []).map((r) => ({ ...r, _s: A.season })), ...(y?.pon || []).map((r) => ({ ...r, _s: B.season }))], A)}${src(A)}</div>`;
+  };
+
+  const paintCountry = (k) => {
+    const { cmp, A, B } = SCH.ctx();
+    const x = schCountries(A).find((o) => o.country === k); const y = cmp ? schCountries(B).find((o) => o.country === k) : null;
+    const sub = esc(schIso(k));
+    if (!x && !y) { view.innerHTML = `<div class="page schpage">${top(esc(k), sub, true)}${none(`Sem voos para ${esc(k)}`, `Nenhuma companhia voa do Porto para este país no ${esc(cmp ? A.season + ' nem no ' + B.season : A.season)}.`)}</div>`; return; }
+    const als = schItemsCtyAl(x, y, A).filter((it) => it.a.w || it.a.t || (cmp && (it.b.w || it.b.t)));
+    const alRow = (it) => `<a class="row schrow" href="${it.href}">${it.logo}<div class="main"><div class="t">${esc(it.name)}</div><div class="s">${esc([it.sub, it.nd ? plural(it.nd, 'destino', 'destinos') : it.a.t ? 'só voos pontuais' : cmp ? `não voa no ${A.season}` : ''].filter(Boolean).join(' · '))}</div></div>${cmp
+      ? `<div class="schn"><b class="${it.a.w ? '' : 'z'}">${it.a.w}</b>${schDelta(it.a.w, it.b.w)}<span class="was">${B.season}: ${it.b.w}</span></div>`
+      : it.a.w ? `<div class="schn"><b>${it.a.w}</b><span>WF</span></div>` : '<div class="schn pon"><span>pontual</span></div>'}</a>`;
+    if (!cmp) {
+      const answer = x.nd ? `<b>${x.w}</b> WF <span class="wfl">frequências semanais</span>` : 'Só voos pontuais';
+      view.innerHTML = `<div class="page schpage">${top(esc(k), sub, true)}
+        <div class="schhero"><div class="ans">${answer}</div>
+          <div class="schkpis in two"><div><b>${x.nd || x.aps.length}</b><span>${(x.nd || x.aps.length) === 1 ? 'destino' : 'destinos'}</span></div><div><b>${x.nal || als.length}</b><span>${(x.nal || als.length) === 1 ? 'companhia' : 'companhias'}</span></div></div><div class="schkpis in two" style="margin-top:8px"><div><b>${x.t.toLocaleString('pt-PT')}</b><span>movs na época</span></div><div><b>${kNum(x.seats)}</b><span>lugares</span></div></div>
+          ${x.nd ? `<div class="schbars-h">Frequências semanais (WF) ao longo do ${esc(A.season)}</div>${schBars(A, x.wk)}` : ''}</div>
+        <div class="group-h">Destinos</div><div class="list">${x.aps.map((z) => schRow(z, A)).join('')}</div>
+        ${als.length ? `<div class="group-h">Companhias</div><div class="list">${als.map(alRow).join('')}</div>` : ''}${src(A)}</div>`;
+      return;
+    }
+    const wa = x?.w || 0, wb = y?.w || 0;
+    const keys = new Set([...(x?.aps || []), ...(y?.aps || [])].map((z) => z.a));
+    { const iAp = () => schItemsAp(A, B).filter((it) => keys.has(it.key)), iAl = () => schItemsCtyAl(x, y, A); const ttl = (t) => `${t} · ${k}`;
+      const dims = () => [{ label: 'Por companhia', items: iAl(), one: 'companhia', many: 'companhias' }, { label: 'Por destino', items: iAp(), one: 'destino', many: 'destinos' }];
+      S._schk = {
+        dest: () => schDiffSheet({ title: ttl('Destinos'), A, B, kind: 'set', labels: ['Destinos novos', 'Destinos que terminaram', 'novos', 'terminaram'], dims: [{ items: iAp() }] }),
+        al: () => schDiffSheet({ title: ttl('Companhias'), A, B, kind: 'set', labels: ['Começaram a voar', 'Deixaram de voar', 'entraram', 'saíram'], dims: [{ items: iAl() }] }),
+        t: () => schDiffSheet({ title: ttl('Movs na época'), A, B, kind: 'delta', metric: 't', dims: dims() }),
+        s: () => schDiffSheet({ title: ttl('Lugares'), A, B, kind: 'delta', metric: 's', dims: dims() }),
+      }; }
+    const more = `<span class="more">${ico('chev', 'sm')}</span>`;
+    const dsts = [...keys].map((a) => ({ a, wa: A.idx.find((z) => z.a === a)?.w || 0, wb: B.idx.find((z) => z.a === a)?.w || 0 })).sort((p, q) => q.wa - p.wa || q.wb - p.wb);
+    view.innerHTML = `<div class="page schpage">${top(esc(k), sub, true)}
+      <div class="schhero"><div class="ans"><b>${wa}</b> WF <span class="wfl">frequências semanais</span> ${schDelta(wa, wb)}</div><div class="was">${B.season}: ${wb} WF</div>
+        <div class="schkpis in cmp"><button data-schk="dest">${more}<b>${x?.nd || 0}</b><span>destinos (${y?.nd || 0} no ${B.season})</span></button><button data-schk="al">${more}<b>${x?.nal || 0}</b><span>companhias (${y?.nal || 0} no ${B.season})</span></button></div>
+        <div class="schkpis in cmp two" style="margin-top:8px"><button data-schk="t">${more}<b>${(x?.t || 0).toLocaleString('pt-PT')}</b>${schDelta(x?.t || 0, y?.t || 0, { pct: true })}<span>movs na época</span></button><button data-schk="s">${more}<b>${kNum(x?.seats || 0)}</b>${schDelta(x?.seats || 0, y?.seats || 0, { pct: true })}<span>lugares</span></button></div>
+        <div class="schbars-h">Frequências semanais (WF) · <i class="lg a"></i>${A.season} <i class="lg b"></i>${B.season}</div>${schBars(A, x?.wk || Array(A.data.nw).fill(0), y?.wk || Array(B.data.nw).fill(0), B)}</div>
+      <div class="group-h">Destinos</div><div class="list">${dsts.map((z) => schCmpRow(z.a, A, B)).join('')}</div>
+      ${als.length ? `<div class="group-h">Companhias</div><div class="list">${als.map(alRow).join('')}</div>` : ''}${src(A)}</div>`;
   };
 
   const paintAirline = (c0) => {
@@ -3475,7 +3582,7 @@ function schItemsAl(A, B) {
   return [...new Set([...A.als, ...B.als].map((x) => x.c))].map((c) => { const al = SCH.al(c, A); const x = A.als.find((y) => y.c === c), y = B.als.find((z) => z.c === c); return { name: al.name, sub: [al.iata, c].filter(Boolean).join(' · '), href: '#/schedule/c/' + c, logo: badge(al.iata || c, true), a: schV(x), b: schV(y) }; });
 }
 function schItemsAp(A, B) {
-  return [...new Set([...A.idx, ...B.idx].map((x) => x.a))].map((a) => { const p = SCH.apInfo(a); const x = A.idx.find((y) => y.a === a), y = B.idx.find((z) => z.a === a); return { name: p.city, sub: [a, p.apt, p.country].filter(Boolean).join(' · '), href: '#/schedule/' + a, logo: `<span class="iata sm">${a}</span>`, a: schV(x), b: schV(y) }; });
+  return [...new Set([...A.idx, ...B.idx].map((x) => x.a))].map((a) => { const p = SCH.apInfo(a); const x = A.idx.find((y) => y.a === a), y = B.idx.find((z) => z.a === a); return { key: a, name: p.city, sub: [a, p.apt, p.country].filter(Boolean).join(' · '), href: '#/schedule/' + a, logo: `<span class="iata sm">${a}</span>`, a: schV(x), b: schV(y) }; });
 }
 // rotas de um destino (por companhia) ou de uma companhia (por destino)
 function schItemsRoutes(rsA, rsB, by, A) {
