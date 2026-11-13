@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debrief · teste de ligação</title>
+<style>
+  :root { --bg:#f6f5f1; --surface:#fff; --ink:#1a1a1a; --ink-2:#555; --ink-3:#888; --line:#e6e3dc; --ok:#1f7a3f; --bad:#b3261e; --warn:#9a6700; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141414; --surface:#1e1e1e; --ink:#f2f2f2; --ink-2:#bbb; --ink-3:#888; --line:#2e2e2e; --ok:#5cc27f; --bad:#ff7b72; --warn:#e3b341; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:20px 16px 40px; }
+  h1 { font-size:22px; margin:4px 0 2px; letter-spacing:-.01em; }
+  .sub { color:var(--ink-3); font-size:13px; margin-bottom:16px; }
+  ul { list-style:none; margin:0; padding:0; background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  li { display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-top:1px solid var(--line); }
+  li:first-child { border-top:0; }
+  .st { flex:0 0 22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700; color:#fff; background:var(--ink-3); }
+  .ok .st { background:var(--ok); } .bad .st { background:var(--bad); } .warn .st { background:var(--warn); }
+  .t b { display:block; font-weight:600; }
+  .t span { color:var(--ink-2); font-size:13px; word-break:break-word; }
+  .res { margin:16px 0; padding:12px 14px; border-radius:12px; background:var(--surface); border:1px solid var(--line); }
+  button { font:inherit; font-weight:600; border:0; border-radius:12px; padding:12px 16px; background:var(--ink); color:var(--bg); cursor:pointer; margin:6px 8px 0 0; }
+  button.sec { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  pre { white-space:pre-wrap; font-size:12px; color:var(--ink-2); background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Teste de ligação</h1>
+  <div class="sub">Verifica, a partir desta rede, cada coisa de que o Debrief precisa. Não envia dados teus.</div>
+  <ul id="list"></ul>
+  <div class="res" id="res">A testar…</div>
+  <button id="copy">Copiar resultado</button>
+  <button id="reset" class="sec">Limpar cache do Debrief e abrir</button>
+  <pre id="raw" hidden></pre>
+</main>
+<script>
+const URL_SB = 'https://uogrldgopqzdicrwcwir.supabase.co';
+const KEY = 'sb_publishable_wjWRDRsB9LNA7XIn4fsXBw_-_b2yVnV';
+const H = { apikey: KEY, Authorization: 'Bearer ' + KEY };
+const out = [];
+const list = document.getElementById('list');
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('sem resposta em ' + ms / 1000 + ' s')), ms))]);
+async function test(name, fn, critical = true) {
+  const li = document.createElement('li'); li.innerHTML = `<div class="st">…</div><div class="t"><b>${name}</b><span>a testar…</span></div>`; list.appendChild(li);
+  const t0 = performance.now(); let ok = false, msg = '';
+  try { msg = await withTimeout(fn(), 10000); ok = true; } catch (e) { msg = e && e.message || String(e); }
+  const ms = Math.round(performance.now() - t0);
+  li.className = ok ? 'ok' : (critical ? 'bad' : 'warn');
+  li.querySelector('.st').textContent = ok ? '✓' : (critical ? '✕' : '!');
+  li.querySelector('span').textContent = `${msg} · ${ms} ms`;
+  out.push(`${ok ? 'OK ' : (critical ? 'ERRO' : 'AVISO')} ${name}: ${msg} (${ms} ms)`);
+  return ok;
+}
+const get = async (u, opt = {}, want = (r) => r.ok) => { const r = await fetch(u, { cache: 'no-store', ...opt }); const txt = await r.text(); if (!want(r)) throw new Error('HTTP ' + r.status + ' ' + txt.slice(0, 80)); return { r, txt }; };
+
+(async () => {
+  const res = [];
+  res.push(await test('Página da app (index.html)', async () => { const { txt } = await get('./index.html?t=' + Date.now()); if (!/APP_VERSION/.test(txt)) throw new Error('conteúdo inesperado (' + txt.length + ' bytes) — possível página de bloqueio'); return 'versão ' + (txt.match(/APP_VERSION = '([^']+)'/) || [])[1]; }));
+  res.push(await test('Biblioteca do Supabase (vendor/supabase.js)', async () => { const { txt } = await get('./vendor/supabase/supabase.js?t=' + Date.now()); if (txt.length < 50000) throw new Error('ficheiro incompleto (' + txt.length + ' bytes)'); return Math.round(txt.length / 1024) + ' KB'; }));
+  res.push(await test('Simulador (simulador.js)', async () => { const { txt } = await get('./simulador.js?t=' + Date.now()); return Math.round(txt.length / 1024) + ' KB'; }));
+  res.push(await test('Supabase · login (auth)', async () => { await get(URL_SB + '/auth/v1/health', { headers: H }); return 'responde'; }));
+  res.push(await test('Supabase · dados (pedido POST)', async () => { const { r } = await get(URL_SB + '/rest/v1/rpc/crm_tem_acesso', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: '{}' }, (r) => r.status < 500); return 'HTTP ' + r.status; }));
+  res.push(await test('Supabase · funções', async () => { const { r } = await get(URL_SB + '/functions/v1/debrief-schedule', { method: 'OPTIONS' }, (r) => r.status < 500); return 'HTTP ' + r.status; }));
+  await test('Supabase · tempo real (WebSocket)', () => new Promise((ok, ko) => {
+    let ws; try { ws = new WebSocket(URL_SB.replace('https', 'wss') + '/realtime/v1/websocket?apikey=' + KEY + '&vsn=1.0.0'); } catch (e) { return ko(e); }
+    ws.onopen = () => { ws.close(); ok('liga'); }; ws.onerror = () => ko(new Error('bloqueado ou recusado'));
+  }), false);
+  await test('Logótipos das companhias (gstatic.com)', () => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok('carregam'); i.onerror = () => ko(new Error('bloqueados (só afeta os logótipos)')); i.src = 'https://www.gstatic.com/flights/airline_logos/70px/TP.png?t=' + Date.now(); }), false);
+  await test('Cache da app (service worker)', async () => {
+    if (!('serviceWorker' in navigator)) return 'não suportado neste browser';
+    const regs = await navigator.serviceWorker.getRegistrations(); const keys = 'caches' in window ? await caches.keys() : [];
+    return regs.length ? `instalado · ${keys.join(', ') || 'sem cache'}` : 'ainda não instalado';
+  }, false);
+  const bad = res.filter((x) => !x).length;
+  document.getElementById('res').innerHTML = bad
+    ? `<b>Há ${bad} ${bad === 1 ? 'coisa bloqueada' : 'coisas bloqueadas'} nesta rede.</b> Carrega em «Copiar resultado» e envia-o.`
+    : `<b>Tudo o que é essencial passa.</b> Se o Debrief continua sem abrir aqui, experimenta «Limpar cache do Debrief e abrir».`;
+  out.unshift('Debrief · teste de ligação · ' + new Date().toLocaleString('pt-PT'), navigator.userAgent, '');
+  const raw = document.getElementById('raw'); raw.textContent = out.join('\n'); raw.hidden = false;
+})();
+document.getElementById('copy').onclick = async (e) => { try { await navigator.clipboard.writeText(document.getElementById('raw').textContent); e.target.textContent = 'Copiado'; } catch { e.target.textContent = 'Seleciona o texto abaixo e copia'; } };
+document.getElementById('reset').onclick = async () => {
+  try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch {}
+  try { for (const k of await caches.keys()) await caches.delete(k); } catch {}
+  location.href = './?fresh=' + Date.now();
+};
+</script>
+</body>
+</html>
