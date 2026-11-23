@@ -772,10 +772,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.25.0';
+const APP_VERSION = '1.25.1';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.25.1', data: '23/11/2026', itens: ['Schedule: nas listas, a etiqueta do tipo de voo diz agora se é além do regular («+ Charter») ou se só há esse tipo («Só charter»).'] },
   { v: '1.25.0', data: '13/11/2026', itens: ['Schedule: novo separador «Países» ao lado de Destinos e Companhias, com a página de cada país (WF, destinos, companhias, movs e lugares; e a comparação entre épocas).', 'Nas diferenças da comparação (ao tocar nos quadrados) há também «Por país».', 'A pesquisa encontra países (ex.: Espanha) e as caixas de pesquisa têm uma cruz para limpar o texto.'] },
   { v: '1.24.1', data: '12/11/2026', itens: ['Schedule: nos destinos, companhias e voos o número por semana volta a ser a frequência semanal (WF, partidas do Porto). Os totais lá em cima continuam em movs (chegadas + partidas) e lugares dos dois sentidos.'] },
   { v: '1.24.0', data: '12/11/2026', itens: ['Schedule: as contagens passam a ser em movimentos (movs) — chegadas + partidas — em todas as épocas (W25, W26, S26 e S27). Os lugares somam também os dois sentidos.', 'Os pontos dos dias da semana e as horas continuam a ser os das partidas.'] },
@@ -3241,7 +3242,16 @@ function schBars(ds, wk, wkB, dsB) {
   return `<div class="schbars ${valsB ? 'two' : ''}">${cols}</div>`;
 }
 // etiquetas das classes (Regular, Charter, Desdobramento); onlyX: só as que não são regulares
-function schKs(ks, onlyX = false) { return (ks || []).filter((k) => !onlyX || k !== 'J').map((k) => `<span class="kpill k${k}">${SCH_K[k] || k}</span>`).join(''); }
+// onlyX (listas): mostra só os tipos além do regular. Com regular → «+ Charter» (também tem); sem regular → «Só charter».
+function schKs(ks, onlyX = false) {
+  ks = ks || [];
+  if (!onlyX) return ks.map((k) => `<span class="kpill k${k}">${SCH_K[k] || k}</span>`).join('');
+  const x = ks.filter((k) => k !== 'J'); if (!x.length) return '';
+  const lc = (k) => (SCH_K[k] || k).toLowerCase();
+  if (ks.includes('J')) return x.map((k) => `<span class="kpill k${k}" title="Regular e também ${lc(k)}">+ ${SCH_K[k] || k}</span>`).join('');
+  if (x.length === 1) return `<span class="kpill k${x[0]}" title="Só ${lc(x[0])}, sem voos regulares">Só ${lc(x[0])}</span>`;
+  return x.map((k) => `<span class="kpill k${k}" title="Sem voos regulares">${SCH_K[k] || k}</span>`).join('');
+}
 const schXp = (r) => (r.xp ? [`+${r.xp} ${r.xp === 1 ? 'voo pontual' : 'voos pontuais'} (${r.xdt.slice(0, 4).map(dShort).join(', ')}${r.xdt.length > 4 ? '…' : ''})`, 'Extra'] : null);
 function schRouteLines(r, ds) {
   const d = ds.data;
