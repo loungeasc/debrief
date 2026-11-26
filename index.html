@@ -133,6 +133,9 @@ textarea.inp{resize:vertical;line-height:1.5}
 .search input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none}
 .search .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--ink-3);display:grid;place-items:center;cursor:pointer;padding:0}
 .search .clr:hover{background:var(--line);color:var(--ink)}
+.allink{cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;text-decoration-thickness:1.5px}
+.allink:hover{color:var(--accent);text-decoration-color:currentColor}
+.alpage .top .badge{flex:0 0 auto}
 .search .clr .i,.schsearch .clr .i{position:static;top:auto;left:auto}
 .search .clr[hidden]{display:none}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
@@ -528,8 +531,8 @@ details.setgrp .setbody{padding:0 14px 14px;border-top:1px solid var(--line);pad
 .how li{margin-bottom:6px}
 .how code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:5px;color:var(--ink)}
 .check{display:flex;align-items:center;gap:10px;font-size:14.5px;padding:6px 0;cursor:pointer}
-.two{display:grid;gap:12px}
-@media (min-width:960px){.two{grid-template-columns:1fr 1fr;align-items:start}}
+.two{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:960px){.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}}
 
 /* tabela em iPad horizontal / portáteis pequenos (no fim para prevalecer) */
 @media (min-width:960px) and (max-width:1279px){
@@ -772,10 +775,11 @@ THEME.apply();
    Debrief — notas de reuniões com companhias aéreas
    Tudo fica no dispositivo (IndexedDB). Nada é enviado para servidores.
    ===================================================================== */
-const APP_VERSION = '1.25.1';
+const APP_VERSION = '1.26.0';
 const DATALOADER = false; // importação com o Data Loader (CSV): desligada por agora, sem acesso API ao Salesforce
 // Novidades de cada versão (a mais recente primeiro). Aparecem num cartão depois de cada atualização e em Definições → Novidades.
 const NOVIDADES = [
+  { v: '1.26.0', data: '26/11/2026', itens: ['Ficha da companhia: tocar no nome da companhia (nas Reuniões e nos Contactos) abre todas as reuniões que já houve com ela e os contactos associados, incluindo os do diretório Salesforce.', 'Histórico do Salesforce: as reuniões registadas no Salesforce passaram para o Debrief, com os eventos respetivos (Routes, CONNECT, IATA Slot Conference…), todas como exportadas.', 'Contactos: já não é possível ter dois contactos com o mesmo email; se acontecer, os dois juntam-se num só.'] },
   { v: '1.25.1', data: '23/11/2026', itens: ['Schedule: nas listas, a etiqueta do tipo de voo diz agora se é além do regular («+ Charter») ou se só há esse tipo («Só charter»).'] },
   { v: '1.25.0', data: '13/11/2026', itens: ['Schedule: novo separador «Países» ao lado de Destinos e Companhias, com a página de cada país (WF, destinos, companhias, movs e lugares; e a comparação entre épocas).', 'Nas diferenças da comparação (ao tocar nos quadrados) há também «Por país».', 'A pesquisa encontra países (ex.: Espanha) e as caixas de pesquisa têm uma cruz para limpar o texto.'] },
   { v: '1.24.1', data: '12/11/2026', itens: ['Schedule: nos destinos, companhias e voos o número por semana volta a ser a frequência semanal (WF, partidas do Porto). Os totais lá em cima continuam em movs (chegadas + partidas) e lugares dos dois sentidos.'] },
@@ -830,6 +834,8 @@ function fmtDay(s) {
   return d.toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short', year: d.getFullYear() !== t.getFullYear() ? 'numeric' : undefined });
 }
 const fmtTime = (s) => { const d = parseLocal(s); return d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : ''; };
+const mTime = (m) => (m && m.noTime ? '' : fmtTime(m && m.start)); // reuniões importadas do Salesforce: só a data
+const dayTime = (m, day) => [day, mTime(m)].filter(Boolean).join(' · ');
 const fmtDateShort = (s) => { const d = parseLocal(s); return d ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}` : ''; };
 const fmtTs = (ts) => { if (!ts) return '—'; const d = new Date(ts); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 function ago(ts) {
@@ -920,6 +926,7 @@ const Sync = {
       this.state = 'idle'; this.error = ''; this.lastOk = Date.now(); this.save();
       if (changed) await onRemoteChanges();
       healExportSigs().catch((e) => console.warn('exportSig', e));
+      dedupeContacts().catch((e) => console.warn('dedupe', e));
       syncCalendar();
       DIR.refresh().catch((e) => console.warn('diretorio', e));
     } catch (e) {
@@ -1148,7 +1155,7 @@ const changedAfterExport = (m) => m.status === 'exported' && !!m.exportedAt && (
 async function healExportSigs() {
   const now = Date.now(); let n = 0;
   for (const m of S.meetings) {
-    if (m.status !== 'exported' || !m.exportedAt || m.exportSig || m.updatedAt > m.exportedAt + 1500) continue;
+    if (m.status !== 'exported' || !m.exportedAt || m.exportSig || m.source === 'salesforce' || m.updatedAt > m.exportedAt + 1500) continue;
     const sig = sfSig(m); if (!sig) continue;
     m.exportSig = sig; m.updatedAt = now; m.exportedAt = now; await DB.put('meetings', m); n++;
   }
@@ -1978,6 +1985,7 @@ function route() {
   if (a === 'definicoes') return viewSettings();
   if (a === 'perguntar') return viewChat(b);
   if (a === 'schedule') return viewSchedule(b, h.split('/')[2]);
+  if (a === 'companhia' && b) { let k = b; try { k = decodeURIComponent(b); } catch (er) {} return viewAirline(k); }
   return viewMeetings();
 }
 
@@ -2059,8 +2067,8 @@ function topBanners() {
 const STATE_ORDER = ['planned', 'toaccept', 'tentative', 'torecord', 'draft', 'ready', 'exported', 'changed', 'cancelled'];
 const TABLE_COLS = [
   { k: 'data', l: 'Data', cls: 'num', def: true, v: (m) => m.start || '', h: (m) => { const d = parseLocal(m.start); return d ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}${d.getFullYear() !== new Date().getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''}` : '—'; } },
-  { k: 'hora', l: 'Hora', cls: 'num', def: true, v: (m) => (m.start || '').slice(11, 16), h: (m) => fmtTime(m.start) },
-  { k: 'companhia', l: 'Companhia', def: true, v: (m) => norm(m.airlineName), h: (m) => `<div class="cellair">${badge(m.airlineCode, true)}<span class="an">${esc(m.airlineName || '—')}</span></div>` },
+  { k: 'hora', l: 'Hora', cls: 'num', def: true, v: (m) => (m.start || '').slice(11, 16), h: (m) => mTime(m) || '—' },
+  { k: 'companhia', l: 'Companhia', def: true, v: (m) => norm(m.airlineName), h: (m) => `<div class="cellair">${badge(m.airlineCode, true)}<span class="an">${alLink(m.airlineCode, m.airlineName, '—')}</span></div>` },
   { k: 'local', l: 'Local', def: true, v: (m) => norm(m.location), h: (m) => `<div class="loc" title="${esc(m.location || '')}">${esc(m.location || '—')}</div>` },
   { k: 'assunto', l: 'Assunto', def: true, v: (m) => norm(subjectOf(m)), h: (m) => `<div class="subj" title="${esc(subjectOf(m))}">${esc(subjectOf(m))}</div>` },
   { k: 'evento', l: 'Evento', def: true, v: (m) => norm(EV.of(m)?.name || ''), h: (m) => `<div class="loc" title="${esc(EV.of(m)?.name || '')}">${esc(EV.of(m)?.name || '—')}</div>` },
@@ -2092,7 +2100,7 @@ function nowCard() {
   const [a, b] = span(m); const mins = (ms_) => { const n = Math.round(ms_ / 60000); return n < 60 ? `${n} min` : `${Math.floor(n / 60)} h${n % 60 ? ' ' + (n % 60) + ' min' : ''}`; };
   const lbl = kind === 'now' ? `A decorrer · acaba às ${fmtTime(toLocalInput(new Date(b)))}` : kind === 'ended' ? `Acabou há ${mins(now - b)} · regista as notas` : `Próxima · daqui a ${mins(a - now)}`;
   const ev = EV.of(m);
-  return `<a class="nowcard ${kind}" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="k">${esc(lbl)}</div><div class="t">${esc(m.airlineName || 'Companhia por escolher')} <span class="faint">· ${fmtTime(m.start)}</span></div>${m.location || ev ? `<div class="s">${esc([m.location, ev?.name].filter(Boolean).join(' · '))}</div>` : ''}</div><span class="btn sm ${kind === 'next' ? '' : 'pri'}">${kind === 'ended' ? 'Registar' : 'Abrir'}</span></a>`;
+  return `<a class="nowcard ${kind}" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="k">${esc(lbl)}</div><div class="t">${esc(m.airlineName || 'Companhia por escolher')} ${mTime(m) ? `<span class="faint">· ${mTime(m)}</span>` : ''}</div>${m.location || ev ? `<div class="s">${esc([m.location, ev?.name].filter(Boolean).join(' · '))}</div>` : ''}</div><span class="btn sm ${kind === 'next' ? '' : 'pri'}">${kind === 'ended' ? 'Registar' : 'Abrir'}</span></a>`;
 }
 function viewMeetings() {
   renderChrome('m');
@@ -2139,7 +2147,7 @@ function viewMeetings() {
       ${evs.length ? `<div class="filters evfilters">${[['', 'Todos os eventos'], ...evs.map((e) => [e.id, e.name]), ['_none', 'Sem evento']].map(([k, l]) => `<button class="chip ${(f.event || '') === k ? 'on' : ''}" data-evf="${k}">${k && k !== '_none' ? ico('cal', 'sm') : ''}${esc(l)}</button>`).join('')}</div>` : ''}
       <div class="filters">${[...MAIN_FILTERS, ...(MAIN_FILTERS.some(([k]) => k === f.status) ? [] : shownFilters.filter(([k]) => k === f.status))].map(([k, l]) => [k, l, counts[k]]).map(([k, l, n]) => `<button class="chip ${f.status === k ? 'on' : ''}" data-st="${k}">${l} <span class="faint">${n}</span></button>`).join('')}</div>
       ${list.length ? [...groups.entries()].map(([g, ms]) => `<div class="group-h">${esc(g)}</div><div class="list">${ms.map((m) => `
-        <a class="row" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="t">${esc(m.airlineName || 'Companhia por escolher')}</div><div class="when">${esc(fmtDay(m.start))} · ${fmtTime(m.start)}</div>
+        <a class="row" href="#/r/${m.id}">${badge(m.airlineCode)}<div class="main"><div class="t">${alLink(m.airlineCode, m.airlineName, 'Companhia por escolher')}</div><div class="when">${esc(dayTime(m, fmtDay(m.start)))}</div>
         ${m.location ? `<div class="metaline">${ico('pin', 'sm')}<span class="loc">${esc(m.location)}</span></div>` : ''}${EV.of(m) && f.event !== m.eventId ? `<div class="metaline">${ico('cal', 'sm')}<span class="loc">${esc(EV.of(m).name)}</span></div>` : ''}</div>
         <div class="meta">${statusPill(m)}</div></a>`).join('')}</div>`).join('') : `<div class="empty"><p>Nada para mostrar.</p></div>`}`;
   }
@@ -2167,6 +2175,7 @@ function viewMeetings() {
 
   view.onclick = async (e) => {
     const t = e.target;
+    if (alClick(e)) return;
     if (t.closest('[data-new2]')) return createMeeting();
     if (t.closest('[data-goexport]')) return go('#/exportar');
     if (t.closest('[data-logout2]')) return confirmSignOut();
@@ -2296,7 +2305,7 @@ function viewMeeting(id) {
   const refreshHeader = () => {
     $('#ed-title').firstChild.textContent = m.airlineName || 'Nova reunião';
     const by = m.createdByName && m.createdByName !== Sync.userName ? ` · criada por ${m.createdByName.split(' ')[0]}` : (m.updatedByName && m.updatedByName !== Sync.userName ? ` · editada por ${m.updatedByName.split(' ')[0]}` : '');
-    $('#ed-sub').textContent = `${fmtDay(m.start)} · ${fmtTime(m.start)}${m.status === 'exported' ? ' · exportada ' + fmtTs(m.exportedAt).slice(0, 10) : ''}${by}`;
+    $('#ed-sub').textContent = `${dayTime(m, fmtDay(m.start))}${m.status === 'exported' ? ' · exportada ' + fmtTs(m.exportedAt).slice(0, 10) : ''}${by}`;
     $('#airpick').innerHTML = m.airlineName ? `${badge(m.airlineCode)}<div class="grow"><div class="n">${esc(m.airlineName)}</div><div class="c">${m.airlineCode ? esc(m.airlineCode) + ' · tocar para mudar' : 'Nome livre · tocar para editar'}</div></div>${ico('chev')}` : `${badge('')}<div class="grow"><div class="n">Escolher companhia ou entidade</div><div class="c">Da lista ou com nome livre (ex.: um aeroporto)</div></div>${ico('chev')}`;
     $('#scope').innerHTML = scopeOf(m).length ? scopeOf(m).map((c) => `<span class="chip" style="font-family:var(--mono)">${c}<button class="x ibtn sm" data-rmscope="${c}" aria-label="Retirar ${c}" style="border:0;background:none">${ico('x', 'sm')}</button></span>`).join('') : '<span class="faint" style="font-size:14px">Nenhum</span>';
     const ev = EV.of(m); $('#evpick').innerHTML = ev ? `${ico('cal', 'sm')}<span class="grow"><b>${esc(ev.name)}</b>${EV.sub(ev) ? ` <span class="faint">· ${esc(EV.sub(ev))}</span>` : ''}</span>${ico('chev', 'sm')}` : `${ico('cal', 'sm')}<span class="grow faint">Sem evento · tocar para associar</span>${ico('chev', 'sm')}`;
@@ -2316,7 +2325,7 @@ function viewMeeting(id) {
 
   view.oninput = (e) => {
     const el = e.target;
-    if (el.dataset.f) { m[el.dataset.f] = el.value; changed(); }
+    if (el.dataset.f) { m[el.dataset.f] = el.value; if (el.dataset.f === 'start') delete m.noTime; changed(); }
     if (el.id === 'f-subj') { m.subject = el.value; m.subjectAuto = false; changed(); }
     if (el.dataset.tname != null) { const t = m.topics.find((x) => x.id === el.dataset.tname); t.name = el.value; changed(); }
     if (el.dataset.ttext != null) { const t = m.topics.find((x) => x.id === el.dataset.ttext); t.text = el.value; grow(el); changed(); }
@@ -2783,6 +2792,100 @@ function dirSheet(d, { meeting = null, onSaved } = {}) {
   };
 }
 
+/* ---------- ficha da companhia (reuniões e contactos) */
+// chave: o código IATA quando há; senão o nome (n:…)
+const alKeyOf = (code, name) => (code ? String(code).toUpperCase() : name ? 'n:' + norm(name) : '');
+function alLink(code, name, empty = '') {
+  if (!name && !code) return esc(empty);
+  const k = alKeyOf(code, name);
+  return `<span class="allink" role="link" tabindex="0" data-al="${esc(k)}" title="Abrir a ficha da companhia">${esc(name || code)}</span>`;
+}
+function alClick(e) { const a = e.target.closest('[data-al]'); if (!a) return false; e.preventDefault(); e.stopPropagation(); go('#/companhia/' + encodeURIComponent(a.dataset.al)); return true; }
+document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-al]')) { e.preventDefault(); go('#/companhia/' + encodeURIComponent(e.target.dataset.al)); } });
+// a companhia de uma chave: nome, código e os outros nomes que aparecem nas reuniões e contactos
+function alResolve(k) {
+  const isName = k.startsWith('n:'); const code = isName ? '' : k; const nk = isName ? k.slice(2) : '';
+  const base = code ? airlines().find((a) => a.code === code) : airlines().find((a) => norm(a.name) === nk);
+  const c2 = code || base?.code || '';
+  const names = new Set([nk, base ? norm(base.name) : ''].filter(Boolean));
+  const hitM = (m) => (c2 && m.airlineCode === c2) || (!m.airlineCode || !c2 ? names.has(norm(m.airlineName)) : false);
+  const hitC = (c) => (c2 && c.airlineCode === c2) || (!c.airlineCode || !c2 ? names.has(norm(c.company)) : false);
+  const ms = S.meetings.filter(hitM);
+  const name = base?.name || ms.find((m) => m.airlineName)?.airlineName || S.contacts.find(hitC)?.company || (isName ? k.slice(2) : k);
+  return { code: c2, name, hitM, hitC, ms };
+}
+function viewAirline(k) {
+  renderChrome('m');
+  const A = alResolve(k);
+  const ms = A.ms.slice().sort((a, b) => (b.start || '').localeCompare(a.start || ''));
+  const ids = new Set(ms.flatMap((m) => m.contactIds));
+  const cs = S.contacts.filter((c) => A.hitC(c) || ids.has(c.id)).sort((a, b) => contactName(a).localeCompare(contactName(b)));
+  const sf = sfAcc({ code: A.code, name: A.name });
+  const accId = sf.id || DIR.accounts(A.name)[0]?.id || '';
+  const have = new Set(cs.map((c) => (c.sfId || '').slice(0, 15)).filter(Boolean));
+  const dirs = DIR.rows && accId ? DIR.rows.filter((d) => d.accountId && d.accountId.slice(0, 15) === accId.slice(0, 15) && !have.has(d.id.slice(0, 15))).sort((a, b) => DIR.name(a).localeCompare(DIR.name(b))) : [];
+  if (!DIR.rows && DIR.count()) DIR.load().then(() => { if (location.hash.startsWith('#/companhia/')) viewAirline(k); });
+  // no Schedule (época atual): procura a companhia pelo código IATA
+  let schHref = '';
+  try { const ds = SCH.current && SCH.current(); const al = ds?.data?.al || {}; const icao = A.code ? Object.keys(al).find((x) => al[x][1] === A.code) : ''; if (icao && ds.als?.some((x) => x.c === icao)) schHref = '#/schedule/c/' + icao; } catch (er) {}
+  const years = new Map(); for (const m of ms) { const y = (m.start || '').slice(0, 4) || 'Sem data'; if (!years.has(y)) years.set(y, []); years.get(y).push(m); }
+  const mrow = (m) => `<a class="row" href="#/r/${m.id}"><div class="main"><div class="t">${esc(subjectOf(m))}</div><div class="s">${esc([dayTime(m, fmtDateShort(m.start)), EV.of(m)?.name].filter(Boolean).join(' · '))}</div></div>${statusPill(m)}</a>`;
+  const crow = (c) => `<a class="row" href="#/contactos/${c.id}">${ico('user', 'sm')}<div class="main"><div class="t">${esc(contactName(c))}</div><div class="s">${esc([c.title, c.email].filter(Boolean).join(' · '))}</div></div>${ico('chev', 'sm faint')}</a>`;
+  S._aldirs = dirs;
+  view.innerHTML = `<div class="page alpage"><div class="top"><button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button>${badge(A.code)}<h1>${esc(A.name)}<small>${esc([A.code, plural(ms.length, 'reunião', 'reuniões'), plural(cs.length, 'contacto', 'contactos')].filter(Boolean).join(' · '))}</small></h1></div>
+    <div class="acts-row" style="margin:0 0 14px;justify-content:flex-start">${schHref ? `<a class="btn sm" href="${schHref}">${ico('plane', 'sm')} Ver no Schedule</a>` : ''}<button class="btn sm" data-alnew>${ico('plus', 'sm')} Nova reunião</button></div>
+    <div class="two"><div class="sec"><h3>${ico('list', 'sm')} Reuniões <span class="r faint">${ms.length}</span></h3>
+      ${ms.length ? [...years.entries()].map(([y, l]) => `<div class="group-h">${esc(y)} <span class="faint">· ${plural(l.length, 'reunião', 'reuniões')}</span></div><div class="list">${l.map(mrow).join('')}</div>`).join('') : '<p class="faint" style="font-size:14px">Ainda não há reuniões com esta companhia.</p>'}</div>
+    <div><div class="sec"><h3>${ico('user', 'sm')} Contactos <span class="r faint">${cs.length}</span></h3>${cs.length ? `<div class="list">${cs.map(crow).join('')}</div>` : '<p class="faint" style="font-size:14px">Sem contactos guardados.</p>'}</div>
+      ${dirs.length ? `<div class="sec"><h3>${ico('send', 'sm')} No diretório Salesforce <span class="r faint">${dirs.length}</span></h3><div class="list">${dirs.slice(0, 60).map((d, i) => `<button class="row" data-aldir="${i}">${ico('user', 'sm')}<div class="main"><div class="t">${esc(DIR.name(d))}</div><div class="s">${esc([d.title, d.email].filter(Boolean).join(' · '))}</div></div>${ico('chev', 'sm faint')}</button>`).join('')}</div>${dirs.length > 60 ? `<p class="faint" style="font-size:13px">E mais ${dirs.length - 60}. Pesquisa em Contactos para os ver.</p>` : ''}</div>` : ''}</div></div></div>`;
+  view.onclick = async (e) => {
+    if (e.target.closest('[data-back]')) return goBack('#/');
+    const dr = e.target.closest('[data-aldir]'); if (dr) { const d = S._aldirs?.[+dr.dataset.aldir]; if (d) dirSheet(d, { onSaved: () => viewAirline(k) }); return; }
+    if (e.target.closest('[data-alnew]')) {
+      const m = newMeeting(); m.airlineCode = A.code; m.airlineName = A.name; m._unsaved = true;
+      if (Sync.on()) { m.createdByName = Sync.userName || Sync.email; m.updatedByName = m.createdByName; }
+      S.meetings.push(m); go('#/r/' + m.id);
+    }
+  };
+}
+/* ---------- contactos: um email, um contacto */
+const emailOf = (c) => String(c?.email || '').trim().toLowerCase();
+const emailDup = (c) => { const em = emailOf(c); return em ? S.contacts.find((x) => x.id !== c.id && emailOf(x) === em) || null : null; };
+// junta «drop» em «keep»: preenche o que falta, passa as reuniões e apaga o repetido
+async function mergeContacts(keep, drop) {
+  for (const k of ['firstName', 'lastName', 'title', 'company', 'airlineCode', 'email', 'phone', 'mobile', 'website', 'sfId', 'cardPhotoId', 'ocrText']) if (!keep[k] && drop[k]) keep[k] = drop[k];
+  if ((drop.notes || '').trim() && !(keep.notes || '').includes(drop.notes.trim())) keep.notes = [keep.notes, drop.notes].filter((x) => (x || '').trim()).join('\n');
+  keep.updatedAt = Date.now(); await DB.put('contacts', keep);
+  if (drop.cardPhotoId && drop.cardPhotoId !== keep.cardPhotoId) { const p = await DB.get('photos', drop.cardPhotoId); if (p) { p.owner = keep.id; p.updatedAt = Date.now(); await DB.put('photos', p); } }
+  for (const m of S.meetings) if (m.contactIds.includes(drop.id)) {
+    const clean = m.status === 'exported' && !changedAfterExport(m); // exportada e igual ao Salesforce: continua igual (a pessoa é a mesma)
+    m.contactIds = [...new Set(m.contactIds.map((x) => (x === drop.id ? keep.id : x)))]; m.updatedAt = Date.now();
+    if (clean) { m.exportedAt = m.updatedAt; if (m.exportSig) m.exportSig = sfSig(m); }
+    await DB.put('meetings', m);
+  }
+  const i = S.contacts.findIndex((x) => x.id === drop.id);
+  if (i >= 0) { S.contacts.splice(i, 1); await DB.del('contacts', drop.id); } // só apaga se já estava guardado
+  return keep;
+}
+// ao guardar com um email que já existe: junta os dois (o existente fica, com o que este tiver a mais)
+async function mergeAsk(dup, work, after) {
+  if (!(await confirmSheet('Já existe um contacto com este email', `${esc(contactName(dup))}${dup.company ? ' · ' + esc(dup.company) : ''} já usa ${esc(emailOf(work))}. Os dois contactos ficam num só, com os dados que faltarem e as reuniões de ambos.`, 'Juntar contactos', false))) return;
+  const live = getC(work.id);
+  const k = await mergeContacts(dup, { ...(live || {}), ...work });
+  if (!live && work.cardPhotoId) { const p = await DB.get('photos', work.cardPhotoId); if (p) { p.owner = k.id; p.updatedAt = Date.now(); await DB.put('photos', p); } }
+  toast('Contactos juntados'); after && after(k);
+}
+// limpa repetidos já existentes (fica o mais antigo; a escolha é igual em todos os dispositivos)
+let dedupeBusy = false;
+async function dedupeContacts() {
+  if (dedupeBusy) return 0; dedupeBusy = true; let n = 0;
+  try {
+    const by = new Map();
+    for (const c of S.contacts.slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || String(a.id).localeCompare(String(b.id)))) { const em = emailOf(c); if (!em) continue; if (!by.has(em)) by.set(em, c); else { await mergeContacts(by.get(em), c); n++; } }
+  } finally { dedupeBusy = false; }
+  return n;
+}
+
 /* ---------- contactos */
 function newContact(extra = {}) { const now = Date.now(); return { id: uid(), firstName: '', lastName: '', title: '', company: '', airlineCode: '', email: '', phone: '', mobile: '', website: '', notes: '', sfId: '', cardPhotoId: '', ocrText: '', exportedAt: 0, createdAt: now, updatedAt: now, ...extra }; }
 async function scanCard(m, after) {
@@ -2880,6 +2983,11 @@ function contactSheet(c, { isNew = false, runOcr = false, meeting = null, onSave
   });
   sh.el.querySelector('[data-save]').onclick = async () => {
     if (!work.firstName && !work.lastName && !work.email) return toast('Escreve pelo menos o nome ou o email');
+    const dup = emailDup(work);
+    if (dup) return mergeAsk(dup, work, (k) => {
+      if (meeting) { if (!meeting.contactIds.includes(k.id)) meeting.contactIds.push(k.id); if (!meeting.airlineName && k.company) { meeting.airlineCode = k.airlineCode; meeting.airlineName = k.company; } }
+      saved = true; sh.close(); onSaved && onSaved(k);
+    });
     work.updatedAt = Date.now();
     if (work.cardPhotoId) { const p = await DB.get('photos', work.cardPhotoId); if (p && p.owner !== work.id) { p.owner = work.id; p.updatedAt = Date.now(); await DB.put('photos', p); } }
     const i = S.contacts.findIndex((x) => x.id === work.id); if (i >= 0) S.contacts[i] = work; else S.contacts.push(work);
@@ -2941,10 +3049,10 @@ function viewContacts() {
   else if (!S.contacts.length) body = `<div class="empty"><div class="art">${ico('card', 'lg')}</div><h2>Sem contactos</h2><p>Fotografa um cartão de visita — os dados são lidos no próprio telemóvel.</p><button class="btn pri" data-scan>${ico('scan')} Fotografar cartão</button></div>`;
   else if (desk) body = `<div class="toolbar"><div class="search">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar contactos" value="${esc(f.q)}"></div></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Cargo</th><th>Companhia</th><th>Email</th><th>Telefone</th><th>Reuniões</th><th>Salesforce</th></tr></thead><tbody>
-    ${list.map((c) => `<tr data-cid="${c.id}"><td style="font-weight:600">${esc(contactName(c))}</td><td class="muted">${esc(c.title)}</td><td><div class="cellair">${badge(c.airlineCode, true)}<span style="font-weight:500">${esc(c.company || '—')}</span></div></td><td class="muted">${esc(c.email)}</td><td class="num">${esc(c.mobile || c.phone)}</td><td class="num">${meetCount(c.id)}</td><td>${c.exportedAt ? '<span class="pill exported">Exportado</span>' : '<span class="pill">Novo</span>'}</td></tr>`).join('')}
+    ${list.map((c) => `<tr data-cid="${c.id}"><td style="font-weight:600">${esc(contactName(c))}</td><td class="muted">${esc(c.title)}</td><td><div class="cellair">${badge(c.airlineCode, true)}<span style="font-weight:500">${alLink(c.airlineCode, c.company, '—')}</span></div></td><td class="muted">${esc(c.email)}</td><td class="num">${esc(c.mobile || c.phone)}</td><td class="num">${meetCount(c.id)}</td><td>${c.exportedAt ? '<span class="pill exported">Exportado</span>' : '<span class="pill">Novo</span>'}</td></tr>`).join('')}
     </tbody></table></div>`;
   else body = `<div class="search" style="margin-bottom:12px">${ico('search')}<input class="inp" type="search" id="cq" placeholder="Pesquisar" value="${esc(f.q)}"></div>
-    <div class="list">${list.map((c) => `<a class="row" href="#/contactos/${c.id}">${badge(c.airlineCode)}<div class="main"><div class="t">${esc(contactName(c))}</div><div class="s">${esc([c.title, c.company].filter(Boolean).join(' · ') || c.email)}</div></div>${ico('chev', 'sm faint')}</a>`).join('') || '<div class="empty"><p>Sem resultados.</p></div>'}</div>`;
+    <div class="list">${list.map((c) => `<a class="row" href="#/contactos/${c.id}">${badge(c.airlineCode)}<div class="main"><div class="t">${esc(contactName(c))}</div><div class="s">${c.company ? [c.title ? esc(c.title) : '', alLink(c.airlineCode, c.company)].filter(Boolean).join(' · ') : esc(c.title || c.email)}</div></div>${ico('chev', 'sm faint')}</a>`).join('') || '<div class="empty"><p>Sem resultados.</p></div>'}</div>`;
   const dres = q.length >= 2 ? DIR.search(f.q, { limit: desk ? 40 : 25 }).filter((d) => !S.contacts.some((c) => (c.sfId || '').slice(0, 15) === d.id.slice(0, 15))) : [];
   if (q.length >= 2 && !DIR.rows) DIR.load().then(() => { if (DIR.count() && location.hash.startsWith('#/contactos') && S.clist.q === f.q) viewContacts(); });
   S._dres = dres;
@@ -2953,6 +3061,7 @@ function viewContacts() {
   view.innerHTML = `<div class="page"><div class="top"><h1>Contactos${desk && S.contacts.length ? `<small>${plural(S.contacts.length, 'contacto', 'contactos')}</small>` : ''}</h1><button class="btn ${desk ? '' : 'sm'}" data-newc>${ico('plus', 'sm')} Novo</button><button class="btn pri ${desk ? '' : 'sm'}" data-scan>${ico('scan', 'sm')} Cartão</button></div>${body}</div>`;
   $('#cq')?.addEventListener('input', debounce((e) => { f.q = e.target.value; viewContacts(); const el = $('#cq'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }, 220));
   view.onclick = (e) => {
+    if (alClick(e)) return;
     if (e.target.closest('[data-scan]')) return scanCard(null, (c) => { viewContacts(); });
     if (e.target.closest('[data-newc]')) return contactSheet(newContact(), { isNew: true, onSaved: () => viewContacts() });
     const tr = e.target.closest('tr[data-cid]'); if (tr) go('#/contactos/' + tr.dataset.cid);
@@ -2964,18 +3073,20 @@ function viewContact(id, opts = {}) {
   renderChrome('c');
   const work = { ...c }; const touched = new Set();
   const ms = S.meetings.filter((m) => m.contactIds.includes(c.id)).sort((a, b) => (b.start || '').localeCompare(a.start || ''));
-  view.innerHTML = `<div class="page"><div class="top"><button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button><h1>${esc(contactName(c))}<small>${esc(c.company || '')}</small></h1><button class="btn pri" data-save>${ico('check', 'sm')} Guardar</button></div>
+  view.innerHTML = `<div class="page"><div class="top"><button class="ibtn" data-back aria-label="Voltar">${ico('back')}</button><h1>${esc(contactName(c))}<small>${c.company ? alLink(c.airlineCode, c.company) : ''}</small></h1><button class="btn pri" data-save>${ico('check', 'sm')} Guardar</button></div>
     <div class="two"><div class="sec" id="cform">${contactFormHTML(work)}
       ${c.cardPhotoId ? `<button class="btn sm" data-reocr style="margin-top:6px">${ico('refresh', 'sm')} Ler cartão novamente</button>` : `<button class="btn sm" data-addcard style="margin-top:6px">${ico('scan', 'sm')} Juntar foto do cartão</button>`}
     </div>
-    <div><div class="sec"><h3>${ico('list', 'sm')} Reuniões <span class="r faint">${ms.length}</span></h3>${ms.length ? `<div class="list">${ms.map((m) => `<a class="row" href="#/r/${m.id}"><div class="main"><div class="t">${esc(subjectOf(m))}</div><div class="s">${fmtDateShort(m.start)} · ${fmtTime(m.start)}</div></div>${statusPill(m)}</a>`).join('')}</div>` : '<p class="faint" style="margin:0;font-size:14px">Ainda não está associado a nenhuma reunião.</p>'}</div>
+    <div><div class="sec"><h3>${ico('list', 'sm')} Reuniões <span class="r faint">${ms.length}</span></h3>${ms.length ? `<div class="list">${ms.map((m) => `<a class="row" href="#/r/${m.id}"><div class="main"><div class="t">${esc(subjectOf(m))}</div><div class="s">${esc(dayTime(m, fmtDateShort(m.start)))}</div></div>${statusPill(m)}</a>`).join('')}</div>` : '<p class="faint" style="margin:0;font-size:14px">Ainda não está associado a nenhuma reunião.</p>'}</div>
     <div style="text-align:center"><button class="btn ghost danger" data-delc>${ico('trash', 'sm')} Apagar contacto</button></div></div></div></div>`;
   const root = $('#cform');
   bindContactForm(root, work, touched); checkDup(root, work);
   if (opts.ocr) runCardOcr(root, work, touched, true);
   view.onclick = async (e) => {
+    if (alClick(e)) return;
     if (e.target.closest('[data-back]')) return goBack('#/contactos');
     if (e.target.closest('[data-save]')) {
+      const dup = emailDup(work); if (dup) return mergeAsk(dup, work, () => go('#/contactos/' + dup.id));
       work.updatedAt = Date.now(); Object.assign(c, work); await DB.put('contacts', c); toast('Guardado'); return viewContact(id);
     }
     if (e.target.closest('[data-reocr]')) return runCardOcr(root, work, touched, true);
